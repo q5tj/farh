@@ -116,9 +116,9 @@ export default function CategoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" },
+  label: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   sectionTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 16,
     textAlign: "right",
   },
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  itemName: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 14, textAlign: "right" },
+  itemName: { flex: 1, fontFamily: "Cairo_500Medium", fontSize: 14, textAlign: "right" },
   deleteBtn: {
     padding: 8,
   },

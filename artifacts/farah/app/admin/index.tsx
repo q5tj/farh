@@ -261,13 +261,13 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     color: "rgba(255,255,255,0.85)",
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Cairo_500Medium",
     fontSize: 13,
     textAlign: "right",
   },
   heroValue: {
     color: "#ffffff",
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 32,
     marginTop: 6,
     textAlign: "right",
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   heroFooterText: {
     color: "rgba(255,255,255,0.85)",
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
   },
   kpisRow: {
@@ -296,10 +296,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 6,
   },
-  kpiValue: { fontFamily: "Inter_700Bold", fontSize: 20 },
-  kpiLabel: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  kpiValue: { fontFamily: "Cairo_700Bold", fontSize: 20 },
+  kpiLabel: { fontFamily: "Cairo_400Regular", fontSize: 12 },
   sectionTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
@@ -325,15 +325,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tileTitle: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" },
+  tileTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   tileDesc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 11,
     textAlign: "right",
     lineHeight: 16,
   },
   emptyText: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 20,
@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  barLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  barValue: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  barLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
+  barValue: { fontFamily: "Cairo_400Regular", fontSize: 12 },
   barTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
   barFill: { height: "100%", borderRadius: 4 },
 });

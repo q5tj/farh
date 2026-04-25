@@ -34,7 +34,7 @@ export default function TabLayout() {
           paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontFamily: "Inter_500Medium",
+          fontFamily: "Cairo_500Medium",
           fontSize: 11,
         },
       }}
@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   dotText: {
     color: "#ffffff",
     fontSize: 10,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
   },
 });

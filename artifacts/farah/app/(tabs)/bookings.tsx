@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
   },
 });

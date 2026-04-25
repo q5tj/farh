@@ -80,8 +80,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 6,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
-  service: { fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "right" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
+  service: { fontFamily: "Cairo_400Regular", fontSize: 12, textAlign: "right" },
   metaRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -94,9 +94,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  meta: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  meta: { fontFamily: "Cairo_400Regular", fontSize: 11 },
   price: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 13,
     marginRight: "auto",
   },

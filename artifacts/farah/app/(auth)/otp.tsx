@@ -18,7 +18,10 @@ import { useColors } from "@/hooks/useColors";
 
 export default function OtpScreen() {
   const c = useColors();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { identifier, type } = useLocalSearchParams<{
+    identifier: string;
+    type: "email" | "phone";
+  }>();
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const isWeb = Platform.OS === "web";
@@ -54,9 +57,11 @@ export default function OtpScreen() {
       return;
     }
     setLoading(true);
-    await signIn(String(phone ?? ""));
+    await signIn(String(identifier ?? ""));
     setLoading(false);
   };
+
+  const targetLabel = type === "email" ? "البريد" : "الجوال";
 
   return (
     <KeyboardAvoidingView
@@ -82,7 +87,7 @@ export default function OtpScreen() {
           {STRINGS.otpTitle}
         </Text>
         <Text style={[styles.desc, { color: c.mutedForeground }]}>
-          {STRINGS.otpDesc} {phone}
+          تم إرسال الرمز إلى {targetLabel}: {identifier}
         </Text>
 
         <View style={styles.boxes}>
@@ -137,7 +142,7 @@ export default function OtpScreen() {
             </Text>
           ) : (
             <Pressable onPress={() => setSeconds(45)}>
-              <Text style={[styles.timer, { color: c.primary, fontFamily: "Inter_600SemiBold" }]}>
+              <Text style={[styles.timer, { color: c.primary, fontFamily: "Cairo_600SemiBold" }]}>
                 {STRINGS.resend}
               </Text>
             </Pressable>
@@ -154,15 +159,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   backBtn: { alignSelf: "flex-start", paddingVertical: 8 },
-  backText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  backText: { fontFamily: "Cairo_600SemiBold", fontSize: 14 },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 26,
     marginTop: 24,
     textAlign: "right",
   },
   desc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     marginTop: 8,
     textAlign: "right",
@@ -179,20 +184,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     textAlign: "center",
     fontSize: 28,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
   },
   error: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Cairo_500Medium",
     fontSize: 13,
     marginTop: 16,
     textAlign: "center",
   },
   hint: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
     marginTop: 16,
     textAlign: "center",
   },
   resendRow: { alignItems: "center", marginTop: 20 },
-  timer: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  timer: { fontFamily: "Cairo_500Medium", fontSize: 13 },
 });

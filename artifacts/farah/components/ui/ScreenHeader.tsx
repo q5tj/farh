@@ -70,9 +70,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleWrap: { flex: 1, alignItems: "center" },
-  title: { fontFamily: "Inter_700Bold", fontSize: 18, textAlign: "center" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 18, textAlign: "center" },
   subtitle: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
     marginTop: 2,
     textAlign: "center",

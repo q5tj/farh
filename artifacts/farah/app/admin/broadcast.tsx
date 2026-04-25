@@ -100,16 +100,16 @@ export default function BroadcastScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "right" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
   desc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 13,
     marginTop: 6,
     lineHeight: 21,
     textAlign: "right",
   },
   label: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Cairo_500Medium",
     fontSize: 14,
     marginBottom: 8,
     textAlign: "right",
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 110,
     padding: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     textAlign: "right",
     textAlignVertical: "top",

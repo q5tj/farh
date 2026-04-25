@@ -125,8 +125,14 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{user?.name}</Text>
           <View style={styles.userMeta}>
-            <Feather name="phone" size={12} color="rgba(255,255,255,0.85)" />
-            <Text style={styles.userPhone}>{user?.phone}</Text>
+            <Feather
+              name={user?.identifierType === "email" ? "mail" : "phone"}
+              size={12}
+              color="rgba(255,255,255,0.85)"
+            />
+            <Text style={styles.userPhone}>
+              {user?.email ?? user?.phone ?? user?.identifier}
+            </Text>
           </View>
           <View style={styles.rolePill}>
             <Text style={styles.rolePillText}>{roleLabel}</Text>
@@ -263,12 +269,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.4)",
   },
   avatarText: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 36,
     color: "#ffffff",
   },
   userName: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 20,
     color: "#ffffff",
   },
@@ -279,7 +285,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   userPhone: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 13,
     color: "rgba(255,255,255,0.85)",
   },
@@ -291,7 +297,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   rolePillText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
     color: "#ffffff",
   },
@@ -313,7 +319,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  rowLabel: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 15, textAlign: "right" },
+  rowLabel: { flex: 1, fontFamily: "Cairo_500Medium", fontSize: 15, textAlign: "right" },
   sep: { height: 1 },
   badge: {
     paddingHorizontal: 8,
@@ -321,19 +327,19 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   badgeText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 11,
     color: "#ffffff",
   },
   sectionLabel: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 13,
     paddingHorizontal: 16,
     paddingTop: 14,
     textAlign: "right",
   },
   sectionDesc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
     paddingHorizontal: 16,
     textAlign: "right",
@@ -351,13 +357,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   roleBtnText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
   },
   version: {
     textAlign: "center",
     marginTop: 24,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
   },
 });

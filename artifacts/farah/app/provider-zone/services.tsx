@@ -212,17 +212,17 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row-reverse", alignItems: "center" },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 14,
     textAlign: "right",
   },
   duration: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
     marginTop: 4,
     textAlign: "right",
   },
-  price: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  price: { fontFamily: "Cairo_700Bold", fontSize: 14 },
   actions: {
     flexDirection: "row-reverse",
     gap: 10,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  actionText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
+  actionText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(26,11,46,0.6)",
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   modalCard: { padding: 22 },
   modalTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 18,
     textAlign: "right",
   },

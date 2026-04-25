@@ -107,9 +107,9 @@ function InfoRow({
 }
 
 const styles = StyleSheet.create({
-  title: { fontFamily: "Inter_700Bold", fontSize: 16, textAlign: "right" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 16, textAlign: "right" },
   desc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 13,
     marginTop: 6,
     lineHeight: 21,
@@ -120,6 +120,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  infoLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  infoValue: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  infoLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
+  infoValue: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 });

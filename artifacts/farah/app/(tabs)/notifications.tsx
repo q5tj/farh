@@ -132,10 +132,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
-  time: { fontFamily: "Inter_400Regular", fontSize: 11, marginRight: 8 },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
+  time: { fontFamily: "Cairo_400Regular", fontSize: 11, marginRight: 8 },
   body: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 13,
     textAlign: "right",
     lineHeight: 19,

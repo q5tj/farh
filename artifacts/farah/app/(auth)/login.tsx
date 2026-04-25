@@ -6,7 +6,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,22 +16,34 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { STRINGS } from "@/constants/strings";
+import { isEmail, isPhone } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function LoginScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
 
   const onSend = () => {
-    const cleaned = phone.replace(/\D/g, "");
-    if (cleaned.length < 9) {
-      setError("الرجاء إدخال رقم جوال صحيح");
+    const value = identifier.trim();
+    if (isEmail(value)) {
+      router.push({
+        pathname: "/(auth)/otp",
+        params: { identifier: value.toLowerCase(), type: "email" },
+      });
       return;
     }
-    router.push({ pathname: "/(auth)/otp", params: { phone: cleaned } });
+    if (isPhone(value)) {
+      const cleaned = value.replace(/\D/g, "");
+      router.push({
+        pathname: "/(auth)/otp",
+        params: { identifier: cleaned, type: "phone" },
+      });
+      return;
+    }
+    setError("الرجاء إدخال بريد إلكتروني أو رقم جوال صحيح");
   };
 
   return (
@@ -69,22 +80,29 @@ export default function LoginScreen() {
             {STRINGS.welcome}
           </Text>
           <Text style={[styles.subtitle, { color: c.mutedForeground }]}>
-            أدخل رقم جوالك لإرسال رمز التحقق
+            أدخل بريدك الإلكتروني أو رقم جوالك لإرسال رمز التحقق
           </Text>
 
           <View style={{ marginTop: 24 }}>
             <Input
-              label={STRINGS.phoneLabel}
-              placeholder={STRINGS.phonePlaceholder}
-              value={phone}
+              label="البريد الإلكتروني أو رقم الجوال"
+              placeholder="example@email.com  أو  05xxxxxxxx"
+              value={identifier}
               onChangeText={(t) => {
-                setPhone(t);
+                setIdentifier(t);
                 setError("");
               }}
-              keyboardType="phone-pad"
-              maxLength={14}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              maxLength={64}
               error={error}
-              rightIcon={<Feather name="phone" size={18} color={c.mutedForeground} />}
+              rightIcon={
+                <Feather
+                  name={isEmail(identifier) ? "mail" : "phone"}
+                  size={18}
+                  color={c.mutedForeground}
+                />
+              }
             />
           </View>
 
@@ -97,7 +115,7 @@ export default function LoginScreen() {
           >
             <Feather name="info" size={16} color={c.primary} />
             <Text style={[styles.hintText, { color: c.primary }]}>
-              للتجربة: رقم ينتهي بـ 0 = مالك، بـ 1 أو 2 = مزود خدمة، غير ذلك = عميل
+              للتجربة: استخدم البريد المعتمد، أو رقم جوال (ينتهي بـ 0 = مالك، بـ 1/2 = مزود)
             </Text>
           </View>
         </View>
@@ -126,13 +144,13 @@ const styles = StyleSheet.create({
   },
   logo: { width: 72, height: 72, borderRadius: 36 },
   appName: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 32,
     color: "#ffffff",
     letterSpacing: 1,
   },
   tagline: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     color: "rgba(255,255,255,0.85)",
     marginTop: 6,
@@ -143,12 +161,12 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 24,
     textAlign: "right",
   },
   subtitle: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     marginTop: 6,
     textAlign: "right",
@@ -161,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   hintText: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Cairo_500Medium",
     fontSize: 12,
     flex: 1,
     textAlign: "right",

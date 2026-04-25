@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   text: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
   },
 });

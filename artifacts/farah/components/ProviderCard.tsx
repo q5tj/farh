@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   hContent: { padding: 12, gap: 6 },
 
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 15,
     textAlign: "right",
   },
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
   },
-  city: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  city: { fontFamily: "Cairo_400Regular", fontSize: 12 },
   dot: { width: 3, height: 3, borderRadius: 1.5, marginHorizontal: 4 },
   bottomRow: {
     flexDirection: "row-reverse",
@@ -169,6 +169,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  ratingText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  price: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  ratingText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  price: { fontFamily: "Cairo_700Bold", fontSize: 13 },
 });

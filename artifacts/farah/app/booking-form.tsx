@@ -200,8 +200,8 @@ export default function BookingFormScreen() {
                     {
                       color: active ? c.primary : c.foreground,
                       fontFamily: active
-                        ? "Inter_700Bold"
-                        : "Inter_500Medium",
+                        ? "Cairo_700Bold"
+                        : "Cairo_500Medium",
                     },
                   ]}
                 >
@@ -313,16 +313,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  serviceTitle: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" },
+  serviceTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   serviceDur: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 12,
     marginTop: 3,
     textAlign: "right",
   },
-  servicePrice: { fontFamily: "Inter_700Bold", fontSize: 14 },
+  servicePrice: { fontFamily: "Cairo_700Bold", fontSize: 14 },
   label: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 14,
     marginTop: 22,
     marginBottom: 10,
@@ -334,8 +334,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minWidth: 80,
   },
-  dateChipDay: { fontFamily: "Inter_700Bold", fontSize: 13 },
-  dateChipSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 3 },
+  dateChipDay: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  dateChipSub: { fontFamily: "Cairo_400Regular", fontSize: 11, marginTop: 3 },
   timesGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
   timeChip: {
     paddingHorizontal: 14,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 100,
   },
-  cityChipText: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  cityChipText: { fontFamily: "Cairo_500Medium", fontSize: 13 },
   notesWrap: { borderWidth: 1, padding: 0 },
   footer: {
     position: "absolute",
@@ -365,6 +365,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  totalLabel: { fontFamily: "Inter_500Medium", fontSize: 14 },
-  totalValue: { fontFamily: "Inter_700Bold", fontSize: 18 },
+  totalLabel: { fontFamily: "Cairo_500Medium", fontSize: 14 },
+  totalValue: { fontFamily: "Cairo_700Bold", fontSize: 18 },
 });

@@ -143,7 +143,7 @@ function TabBtn({
           styles.tabText,
           {
             color: active ? c.primary : c.mutedForeground,
-            fontFamily: active ? "Inter_700Bold" : "Inter_500Medium",
+            fontFamily: active ? "Cairo_700Bold" : "Cairo_500Medium",
           },
         ]}
       >
@@ -173,23 +173,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  name: { fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" },
+  name: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   metaRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
-  meta: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  meta: { fontFamily: "Cairo_400Regular", fontSize: 11 },
   dot: { width: 3, height: 3, borderRadius: 1.5, marginHorizontal: 4 },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 100,
   },
-  statusText: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  statusText: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
   emptyText: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     textAlign: "center",
     marginTop: 40,
     fontSize: 14,

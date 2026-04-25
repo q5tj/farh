@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
     textAlign: "center",
     lineHeight: 17,

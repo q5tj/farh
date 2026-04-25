@@ -104,5 +104,5 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   icon: {},
-  label: { fontFamily: "Inter_600SemiBold", letterSpacing: 0.2 },
+  label: { fontFamily: "Cairo_600SemiBold", letterSpacing: 0.2 },
 });

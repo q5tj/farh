@@ -93,18 +93,18 @@ export default function RateScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 22,
     textAlign: "right",
   },
   subtitle: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     marginTop: 4,
     textAlign: "right",
   },
   label: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 14,
     marginTop: 16,
     marginBottom: 10,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 110,
     padding: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     textAlign: "right",
   },

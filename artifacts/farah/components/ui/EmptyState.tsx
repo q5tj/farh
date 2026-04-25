@@ -52,13 +52,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 18,
     textAlign: "center",
     marginBottom: 8,
   },
   desc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,

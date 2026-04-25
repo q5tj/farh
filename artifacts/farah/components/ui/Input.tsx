@@ -57,7 +57,7 @@ export function Input({ label, error, rightIcon, style, ...rest }: Props) {
 
 const styles = StyleSheet.create({
   label: {
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Cairo_500Medium",
     fontSize: 14,
     marginBottom: 8,
     textAlign: "right",
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 16,
   },
   icon: { marginLeft: 8 },

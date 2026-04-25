@@ -234,13 +234,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   greet: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     color: "#ffffff",
     fontSize: 18,
     textAlign: "right",
   },
   tagline: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     color: "rgba(255,255,255,0.8)",
     fontSize: 13,
     marginTop: 2,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 16,
     textAlign: "right",
   },
@@ -302,13 +302,13 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   bannerTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     color: "#ffffff",
     fontSize: 20,
     textAlign: "right",
   },
   bannerDesc: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     color: "rgba(255,255,255,0.9)",
     fontSize: 13,
     marginTop: 4,
@@ -326,18 +326,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   bannerBtnText: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Cairo_600SemiBold",
     color: "#7b2cbf",
     fontSize: 13,
   },
   searchTitle: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 16,
     textAlign: "right",
     marginBottom: 4,
   },
   noResults: {
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Cairo_400Regular",
     fontSize: 14,
     textAlign: "center",
     marginTop: 30,

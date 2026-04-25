@@ -12,7 +12,10 @@ export type UserRole = "customer" | "provider" | "admin";
 
 export interface AppUser {
   id: string;
-  phone: string;
+  identifier: string; // email or phone
+  identifierType: "email" | "phone";
+  email?: string;
+  phone?: string;
   name: string;
   role: UserRole;
   city?: string;
@@ -22,7 +25,7 @@ export interface AppUser {
 interface AuthContextValue {
   user: AppUser | null;
   loading: boolean;
-  signIn: (phone: string) => Promise<void>;
+  signIn: (identifier: string) => Promise<void>;
   signOut: () => Promise<void>;
   setRole: (role: UserRole) => Promise<void>;
   updateName: (name: string) => Promise<void>;
@@ -31,11 +34,75 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const KEY = "@farah/user";
 
-function deriveRole(phone: string): UserRole {
-  const last = phone.slice(-1);
-  if (last === "0") return "admin";
-  if (last === "1" || last === "2") return "provider";
-  return "customer";
+// Predefined role mapping by email (owner-set accounts)
+const ROLE_BY_EMAIL: Record<string, { role: UserRole; name: string; providerId?: string }> = {
+  "r3567089@gmail.com": { role: "admin", name: "مالك المشروع" },
+  "rateb@lazywait.com": { role: "provider", name: "راتب — مزود الخدمة", providerId: "p1" },
+  "developmentservices.sa@gmail.com": { role: "customer", name: "ضيفنا الكريم" },
+};
+
+export function isEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function isPhone(value: string): boolean {
+  const cleaned = value.replace(/\D/g, "");
+  return cleaned.length >= 9 && cleaned.length <= 14;
+}
+
+function deriveFromIdentifier(raw: string): {
+  identifier: string;
+  identifierType: "email" | "phone";
+  role: UserRole;
+  name: string;
+  email?: string;
+  phone?: string;
+  providerId?: string;
+} {
+  const trimmed = raw.trim();
+  if (isEmail(trimmed)) {
+    const lower = trimmed.toLowerCase();
+    const mapping = ROLE_BY_EMAIL[lower];
+    if (mapping) {
+      return {
+        identifier: lower,
+        identifierType: "email",
+        email: lower,
+        role: mapping.role,
+        name: mapping.name,
+        providerId: mapping.providerId,
+      };
+    }
+    return {
+      identifier: lower,
+      identifierType: "email",
+      email: lower,
+      role: "customer",
+      name: "ضيفنا الكريم",
+    };
+  }
+  // phone: keep last-digit demo rule for unknown phones
+  const cleaned = trimmed.replace(/\D/g, "");
+  const last = cleaned.slice(-1);
+  let role: UserRole = "customer";
+  let name = "ضيفنا الكريم";
+  let providerId: string | undefined;
+  if (last === "0") {
+    role = "admin";
+    name = "مالك المشروع";
+  } else if (last === "1" || last === "2") {
+    role = "provider";
+    name = "مزود الخدمة";
+    providerId = "p1";
+  }
+  return {
+    identifier: cleaned,
+    identifierType: "phone",
+    phone: cleaned,
+    role,
+    name,
+    providerId,
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -62,21 +129,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    async (phone: string) => {
-      const role = deriveRole(phone);
-      const name =
-        role === "admin"
-          ? "مالك المشروع"
-          : role === "provider"
-            ? "مزود الخدمة"
-            : "ضيفنا الكريم";
+    async (identifier: string) => {
+      const derived = deriveFromIdentifier(identifier);
       const next: AppUser = {
         id: `u_${Date.now()}`,
-        phone,
-        name,
-        role,
+        identifier: derived.identifier,
+        identifierType: derived.identifierType,
+        email: derived.email,
+        phone: derived.phone,
+        name: derived.name,
+        role: derived.role,
         city: "الرياض",
-        providerId: role === "provider" ? "p1" : undefined,
+        providerId: derived.providerId,
       };
       await persist(next);
     },
