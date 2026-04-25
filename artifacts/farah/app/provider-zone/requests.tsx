@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import { STRINGS } from "@/constants/strings";
 import { Booking, BookingStatus, useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { isMapUrl, parseLocation } from "@/lib/location";
 
 const FILTERS: { id: "all" | BookingStatus; label: string }[] = [
   { id: "pending", label: STRINGS.statusPending },
@@ -134,15 +136,7 @@ function RequestCard({
             {booking.date} • {booking.time}
           </Text>
         </View>
-        <View style={styles.metaItem}>
-          <Feather name="map-pin" size={12} color={c.mutedForeground} />
-          <Text
-            style={[styles.meta, { color: c.mutedForeground }]}
-            numberOfLines={1}
-          >
-            {booking.location}
-          </Text>
-        </View>
+        <LocationLine location={booking.location} />
       </View>
 
       {booking.notes ? (
@@ -185,6 +179,43 @@ function RequestCard({
         </View>
       ) : null}
     </Card>
+  );
+}
+
+function LocationLine({ location }: { location: string }) {
+  const c = useColors();
+  const parsed = parseLocation(location);
+  const hasMap = parsed.mapUrl && isMapUrl(parsed.mapUrl);
+  const openMap = () => {
+    if (parsed.mapUrl) Linking.openURL(parsed.mapUrl).catch(() => {});
+  };
+  return (
+    <View style={[styles.metaItem, { flexWrap: "wrap" }]}>
+      <Feather name="map-pin" size={12} color={c.mutedForeground} />
+      <Text
+        style={[styles.meta, { color: c.mutedForeground }]}
+        numberOfLines={1}
+      >
+        {parsed.city || parsed.raw}
+      </Text>
+      {hasMap ? (
+        <Pressable
+          onPress={openMap}
+          style={({ pressed }) => [
+            styles.mapLink,
+            {
+              backgroundColor: c.primaryBg,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Feather name="external-link" size={11} color={c.primary} />
+          <Text style={[styles.mapLinkText, { color: c.primary }]}>
+            {STRINGS.openInMaps}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -249,4 +280,14 @@ const styles = StyleSheet.create({
   priceLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
   price: { fontFamily: "Cairo_700Bold", fontSize: 17 },
   actionsRow: { flexDirection: "row-reverse", gap: 10, marginTop: 14 },
+  mapLink: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginInlineStart: 6,
+  },
+  mapLinkText: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
 });

@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +23,7 @@ import { STRINGS } from "@/constants/strings";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { buildLocation, getCurrentMapUrl, isMapUrl } from "@/lib/location";
 
 const TIME_SLOTS = [
   "ظهراً 12:00",
@@ -64,7 +66,9 @@ export default function BookingFormScreen() {
   const [date, setDate] = useState(days[1]?.iso ?? "");
   const [time, setTime] = useState(TIME_SLOTS[2]);
   const [city, setCity] = useState(provider?.city ?? CITIES[0]);
-  const [address, setAddress] = useState("");
+  const [mapUrl, setMapUrl] = useState("");
+  const [mapError, setMapError] = useState("");
+  const [locating, setLocating] = useState(false);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,23 +83,47 @@ export default function BookingFormScreen() {
     );
   }
 
+  const onUseCurrentLocation = async () => {
+    setLocating(true);
+    setMapError("");
+    try {
+      const { url } = await getCurrentMapUrl();
+      setMapUrl(url);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      setMapError(msg.includes("permission") || msg.includes("denied") ? STRINGS.locationDenied : "تعذّر تحديد الموقع");
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const onPreviewMap = () => {
+    if (mapUrl && isMapUrl(mapUrl)) {
+      Linking.openURL(mapUrl).catch(() => {});
+    }
+  };
+
   const submit = async () => {
-    if (!address.trim()) {
-      Alert.alert("مطلوب", "الرجاء إدخال الموقع");
+    const trimmed = mapUrl.trim();
+    if (!trimmed || !isMapUrl(trimmed)) {
+      setMapError(STRINGS.locationRequired);
+      if (Platform.OS !== "web") {
+        Alert.alert("مطلوب", STRINGS.locationRequired);
+      }
       return;
     }
     setSubmitting(true);
     const booking = await addBooking({
       userId: user?.id ?? "guest",
       userName: user?.name ?? "ضيف",
-      userPhone: user?.phone ?? "",
+      userPhone: user?.phone ?? user?.email ?? "",
       providerId: provider.id,
       serviceId: service.id,
       serviceTitle: service.title,
       price: service.price,
       date,
       time,
-      location: `${city} - ${address}`,
+      location: buildLocation(city, trimmed),
       notes,
     });
     setSubmitting(false);
@@ -212,7 +240,7 @@ export default function BookingFormScreen() {
           })}
         </View>
 
-        <Text style={[styles.label, { color: c.foreground }]}>{STRINGS.location}</Text>
+        <Text style={[styles.label, { color: c.foreground }]}>{STRINGS.cityLabel}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -244,13 +272,66 @@ export default function BookingFormScreen() {
           })}
         </ScrollView>
 
+        <Text style={[styles.label, { color: c.foreground }]}>{STRINGS.location}</Text>
+        <Text style={[styles.helperText, { color: c.mutedForeground }]}>
+          {STRINGS.locationHint}
+        </Text>
+
         <View style={{ marginTop: 12 }}>
           <Input
             placeholder={STRINGS.locationPlaceholder}
-            value={address}
-            onChangeText={setAddress}
+            value={mapUrl}
+            onChangeText={(t) => {
+              setMapUrl(t);
+              setMapError("");
+            }}
+            autoCapitalize="none"
+            keyboardType="url"
+            error={mapError}
             rightIcon={<Feather name="map-pin" size={16} color={c.mutedForeground} />}
           />
+        </View>
+
+        <View style={styles.locationActions}>
+          <Pressable
+            onPress={onUseCurrentLocation}
+            disabled={locating}
+            style={({ pressed }) => [
+              styles.locBtn,
+              {
+                backgroundColor: c.primaryBg,
+                borderColor: c.primary,
+                opacity: pressed || locating ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather
+              name={locating ? "loader" : "navigation"}
+              size={14}
+              color={c.primary}
+            />
+            <Text style={[styles.locBtnText, { color: c.primary }]}>
+              {locating ? STRINGS.fetchingLocation : STRINGS.useCurrentLocation}
+            </Text>
+          </Pressable>
+          {mapUrl && isMapUrl(mapUrl) ? (
+            <Pressable
+              onPress={onPreviewMap}
+              style={({ pressed }) => [
+                styles.locBtn,
+                {
+                  backgroundColor: c.muted,
+                  borderColor: c.border,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Feather name="external-link" size={14} color={c.foreground} />
+              <Text style={[styles.locBtnText, { color: c.foreground }]}>
+                {STRINGS.openInMaps}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <Text style={[styles.label, { color: c.foreground }]}>{STRINGS.notes}</Text>
@@ -325,8 +406,15 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
     marginTop: 22,
-    marginBottom: 10,
+    marginBottom: 6,
     textAlign: "right",
+  },
+  helperText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    marginBottom: 6,
+    textAlign: "right",
+    lineHeight: 18,
   },
   dateChip: {
     paddingHorizontal: 18,
@@ -349,6 +437,22 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   cityChipText: { fontFamily: "Cairo_500Medium", fontSize: 13 },
+  locationActions: {
+    flexDirection: "row-reverse",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  locBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  locBtnText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
   notesWrap: { borderWidth: 1, padding: 0 },
   footer: {
     position: "absolute",

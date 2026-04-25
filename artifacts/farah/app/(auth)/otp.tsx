@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { STRINGS } from "@/constants/strings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { supabase } from "@/lib/supabase";
 
 export default function OtpScreen() {
   const c = useColors();
@@ -25,11 +26,22 @@ export default function OtpScreen() {
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
   const isWeb = Platform.OS === "web";
-  const [code, setCode] = useState(["", "", "", ""]);
+  const isEmailFlow = type === "email";
+  const codeLength = isEmailFlow ? 6 : 4;
+
+  const [code, setCode] = useState<string[]>(() =>
+    Array.from({ length: codeLength }, () => ""),
+  );
   const [error, setError] = useState("");
   const inputs = useRef<Array<TextInput | null>>([]);
   const [seconds, setSeconds] = useState(45);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const indexes = useMemo(
+    () => Array.from({ length: codeLength }, (_, i) => i),
+    [codeLength],
+  );
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -43,15 +55,34 @@ export default function OtpScreen() {
     next[i] = ch;
     setCode(next);
     setError("");
-    if (ch && i < 3) inputs.current[i + 1]?.focus();
+    if (ch && i < codeLength - 1) inputs.current[i + 1]?.focus();
   };
 
   const verify = async () => {
     const joined = code.join("");
-    if (joined.length !== 4) {
+    if (joined.length !== codeLength) {
       setError("الرجاء إدخال الرمز كاملاً");
       return;
     }
+
+    if (isEmailFlow) {
+      setLoading(true);
+      const { error: err } = await supabase.auth.verifyOtp({
+        email: String(identifier ?? ""),
+        token: joined,
+        type: "email",
+      });
+      if (err) {
+        setLoading(false);
+        setError(err.message || STRINGS.otpInvalid);
+        return;
+      }
+      await signIn(String(identifier ?? ""));
+      setLoading(false);
+      return;
+    }
+
+    // phone demo flow
     if (joined !== "1234") {
       setError("رمز غير صحيح. للتجربة استخدم 1234");
       return;
@@ -61,7 +92,24 @@ export default function OtpScreen() {
     setLoading(false);
   };
 
-  const targetLabel = type === "email" ? "البريد" : "الجوال";
+  const onResend = async () => {
+    setError("");
+    if (isEmailFlow) {
+      setResending(true);
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: String(identifier ?? ""),
+        options: { shouldCreateUser: true },
+      });
+      setResending(false);
+      if (err) {
+        setError(err.message || STRINGS.otpSendFailed);
+        return;
+      }
+    }
+    setSeconds(45);
+  };
+
+  const targetLabel = isEmailFlow ? "البريد" : "الجوال";
 
   return (
     <KeyboardAvoidingView
@@ -87,11 +135,11 @@ export default function OtpScreen() {
           {STRINGS.otpTitle}
         </Text>
         <Text style={[styles.desc, { color: c.mutedForeground }]}>
-          تم إرسال الرمز إلى {targetLabel}: {identifier}
+          {isEmailFlow ? STRINGS.otpEmailDesc : STRINGS.otpDesc} {targetLabel}: {identifier}
         </Text>
 
         <View style={styles.boxes}>
-          {[0, 1, 2, 3].map((i) => (
+          {indexes.map((i) => (
             <TextInput
               key={i}
               ref={(r) => {
@@ -102,7 +150,7 @@ export default function OtpScreen() {
               keyboardType="number-pad"
               maxLength={1}
               style={[
-                styles.box,
+                isEmailFlow ? styles.box6 : styles.box,
                 {
                   borderColor: error
                     ? c.destructive
@@ -122,7 +170,7 @@ export default function OtpScreen() {
           <Text style={[styles.error, { color: c.destructive }]}>{error}</Text>
         ) : (
           <Text style={[styles.hint, { color: c.mutedForeground }]}>
-            {STRINGS.otpHint}
+            {isEmailFlow ? "ابحث في بريدك (وصندوق الإعلانات) عن رسالة من Supabase" : STRINGS.otpHint}
           </Text>
         )}
 
@@ -141,9 +189,9 @@ export default function OtpScreen() {
               إعادة الإرسال خلال {seconds} ثانية
             </Text>
           ) : (
-            <Pressable onPress={() => setSeconds(45)}>
+            <Pressable onPress={onResend} disabled={resending}>
               <Text style={[styles.timer, { color: c.primary, fontFamily: "Cairo_600SemiBold" }]}>
-                {STRINGS.resend}
+                {resending ? "جاري الإرسال..." : STRINGS.resend}
               </Text>
             </Pressable>
           )}
@@ -175,7 +223,7 @@ const styles = StyleSheet.create({
   boxes: {
     flexDirection: "row-reverse",
     justifyContent: "center",
-    gap: 12,
+    gap: 10,
     marginTop: 36,
   },
   box: {
@@ -184,6 +232,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     textAlign: "center",
     fontSize: 28,
+    fontFamily: "Cairo_700Bold",
+  },
+  box6: {
+    width: 46,
+    height: 60,
+    borderWidth: 2,
+    textAlign: "center",
+    fontSize: 22,
     fontFamily: "Cairo_700Bold",
   },
   error: {

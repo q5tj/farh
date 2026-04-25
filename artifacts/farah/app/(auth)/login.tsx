@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/Input";
 import { STRINGS } from "@/constants/strings";
 import { isEmail, isPhone } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export default function LoginScreen() {
   const c = useColors();
@@ -25,13 +26,31 @@ export default function LoginScreen() {
   const isWeb = Platform.OS === "web";
   const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const onSend = () => {
+  const onSend = async () => {
     const value = identifier.trim();
+    setError("");
+
     if (isEmail(value)) {
+      const lower = value.toLowerCase();
+      if (!isSupabaseConfigured) {
+        setError("لم يتم إعداد البريد الإلكتروني. تواصل مع الدعم.");
+        return;
+      }
+      setSending(true);
+      const { error: err } = await supabase.auth.signInWithOtp({
+        email: lower,
+        options: { shouldCreateUser: true },
+      });
+      setSending(false);
+      if (err) {
+        setError(err.message || STRINGS.otpSendFailed);
+        return;
+      }
       router.push({
         pathname: "/(auth)/otp",
-        params: { identifier: value.toLowerCase(), type: "email" },
+        params: { identifier: lower, type: "email" },
       });
       return;
     }
@@ -107,7 +126,12 @@ export default function LoginScreen() {
           </View>
 
           <View style={{ marginTop: 24 }}>
-            <Button label={STRINGS.sendOtp} onPress={onSend} size="lg" />
+            <Button
+              label={sending ? "جاري الإرسال..." : STRINGS.sendOtp}
+              onPress={onSend}
+              loading={sending}
+              size="lg"
+            />
           </View>
 
           <View
@@ -115,7 +139,7 @@ export default function LoginScreen() {
           >
             <Feather name="info" size={16} color={c.primary} />
             <Text style={[styles.hintText, { color: c.primary }]}>
-              للتجربة: استخدم البريد المعتمد، أو رقم جوال (ينتهي بـ 0 = مالك، بـ 1/2 = مزود)
+              للبريد: يصلك رمز حقيقي على إيميلك. للجوال: استخدم 1234 (تجريبي)
             </Text>
           </View>
         </View>

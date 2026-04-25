@@ -6,6 +6,7 @@ import {
   Image,
   Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +23,7 @@ import { COVER_BY_CATEGORY } from "@/constants/seedData";
 import { STRINGS } from "@/constants/strings";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { isMapUrl, parseLocation } from "@/lib/location";
 
 export default function BookingDetailScreen() {
   const c = useColors();
@@ -91,7 +93,7 @@ export default function BookingDetailScreen() {
           <View style={{ marginTop: 12, gap: 14 }}>
             <DetailRow icon="calendar" label={STRINGS.selectDate} value={booking.date} />
             <DetailRow icon="clock" label={STRINGS.selectTime} value={booking.time} />
-            <DetailRow icon="map-pin" label={STRINGS.location} value={booking.location} />
+            <LocationRow location={booking.location} />
             {booking.notes ? (
               <DetailRow icon="file-text" label={STRINGS.notes} value={booking.notes} />
             ) : null}
@@ -195,6 +197,48 @@ function DetailRow({
   );
 }
 
+function LocationRow({ location }: { location: string }) {
+  const c = useColors();
+  const parsed = parseLocation(location);
+  const hasMap = parsed.mapUrl && isMapUrl(parsed.mapUrl);
+  const openMap = () => {
+    if (parsed.mapUrl) Linking.openURL(parsed.mapUrl).catch(() => {});
+  };
+  return (
+    <View style={styles.detailRow}>
+      <View style={[styles.detailIcon, { backgroundColor: c.primaryBg }]}>
+        <Feather name="map-pin" size={16} color={c.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.detailLabel, { color: c.mutedForeground }]}>
+          {STRINGS.location}
+        </Text>
+        <Text style={[styles.detailValue, { color: c.foreground }]}>
+          {parsed.city || parsed.raw}
+        </Text>
+        {hasMap ? (
+          <Pressable
+            onPress={openMap}
+            style={({ pressed }) => [
+              styles.openMapBtn,
+              {
+                backgroundColor: c.primaryBg,
+                borderColor: c.primary,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather name="external-link" size={13} color={c.primary} />
+            <Text style={[styles.openMapText, { color: c.primary }]}>
+              {STRINGS.openInMaps}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   cover: { width: "100%", height: 140 },
   row: {
@@ -240,4 +284,16 @@ const styles = StyleSheet.create({
     textAlign: "right",
     lineHeight: 21,
   },
+  openMapBtn: {
+    alignSelf: "flex-end",
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  openMapText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
 });
