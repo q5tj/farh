@@ -12,41 +12,38 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
-import { STRINGS } from "@/constants/strings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { supabase } from "@/lib/supabase";
+import { useT } from "@/lib/i18n";
+
+const CODE_LENGTH = 6;
 
 export default function OtpScreen() {
   const c = useColors();
-  const { identifier, type } = useLocalSearchParams<{
-    identifier: string;
-    type: "email" | "phone";
-  }>();
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
   const isWeb = Platform.OS === "web";
-  const isEmailFlow = type === "email";
-  const codeLength = isEmailFlow ? 6 : 4;
+  const { email } = useLocalSearchParams<{ email: string }>();
+  const { verifySignupOtp, resendSignupOtp } = useAuth();
+  const { t, isRtl } = useT();
 
+  const targetEmail = String(email ?? "").trim().toLowerCase();
   const [code, setCode] = useState<string[]>(() =>
-    Array.from({ length: codeLength }, () => ""),
+    Array.from({ length: CODE_LENGTH }, () => ""),
   );
   const [error, setError] = useState("");
-  const inputs = useRef<Array<TextInput | null>>([]);
   const [seconds, setSeconds] = useState(45);
-  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
-
+  const inputs = useRef<Array<TextInput | null>>([]);
   const indexes = useMemo(
-    () => Array.from({ length: codeLength }, (_, i) => i),
-    [codeLength],
+    () => Array.from({ length: CODE_LENGTH }, (_, i) => i),
+    [],
   );
 
   useEffect(() => {
     if (seconds <= 0) return;
-    const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [seconds]);
 
   const onChange = (i: number, val: string) => {
@@ -55,61 +52,49 @@ export default function OtpScreen() {
     next[i] = ch;
     setCode(next);
     setError("");
-    if (ch && i < codeLength - 1) inputs.current[i + 1]?.focus();
+    if (ch && i < CODE_LENGTH - 1) inputs.current[i + 1]?.focus();
   };
 
   const verify = async () => {
     const joined = code.join("");
-    if (joined.length !== codeLength) {
-      setError("الرجاء إدخال الرمز كاملاً");
+    if (joined.length !== CODE_LENGTH) {
+      setError(t("otpEnterFull"));
       return;
     }
-
-    if (isEmailFlow) {
-      setLoading(true);
-      const { error: err } = await supabase.auth.verifyOtp({
-        email: String(identifier ?? ""),
-        token: joined,
-        type: "email",
-      });
-      if (err) {
-        setLoading(false);
-        setError(err.message || STRINGS.otpInvalid);
-        return;
-      }
-      await signIn(String(identifier ?? ""));
-      setLoading(false);
+    if (!targetEmail) {
+      setError(t("otpEmailMissing"));
       return;
     }
-
-    // phone demo flow
-    if (joined !== "1234") {
-      setError("رمز غير صحيح. للتجربة استخدم 1234");
-      return;
+    setVerifying(true);
+    try {
+      await verifySignupOtp(targetEmail, joined);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      setError(msg || t("otpInvalid"));
+    } finally {
+      setVerifying(false);
     }
-    setLoading(true);
-    await signIn(String(identifier ?? ""));
-    setLoading(false);
   };
 
   const onResend = async () => {
-    setError("");
-    if (isEmailFlow) {
-      setResending(true);
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email: String(identifier ?? ""),
-        options: { shouldCreateUser: true },
-      });
-      setResending(false);
-      if (err) {
-        setError(err.message || STRINGS.otpSendFailed);
-        return;
-      }
+    if (!targetEmail) {
+      setError(t("otpEmailMissing"));
+      return;
     }
-    setSeconds(45);
+    setError("");
+    setResending(true);
+    try {
+      await resendSignupOtp(targetEmail);
+      setSeconds(45);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      setError(msg || t("otpSendFailed"));
+    } finally {
+      setResending(false);
+    }
   };
 
-  const targetLabel = isEmailFlow ? "البريد" : "الجوال";
+  const align = isRtl ? ("right" as const) : ("left" as const);
 
   return (
     <KeyboardAvoidingView
@@ -125,20 +110,34 @@ export default function OtpScreen() {
           },
         ]}
       >
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <Pressable
+          onPress={() => {
+            // Fall back to login when the navigation stack is empty (e.g.
+            // when the OTP route was reached via replace or a deep link).
+            if (router.canGoBack()) router.back();
+            else router.replace("/(auth)/login");
+          }}
+          style={styles.backBtn}
+        >
           <Text style={[styles.backText, { color: c.primary }]}>
-            ← {STRINGS.back}
+            {isRtl ? "← " : "← "}
+            {t("back")}
           </Text>
         </Pressable>
 
-        <Text style={[styles.title, { color: c.foreground }]}>
-          {STRINGS.otpTitle}
+        <Text style={[styles.title, { color: c.foreground, textAlign: align }]}>
+          {t("otpTitle")}
         </Text>
-        <Text style={[styles.desc, { color: c.mutedForeground }]}>
-          {isEmailFlow ? STRINGS.otpEmailDesc : STRINGS.otpDesc} {targetLabel}: {identifier}
+        <Text style={[styles.desc, { color: c.mutedForeground, textAlign: align }]}>
+          {t("otpEmailDesc")} ({targetEmail})
         </Text>
 
-        <View style={styles.boxes}>
+        <View
+          style={[
+            styles.boxes,
+            { flexDirection: isRtl ? "row-reverse" : "row" },
+          ]}
+        >
           {indexes.map((i) => (
             <TextInput
               key={i}
@@ -150,7 +149,7 @@ export default function OtpScreen() {
               keyboardType="number-pad"
               maxLength={1}
               style={[
-                isEmailFlow ? styles.box6 : styles.box,
+                styles.box,
                 {
                   borderColor: error
                     ? c.destructive
@@ -170,15 +169,15 @@ export default function OtpScreen() {
           <Text style={[styles.error, { color: c.destructive }]}>{error}</Text>
         ) : (
           <Text style={[styles.hint, { color: c.mutedForeground }]}>
-            {isEmailFlow ? "ابحث في بريدك (وصندوق الإعلانات) عن رسالة من Supabase" : STRINGS.otpHint}
+            {t("otpHintInbox")}
           </Text>
         )}
 
         <View style={{ marginTop: 28 }}>
           <Button
-            label={STRINGS.verify}
+            label={t("verify")}
             onPress={verify}
-            loading={loading}
+            loading={verifying}
             size="lg"
           />
         </View>
@@ -186,12 +185,17 @@ export default function OtpScreen() {
         <View style={styles.resendRow}>
           {seconds > 0 ? (
             <Text style={[styles.timer, { color: c.mutedForeground }]}>
-              إعادة الإرسال خلال {seconds} ثانية
+              {t("otpResendIn", { seconds })}
             </Text>
           ) : (
             <Pressable onPress={onResend} disabled={resending}>
-              <Text style={[styles.timer, { color: c.primary, fontFamily: "Cairo_600SemiBold" }]}>
-                {resending ? "جاري الإرسال..." : STRINGS.resend}
+              <Text
+                style={[
+                  styles.timer,
+                  { color: c.primary, fontFamily: "Cairo_600SemiBold" },
+                ]}
+              >
+                {resending ? t("sendingCode") : t("resend")}
               </Text>
             </Pressable>
           )}
@@ -202,39 +206,25 @@ export default function OtpScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
+  wrap: { flex: 1, paddingHorizontal: 24 },
   backBtn: { alignSelf: "flex-start", paddingVertical: 8 },
   backText: { fontFamily: "Cairo_600SemiBold", fontSize: 14 },
   title: {
     fontFamily: "Cairo_700Bold",
     fontSize: 26,
     marginTop: 24,
-    textAlign: "right",
   },
   desc: {
     fontFamily: "Cairo_400Regular",
     fontSize: 14,
     marginTop: 8,
-    textAlign: "right",
   },
   boxes: {
-    flexDirection: "row-reverse",
     justifyContent: "center",
-    gap: 10,
+    gap: 8,
     marginTop: 36,
   },
   box: {
-    width: 64,
-    height: 70,
-    borderWidth: 2,
-    textAlign: "center",
-    fontSize: 28,
-    fontFamily: "Cairo_700Bold",
-  },
-  box6: {
     width: 46,
     height: 60,
     borderWidth: 2,

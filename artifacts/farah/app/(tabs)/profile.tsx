@@ -1,22 +1,34 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { STRINGS } from "@/constants/strings";
-import { useAuth } from "@/contexts/AuthContext";
+import { LangCode, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { setAppLanguage, useT } from "@/lib/i18n";
+import {
+  deactivatePushAsync,
+  getPushPermissionStatus,
+  isPushSupported,
+  registerPushAsync,
+  requestPushPermission,
+  type PushPermissionStatus,
+} from "@/lib/push";
 
 interface RowProps {
   icon: keyof typeof Feather.glyphMap;
@@ -24,26 +36,69 @@ interface RowProps {
   onPress?: () => void;
   destructive?: boolean;
   badge?: string;
+  showDot?: boolean;
+  chevron?: keyof typeof Feather.glyphMap;
 }
 
-function Row({ icon, label, onPress, destructive, badge }: RowProps) {
+function PushRow({
+  status,
+  busy,
+  onToggle,
+}: {
+  status: PushPermissionStatus;
+  busy: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  const c = useColors();
+  const enabled = status === "granted";
+  const subtitle =
+    status === "granted"
+      ? "ستصلك إشعارات الحجوزات"
+      : status === "denied"
+        ? "مرفوضة من إعدادات الجهاز"
+        : "اضغط للتفعيل";
+  return (
+    <View style={styles.row}>
+      <View style={[styles.rowIcon, { backgroundColor: c.primaryBg }]}>
+        <Feather name="bell" size={18} color={c.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowLabel, { color: c.foreground }]}>
+          الإشعارات
+        </Text>
+        <Text
+          style={{
+            color: c.mutedForeground,
+            fontFamily: "Cairo_400Regular",
+            fontSize: 11,
+            marginTop: 2,
+          }}
+        >
+          {subtitle}
+        </Text>
+      </View>
+      <Switch
+        value={enabled}
+        onValueChange={onToggle}
+        disabled={busy}
+        thumbColor={enabled ? c.primary : "#f4f4f5"}
+        trackColor={{ false: "#d4d4d8", true: c.primary + "55" }}
+      />
+    </View>
+  );
+}
+
+function Row({ icon, label, onPress, destructive, badge, showDot, chevron }: RowProps) {
   const c = useColors();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
+      style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}
     >
       <View
         style={[
           styles.rowIcon,
-          {
-            backgroundColor: destructive ? "#fee2e2" : c.primaryBg,
-          },
+          { backgroundColor: destructive ? "#fee2e2" : c.primaryBg },
         ]}
       >
         <Feather
@@ -51,13 +106,12 @@ function Row({ icon, label, onPress, destructive, badge }: RowProps) {
           size={18}
           color={destructive ? c.destructive : c.primary}
         />
+        {showDot ? <View style={styles.redDot} /> : null}
       </View>
       <Text
         style={[
           styles.rowLabel,
-          {
-            color: destructive ? c.destructive : c.foreground,
-          },
+          { color: destructive ? c.destructive : c.foreground },
         ]}
       >
         {label}
@@ -67,7 +121,11 @@ function Row({ icon, label, onPress, destructive, badge }: RowProps) {
           <Text style={styles.badgeText}>{badge}</Text>
         </View>
       ) : null}
-      <Feather name="chevron-left" size={18} color={c.mutedForeground} />
+      <Feather
+        name={chevron ?? "chevron-left"}
+        size={18}
+        color={c.mutedForeground}
+      />
     </Pressable>
   );
 }
@@ -76,27 +134,93 @@ export default function ProfileScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { user, signOut, setRole } = useAuth();
+  const { profile, signOut, updateProfile } = useAuth();
+  const { t, isRtl } = useT();
+
+  const [langModalOpen, setLangModalOpen] = useState(false);
+  const [langSaving, setLangSaving] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>("undetermined");
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    getPushPermissionStatus().then((s) => {
+      if (alive) setPushStatus(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const onTogglePush = async (next: boolean) => {
+    if (!profile?.id) return;
+    setPushBusy(true);
+    try {
+      if (next) {
+        const status = await requestPushPermission();
+        setPushStatus(status);
+        if (status === "granted") {
+          await registerPushAsync(profile.id);
+        } else if (status === "denied" && Platform.OS !== "web") {
+          Alert.alert(
+            "تم تعطيل الإشعارات",
+            "الصلاحية مرفوضة على مستوى النظام. لتفعيلها افتح إعدادات الجهاز → الإشعارات → فرح.",
+          );
+        }
+      } else {
+        await deactivatePushAsync(profile.id);
+        setPushStatus("undetermined");
+      }
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const confirmLogout = () => {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("هل تريد تسجيل الخروج؟")) {
+      if (typeof window !== "undefined" && window.confirm(t("logoutConfirmMsg"))) {
         signOut();
       }
       return;
     }
-    Alert.alert("تسجيل الخروج", "هل تريد فعلاً تسجيل الخروج؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "تأكيد", style: "destructive", onPress: signOut },
+    Alert.alert(t("logoutConfirmTitle"), t("logoutConfirmMsg"), [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("confirm"), style: "destructive", onPress: signOut },
     ]);
   };
 
+  const onPickLanguage = async (lang: LangCode) => {
+    if (langSaving) return;
+    setLangSaving(true);
+    try {
+      // Apply locally first for instant feedback
+      const { needsReload } = await setAppLanguage(lang);
+      // Persist to DB
+      await updateProfile({ language: lang });
+      setLangModalOpen(false);
+      if (needsReload && Platform.OS !== "web") {
+        Alert.alert(t("languageChanged"), t("restartRequired"));
+      }
+    } catch {
+      // Revert UI? AuthGate will refetch profile and re-sync.
+    } finally {
+      setLangSaving(false);
+    }
+  };
+
   const roleLabel =
-    user?.role === "admin"
-      ? STRINGS.adminAccount
-      : user?.role === "provider"
-        ? STRINGS.providerAccount
-        : STRINGS.customerAccount;
+    profile?.role === "admin"
+      ? t("adminAccount")
+      : profile?.role === "provider"
+        ? t("providerAccount")
+        : t("customerAccount");
+
+  const displayName = profile?.fullName?.trim() || profile?.email || "";
+  const profileIncomplete = !profile?.profileCompleted;
+  const langBadge = profile?.language === "en" ? t("english") : t("arabic");
+  const chevron: keyof typeof Feather.glyphMap = isRtl
+    ? "chevron-left"
+    : "chevron-right";
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
@@ -119,20 +243,21 @@ export default function ProfileScreen() {
           ]}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0) ?? "ض"}
-            </Text>
+            {profile?.avatarUrl ? (
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                style={{ width: "100%", height: "100%" }}
+              />
+            ) : (
+              <Text style={styles.avatarText}>
+                {displayName.charAt(0) || "ض"}
+              </Text>
+            )}
           </View>
-          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userName}>{displayName}</Text>
           <View style={styles.userMeta}>
-            <Feather
-              name={user?.identifierType === "email" ? "mail" : "phone"}
-              size={12}
-              color="rgba(255,255,255,0.85)"
-            />
-            <Text style={styles.userPhone}>
-              {user?.email ?? user?.phone ?? user?.identifier}
-            </Text>
+            <Feather name="mail" size={12} color="rgba(255,255,255,0.85)" />
+            <Text style={styles.userPhone}>{profile?.email ?? ""}</Text>
           </View>
           <View style={styles.rolePill}>
             <Text style={styles.rolePillText}>{roleLabel}</Text>
@@ -140,112 +265,159 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         <View style={styles.body}>
-          {(user?.role === "provider" || user?.role === "admin") && (
+          {(profile?.role === "provider" || profile?.role === "admin") && (
             <Card style={{ marginBottom: 14 }} padded={false}>
               <Row
-                icon={user.role === "admin" ? "shield" : "briefcase"}
+                icon={profile.role === "admin" ? "shield" : "briefcase"}
                 label={
-                  user.role === "admin"
-                    ? STRINGS.switchToAdmin
-                    : STRINGS.switchToProvider
+                  profile.role === "admin"
+                    ? t("switchToAdmin")
+                    : t("switchToProvider")
                 }
+                chevron={chevron}
                 onPress={() => {
-                  if (user.role === "admin") router.push("/admin");
+                  if (profile.role === "admin") router.push("/admin");
                   else router.push("/provider-zone");
                 }}
               />
             </Card>
           )}
 
-          <Card padded={false}>
-            <Row icon="user" label={STRINGS.myAccount} />
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
-            <Row icon="globe" label={STRINGS.language} badge={STRINGS.arabic} />
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
-            <Row icon="help-circle" label={STRINGS.support} />
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
-            <Row icon="info" label={STRINGS.aboutApp} />
-          </Card>
+          {profile?.role === "customer" && profile?.profileCompleted && (
+            <Card style={{ marginBottom: 14 }} padded={false}>
+              <Row
+                icon="briefcase"
+                label="كن مزود خدمة"
+                chevron={chevron}
+                onPress={() => router.push("/provider-zone/onboarding")}
+              />
+            </Card>
+          )}
 
-          <Card style={{ marginTop: 14 }} padded={false}>
-            <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-              {STRINGS.enableTesterMode}
-            </Text>
-            <Text
-              style={[
-                styles.sectionDesc,
-                { color: c.mutedForeground, marginBottom: 8 },
-              ]}
-            >
-              {STRINGS.enableTesterModeDesc}
-            </Text>
-            <View style={styles.rolesRow}>
-              <RoleBtn
-                label="عميل"
-                active={user?.role === "customer"}
-                onPress={() => setRole("customer")}
-              />
-              <RoleBtn
-                label="مزود خدمة"
-                active={user?.role === "provider"}
-                onPress={() => setRole("provider")}
-              />
-              <RoleBtn
-                label="مالك"
-                active={user?.role === "admin"}
-                onPress={() => setRole("admin")}
-              />
-            </View>
+          <Card padded={false}>
+            <Row
+              icon="user"
+              label={t("myAccount")}
+              showDot={profileIncomplete}
+              chevron={chevron}
+              onPress={() => router.push("/(auth)/profile-setup")}
+            />
+            <View style={[styles.sep, { backgroundColor: c.border }]} />
+            <Row
+              icon="globe"
+              label={t("language")}
+              badge={langBadge}
+              chevron={chevron}
+              onPress={() => setLangModalOpen(true)}
+            />
+            {isPushSupported ? (
+              <>
+                <View style={[styles.sep, { backgroundColor: c.border }]} />
+                <PushRow
+                  status={pushStatus}
+                  busy={pushBusy}
+                  onToggle={onTogglePush}
+                />
+              </>
+            ) : null}
+            <View style={[styles.sep, { backgroundColor: c.border }]} />
+            <Row
+              icon="help-circle"
+              label={t("support")}
+              chevron={chevron}
+              onPress={() => router.push("/support")}
+            />
+            <View style={[styles.sep, { backgroundColor: c.border }]} />
+            <Row
+              icon="info"
+              label={t("aboutApp")}
+              chevron={chevron}
+              onPress={() => router.push("/about")}
+            />
           </Card>
 
           <Card style={{ marginTop: 14 }} padded={false}>
             <Row
               icon="log-out"
-              label={STRINGS.logout}
+              label={t("logout")}
               destructive
+              chevron={chevron}
               onPress={confirmLogout}
             />
           </Card>
 
           <Text style={[styles.version, { color: c.mutedForeground }]}>
-            فرح • الإصدار 1.0.0
+            {t("appName")} • 1.0.0
           </Text>
         </View>
       </ScrollView>
-    </View>
-  );
-}
 
-function RoleBtn({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const c = useColors();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.roleBtn,
-        {
-          backgroundColor: active ? c.primary : c.muted,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.roleBtnText,
-          { color: active ? "#ffffff" : c.foreground },
-        ]}
+      {/* Language picker modal */}
+      <Modal
+        visible={langModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalOpen(false)}
       >
-        {label}
-      </Text>
-    </Pressable>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setLangModalOpen(false)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: c.card }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.modalTitle, { color: c.foreground }]}>
+              {t("pickLanguage")}
+            </Text>
+            <Pressable
+              onPress={() => onPickLanguage("ar")}
+              style={[
+                styles.langOption,
+                {
+                  borderColor:
+                    profile?.language === "ar" ? c.primary : c.border,
+                  backgroundColor:
+                    profile?.language === "ar" ? c.primaryBg : "transparent",
+                },
+              ]}
+            >
+              <Text style={[styles.langOptionText, { color: c.foreground }]}>
+                العربية
+              </Text>
+              {profile?.language === "ar" ? (
+                <Feather name="check" size={18} color={c.primary} />
+              ) : null}
+            </Pressable>
+            <Pressable
+              onPress={() => onPickLanguage("en")}
+              style={[
+                styles.langOption,
+                {
+                  borderColor:
+                    profile?.language === "en" ? c.primary : c.border,
+                  backgroundColor:
+                    profile?.language === "en" ? c.primaryBg : "transparent",
+                },
+              ]}
+            >
+              <Text style={[styles.langOptionText, { color: c.foreground }]}>
+                English
+              </Text>
+              {profile?.language === "en" ? (
+                <Feather name="check" size={18} color={c.primary} />
+              ) : null}
+            </Pressable>
+            {langSaving ? (
+              <Text style={[styles.savingHint, { color: c.mutedForeground }]}>
+                {t("loading")}
+              </Text>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+    </View>
   );
 }
 
@@ -267,6 +439,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.4)",
+    overflow: "hidden",
   },
   avatarText: {
     fontFamily: "Cairo_700Bold",
@@ -279,7 +452,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   userMeta: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 6,
@@ -308,7 +481,7 @@ const styles = StyleSheet.create({
   row: {
     paddingVertical: 14,
     paddingHorizontal: 16,
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
@@ -318,8 +491,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
   },
-  rowLabel: { flex: 1, fontFamily: "Cairo_500Medium", fontSize: 15, textAlign: "right" },
+  redDot: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#dc2626",
+    borderWidth: 2,
+    borderColor: "#ffffff",
+  },
+  rowLabel: {
+    flex: 1,
+    fontFamily: "Cairo_500Medium",
+    fontSize: 15,
+  },
   sep: { height: 1 },
   badge: {
     paddingHorizontal: 8,
@@ -331,39 +520,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#ffffff",
   },
-  sectionLabel: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    textAlign: "right",
-  },
-  sectionDesc: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 12,
-    paddingHorizontal: 16,
-    textAlign: "right",
-  },
-  rolesRow: {
-    flexDirection: "row-reverse",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-  },
-  roleBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  roleBtnText: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 13,
-  },
   version: {
     textAlign: "center",
     marginTop: 24,
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: 16,
+    padding: 22,
+  },
+  modalTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 18,
+    marginBottom: 14,
+    textAlign: "center",
+  },
+  modalDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  langOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  langOptionText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
+  },
+  savingHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  comingSoonIcon: {
+    alignSelf: "center",
+    marginBottom: 12,
   },
 });

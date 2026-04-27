@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add *)",
+      "PowerShell(Set-Location 'c:\\\\Users\\\\Rateb\\\\farh\\\\artifacts\\\\farah'; pnpm exec tsc -p tsconfig.json --noEmit; Write-Output \"exit=$LASTEXITCODE\")",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"http://localhost:8082/node_modules/.pnpm/expo-router@6.0.23_@types+r_abd38177f532ddff11e5834956475527/node_modules/expo-router/entry.bundle?platform=web&dev=true\" -ErrorAction SilentlyContinue; if \\($resp\\) { $resp.Content.Substring\\(0, [Math]::Min\\(2000, $resp.Content.Length\\)\\) } else { \"Request failed: $\\($Error[0]\\)\" })"
+    ]
+  }
+}

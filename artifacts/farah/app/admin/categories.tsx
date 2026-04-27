@@ -2,14 +2,13 @@ import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -18,10 +17,12 @@ import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function CategoriesScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { categories, addCategory, removeCategory } = useApp();
   const [name, setName] = useState("");
 
@@ -33,41 +34,41 @@ export default function CategoriesScreen() {
 
   const handleRemove = (id: string, label: string) => {
     const run = () => removeCategory(id);
+    const confirmText = t("categoriesDeleteConfirm", { label });
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(`حذف ${label}؟`)) run();
+      if (typeof window !== "undefined" && window.confirm(confirmText)) run();
       return;
     }
-    Alert.alert("حذف التصنيف", `هل تريد حذف "${label}"؟`, [
-      { text: "إلغاء", style: "cancel" },
-      { text: "حذف", style: "destructive", onPress: run },
+    Alert.alert(t("delete"), confirmText, [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("delete"), style: "destructive", onPress: run },
     ]);
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: c.background }}
-    >
-      <ScreenHeader title="إدارة التصنيفات" />
-      <ScrollView
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <ScreenHeader title={t("categoriesScreenTitle")} />
+      <KeyboardAwareScrollView
         contentContainerStyle={{
           padding: 16,
           paddingBottom: insets.bottom + 30,
         }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         <Card>
           <Text style={[styles.label, { color: c.foreground }]}>
-            إضافة تصنيف جديد
+            {t("categoriesAddNew")}
           </Text>
           <View style={{ marginTop: 10 }}>
             <Input
-              placeholder="مثال: ديكور خارجي"
+              placeholder={t("categoriesPlaceholder")}
               value={name}
               onChangeText={setName}
             />
           </View>
           <View style={{ marginTop: 12 }}>
-            <Button label="إضافة" onPress={handleAdd} />
+            <Button label={t("add")} onPress={handleAdd} />
           </View>
         </Card>
 
@@ -77,7 +78,7 @@ export default function CategoriesScreen() {
             { color: c.foreground, marginTop: 22 },
           ]}
         >
-          التصنيفات الحالية ({categories.length})
+          {t("categoriesCount", { count: categories.length })}
         </Text>
 
         <View style={{ gap: 8, marginTop: 12 }}>
@@ -110,8 +111,8 @@ export default function CategoriesScreen() {
             </View>
           ))}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

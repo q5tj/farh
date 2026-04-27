@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "فرح - تنظيم الحفلات",
-    "slug": "farah",
+    "name": "فرحتكم",
+    "slug": "farhatukum",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "farah",
+    "scheme": "farhatukum",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -19,11 +19,19 @@
     "locales": {},
     "primaryColor": "#7b2cbf",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.farhatukum.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.farhatukum.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
+    },
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#7b2cbf",
+      "iosDisplayInForeground": true
     },
     "plugins": [
       [
@@ -33,7 +41,16 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#7b2cbf",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -3,9 +3,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,17 +18,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryPill } from "@/components/CategoryPill";
 import { ProviderCard } from "@/components/ProviderCard";
 import { Input } from "@/components/ui/Input";
-import { FEATURED_CATEGORY_IDS } from "@/constants/categories";
-import { STRINGS } from "@/constants/strings";
+import { FEATURED_CATEGORY_SLUGS } from "@/constants/categories";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function HomeScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const { categories, providers } = useApp();
+  const { profile } = useAuth();
+  const { t } = useT();
+  const displayName = profile?.fullName?.trim() || profile?.email || "";
+  const { categories, providers, loading, refreshing, refresh } = useApp();
   const [query, setQuery] = useState("");
   const isWeb = Platform.OS === "web";
 
@@ -42,7 +46,7 @@ export default function HomeScreen() {
   }, [providers, query]);
 
   const featured = useMemo(
-    () => categories.filter((cat) => FEATURED_CATEGORY_IDS.includes(cat.id)),
+    () => categories.filter((cat) => FEATURED_CATEGORY_SLUGS.includes(cat.slug)),
     [categories],
   );
 
@@ -63,6 +67,13 @@ export default function HomeScreen() {
           paddingBottom: isWeb ? 110 : insets.bottom + 90,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={c.primary}
+          />
+        }
       >
         <LinearGradient
           colors={["#7b2cbf", "#5a189a"]}
@@ -76,9 +87,9 @@ export default function HomeScreen() {
           <View style={styles.greetRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.greet}>
-                {STRINGS.greeting} {user?.name ? `، ${user.name}` : ""}
+                {t("greeting")} {displayName ? `، ${displayName}` : ""}
               </Text>
-              <Text style={styles.tagline}>{STRINGS.tagline}</Text>
+              <Text style={styles.tagline}>{t("tagline")}</Text>
             </View>
             <View style={styles.bell}>
               <Pressable onPress={() => router.push("/(tabs)/notifications")}>
@@ -89,7 +100,7 @@ export default function HomeScreen() {
 
           <View style={styles.searchWrap}>
             <Input
-              placeholder={STRINGS.searchPlaceholder}
+              placeholder={t("searchPlaceholder")}
               value={query}
               onChangeText={setQuery}
               rightIcon={<Feather name="search" size={18} color="#7b2cbf" />}
@@ -97,9 +108,13 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {query.length === 0 ? (
+        {loading && categories.length === 0 ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={c.primary} />
+          </View>
+        ) : query.length === 0 ? (
           <>
-            <Section title={STRINGS.featured} icon="grid">
+            <Section title={t("featured")} icon="grid" pullUp>
               <View style={styles.catsGrid}>
                 {featured.map((cat) => (
                   <CategoryPill key={cat.id} category={cat} />
@@ -129,27 +144,30 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <SectionHeader
-              title={STRINGS.topRated}
-              icon="star"
-              color={c.foreground}
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hScroll}
-              style={{ transform: [{ scaleX: -1 }] }}
-            >
-              <View style={{ flexDirection: "row", transform: [{ scaleX: -1 }] }}>
-                {topRated.map((p) => (
-                  <View key={p.id} style={{ transform: [{ scaleX: -1 }] }}>
-                    <ProviderCard provider={p} variant="horizontal" />
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
+            {topRated.length > 0 ? (
+              <>
+                <SectionHeader
+                  title={t("topRated")}
+                  icon="star"
+                  color={c.foreground}
+                />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.hScroll}
+                >
+                  {topRated.map((p) => (
+                    <ProviderCard
+                      key={p.id}
+                      provider={p}
+                      variant="horizontal"
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
 
-            <Section title={STRINGS.allCategories} icon="layers">
+            <Section title={t("allCategories")} icon="layers">
               <View style={styles.catsGrid}>
                 {categories.map((cat) => (
                   <CategoryPill key={cat.id} category={cat} />
@@ -157,12 +175,24 @@ export default function HomeScreen() {
               </View>
             </Section>
 
-            <SectionHeader title="مختار لك" icon="award" color={c.foreground} />
-            <View style={{ paddingHorizontal: 16, gap: 14 }}>
-              {topPicks.map((p) => (
-                <ProviderCard key={p.id} provider={p} />
-              ))}
-            </View>
+            {topPicks.length > 0 ? (
+              <>
+                <SectionHeader title="مختار لك" icon="award" color={c.foreground} />
+                <View style={{ paddingHorizontal: 16, gap: 14 }}>
+                  {topPicks.map((p) => (
+                    <ProviderCard key={p.id} provider={p} />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {providers.length === 0 ? (
+              <View style={styles.emptyHint}>
+                <Text style={[styles.emptyHintText, { color: c.mutedForeground }]}>
+                  لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح قائمة "حسابي" واختر "كن مزود خدمة".
+                </Text>
+              </View>
+            ) : null}
           </>
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
@@ -188,14 +218,17 @@ function Section({
   title,
   icon,
   children,
+  pullUp,
 }: {
   title: string;
   icon: keyof typeof Feather.glyphMap;
   children: React.ReactNode;
+  /** Pull the section up into the hero gradient. Use only for the FIRST section. */
+  pullUp?: boolean;
 }) {
   const c = useColors();
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, pullUp && styles.sectionPullUp]}>
       <SectionHeader title={title} icon={icon} color={c.foreground} />
       {children}
     </View>
@@ -255,7 +288,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   searchWrap: { marginTop: 6 },
-  section: { paddingTop: 22, marginTop: -50 },
+  section: { paddingTop: 22 },
+  sectionPullUp: { marginTop: -50 },
   sectionHeader: {
     paddingHorizontal: 16,
     marginBottom: 14,
@@ -341,5 +375,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     marginTop: 30,
+  },
+  loadingWrap: {
+    paddingTop: 60,
+    alignItems: "center",
+  },
+  emptyHint: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+  emptyHintText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 21,
   },
 });

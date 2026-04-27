@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,10 +14,10 @@ import { BookingItem } from "@/components/BookingItem";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { STRINGS } from "@/constants/strings";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 interface StatCardProps {
   icon: keyof typeof Feather.glyphMap;
@@ -29,7 +29,7 @@ interface StatCardProps {
 function StatCard({ icon, label, value, tint }: StatCardProps) {
   const c = useColors();
   return (
-    <Card style={{ flex: 1, minWidth: 150 }}>
+    <Card style={{ flex: 1, minWidth: 130 }}>
       <View style={[styles.iconWrap, { backgroundColor: tint + "1A" }]}>
         <Feather name={icon} size={20} color={tint} />
       </View>
@@ -69,23 +69,46 @@ function ActionCard({ icon, title, desc, onPress }: ActionCardProps) {
 export default function ProviderHome() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const { bookings, commissionRate } = useApp();
+  const { t } = useT();
+  const { profile } = useAuth();
+  const { providerBookings, commissionRate } = useApp();
 
-  const providerId = user?.providerId ?? "p1";
-  const myBookings = useMemo(
-    () => bookings.filter((b) => b.providerId === providerId),
-    [bookings, providerId],
+  const providerId = profile?.providerId ?? null;
+
+  // If user isn't yet a provider (no providers row), redirect to onboarding.
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.role !== "admin" && !providerId) {
+      router.replace("/provider-zone/onboarding");
+    }
+  }, [profile, providerId]);
+
+  const pending = useMemo(
+    () => providerBookings.filter((b) => b.status === "pending"),
+    [providerBookings],
   );
-  const pending = myBookings.filter((b) => b.status === "pending");
-  const completed = myBookings.filter((b) => b.status === "completed");
+  const completed = useMemo(
+    () => providerBookings.filter((b) => b.status === "completed"),
+    [providerBookings],
+  );
 
   const grossEarnings = completed.reduce((sum, b) => sum + b.price, 0);
   const netEarnings = grossEarnings * (1 - commissionRate / 100);
 
+  if (!providerId && profile?.role !== "admin") {
+    // Wait for redirect to fire
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={STRINGS.providerHome} />
+      <ScreenHeader
+        title={t("providerHome")}
+        onBack={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/(tabs)/profile");
+        }}
+      />
       <ScrollView
         contentContainerStyle={{
           padding: 16,
@@ -96,13 +119,13 @@ export default function ProviderHome() {
         <View style={styles.statsGrid}>
           <StatCard
             icon="calendar"
-            label={STRINGS.totalBookings}
-            value={String(myBookings.length)}
+            label={t("totalBookings")}
+            value={String(providerBookings.length)}
             tint="#7b2cbf"
           />
           <StatCard
             icon="clock"
-            label={STRINGS.pendingBookings}
+            label={t("pendingBookings")}
             value={String(pending.length)}
             tint="#f59e0b"
           />
@@ -110,51 +133,57 @@ export default function ProviderHome() {
         <View style={styles.statsGrid}>
           <StatCard
             icon="check-circle"
-            label={STRINGS.completedBookings}
+            label={t("completedBookings")}
             value={String(completed.length)}
             tint="#16a34a"
           />
           <StatCard
             icon="dollar-sign"
-            label={STRINGS.earnings}
-            value={`${Math.round(netEarnings).toLocaleString()} ر.س`}
+            label={t("earnings")}
+            value={`${Math.round(netEarnings).toLocaleString()} ${t("sar")}`}
             tint="#9d4edd"
           />
         </View>
 
         <Text style={[styles.commission, { color: c.mutedForeground }]}>
-          * صافي الأرباح بعد خصم العمولة ({commissionRate}%)
+          {t("netEarningsNote", { rate: commissionRate })}
         </Text>
 
         <View style={{ gap: 10 }}>
           <ActionCard
             icon="package"
-            title={STRINGS.myServices}
-            desc="أضف وعدّل خدماتك وأسعارها"
+            title={t("myServices")}
+            desc={t("myServicesDesc")}
             onPress={() => router.push("/provider-zone/services")}
           />
           <ActionCard
             icon="inbox"
-            title={STRINGS.incomingRequests}
-            desc={`${pending.length} طلب بانتظار الرد`}
+            title={t("incomingRequests")}
+            desc={t("pendingRequestsDesc", { count: pending.length })}
             onPress={() => router.push("/provider-zone/requests")}
+          />
+          <ActionCard
+            icon="clock"
+            title={t("workingHoursTitle")}
+            desc={t("workingHoursDesc")}
+            onPress={() => router.push("/provider-zone/availability")}
           />
         </View>
 
         <Text
           style={[styles.sectionTitle, { color: c.foreground, marginTop: 8 }]}
         >
-          آخر الطلبات
+          {t("recentRequests")}
         </Text>
-        {myBookings.length === 0 ? (
+        {providerBookings.length === 0 ? (
           <EmptyState
             icon="inbox"
-            title="لا توجد طلبات بعد"
-            description="ستظهر طلبات الحجز الواردة هنا"
+            title={t("noRequestsYet")}
+            description={t("noRequestsYetDesc")}
           />
         ) : (
           <View>
-            {myBookings.slice(0, 5).map((b) => (
+            {providerBookings.slice(0, 5).map((b) => (
               <BookingItem key={b.id} booking={b} />
             ))}
           </View>
@@ -165,7 +194,7 @@ export default function ProviderHome() {
 }
 
 const styles = StyleSheet.create({
-  statsGrid: { flexDirection: "row-reverse", gap: 12 },
+  statsGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 12 },
   iconWrap: {
     width: 40,
     height: 40,

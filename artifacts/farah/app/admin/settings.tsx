@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -15,10 +14,12 @@ import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function AdminSettings() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { commissionRate, setCommissionRate } = useApp();
   const [value, setValue] = useState(String(commissionRate));
   const [saved, setSaved] = useState(false);
@@ -32,28 +33,27 @@ export default function AdminSettings() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: c.background }}
-    >
-      <ScreenHeader title="العمولة والإعدادات" />
-      <ScrollView
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <ScreenHeader title={t("settingsScreenTitle")} />
+      <KeyboardAwareScrollView
         contentContainerStyle={{
           padding: 16,
           paddingBottom: insets.bottom + 30,
           gap: 14,
         }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         <Card>
           <Text style={[styles.title, { color: c.foreground }]}>
-            نسبة عمولة المنصة
+            {t("settingsCommissionTitle")}
           </Text>
           <Text style={[styles.desc, { color: c.mutedForeground }]}>
-            تُخصم تلقائياً من إيرادات مزودي الخدمة عند اكتمال كل حجز.
+            {t("settingsCommissionDescription")}
           </Text>
           <View style={{ marginTop: 14 }}>
             <Input
-              label="نسبة العمولة (%)"
+              label={t("commissionLabel")}
               value={value}
               onChangeText={setValue}
               keyboardType="numeric"
@@ -62,7 +62,7 @@ export default function AdminSettings() {
           </View>
           <View style={{ marginTop: 14 }}>
             <Button
-              label={saved ? "تم الحفظ بنجاح ✓" : "حفظ التغييرات"}
+              label={saved ? t("savedCheck") : t("saveChanges")}
               onPress={save}
               variant={saved ? "secondary" : "primary"}
             />
@@ -71,16 +71,16 @@ export default function AdminSettings() {
 
         <Card>
           <Text style={[styles.title, { color: c.foreground }]}>
-            معلومات النظام
+            {t("settingsSysInfoTitle")}
           </Text>
           <View style={{ marginTop: 14, gap: 12 }}>
-            <InfoRow label="الإصدار" value="1.0.0" />
-            <InfoRow label="حالة الخدمة" value="نشط" valueColor="#16a34a" />
-            <InfoRow label="نوع التخزين" value="محلي (آمن)" />
+            <InfoRow label={t("settingsRowVersion")} value="1.0.0" />
+            <InfoRow label={t("settingsRowStatus")} value={t("settingsRowStatusActive")} valueColor="#16a34a" />
+            <InfoRow label={t("settingsRowStorage")} value={t("settingsRowStorageValue")} />
           </View>
         </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

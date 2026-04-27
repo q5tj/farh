@@ -1,28 +1,31 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Stars } from "@/components/ui/Stars";
-import { STRINGS } from "@/constants/strings";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function RateScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { rateBooking, bookings, getProvider } = useApp();
-  const booking = bookings.find((b) => b.id === String(id));
+  const { rateBooking, bookings, providerBookings, getProvider } = useApp();
+  const booking =
+    bookings.find((b) => b.id === String(id)) ??
+    providerBookings.find((b) => b.id === String(id));
   const provider = booking ? getProvider(booking.providerId) : null;
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
@@ -36,14 +39,19 @@ export default function RateScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: c.background }}
-    >
-      <ScreenHeader title={STRINGS.rateService} />
-      <View style={{ padding: 24, paddingBottom: insets.bottom + 24, flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <ScreenHeader title={t("rateService")} />
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          padding: 24,
+          paddingBottom: insets.bottom + 24,
+          flexGrow: 1,
+        }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
+      >
         <Text style={[styles.title, { color: c.foreground }]}>
-          {STRINGS.ratePrompt}
+          {t("ratePrompt")}
         </Text>
         {provider ? (
           <Text style={[styles.subtitle, { color: c.mutedForeground }]}>
@@ -56,12 +64,12 @@ export default function RateScreen() {
         </View>
 
         <Text style={[styles.label, { color: c.foreground }]}>
-          {STRINGS.comment}
+          {t("comment")}
         </Text>
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder={STRINGS.commentPlaceholder}
+          placeholder={t("commentPlaceholder")}
           placeholderTextColor={c.mutedForeground}
           multiline
           numberOfLines={4}
@@ -80,14 +88,14 @@ export default function RateScreen() {
 
         <View style={{ marginTop: "auto" }}>
           <Button
-            label={done ? STRINGS.thanksReview : STRINGS.submitReview}
+            label={done ? t("thanksReview") : t("submitReview")}
             onPress={submit}
             disabled={done}
             size="lg"
           />
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

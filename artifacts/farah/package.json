@@ -5,6 +5,9 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
+    "dev:lan": "pnpm exec expo start --lan --port 8081",
+    "dev:tunnel": "pnpm exec expo start --tunnel --port 8081",
+    "dev:web": "pnpm exec expo start --web --port 8081",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -57,6 +60,11 @@
   },
   "dependencies": {
     "@expo-google-fonts/cairo": "^0.4.2",
-    "@supabase/supabase-js": "^2.104.1"
+    "@supabase/supabase-js": "^2.104.1",
+    "expo-device": "^8.0.10",
+    "expo-localization": "^17.0.8",
+    "expo-notifications": "^0.32.16",
+    "i18next": "^26.0.8",
+    "react-i18next": "^17.0.4"
   }
 }

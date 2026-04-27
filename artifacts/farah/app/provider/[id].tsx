@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Linking,
   Platform,
@@ -10,6 +11,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,21 +19,77 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Stars } from "@/components/ui/Stars";
-import { COVER_BY_CATEGORY } from "@/constants/seedData";
-import { STRINGS } from "@/constants/strings";
+import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { fetchProviderById, type Provider } from "@/lib/data";
+import { useT } from "@/lib/i18n";
 
 export default function ProviderScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const isWeb = Platform.OS === "web";
+  const { height: vh } = useWindowDimensions();
+  // Adapt the hero image to the viewport: 32% of viewport height, clamped 220-320.
+  const heroHeight = Math.min(320, Math.max(220, Math.round(vh * 0.32)));
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getProvider, getCategory, bookings } = useApp();
-  const provider = getProvider(String(id));
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
-    provider?.services[0]?.id ?? null,
-  );
+  const providerId = String(id);
+  const { profile } = useAuth();
+  const lang = profile?.language ?? "ar";
+  const { getProvider, getCategoryById, bookings } = useApp();
+
+  // Try cached first; if not loaded yet (deep link), fetch directly.
+  const cached = getProvider(providerId);
+  const [provider, setProvider] = useState<Provider | null>(cached ?? null);
+  const [loading, setLoading] = useState(!cached);
+
+  useEffect(() => {
+    if (cached) {
+      setProvider(cached);
+      setLoading(false);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetchProviderById(providerId, lang)
+      .then((p) => {
+        if (alive) setProvider(p);
+      })
+      .catch(() => {
+        if (alive) setProvider(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [providerId, lang, cached]);
+
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (provider && !selectedServiceId && provider.services.length > 0) {
+      setSelectedServiceId(provider.services[0].id);
+    }
+  }, [provider, selectedServiceId]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator color={c.primary} />
+      </View>
+    );
+  }
 
   if (!provider) {
     return (
@@ -43,14 +101,22 @@ export default function ProviderScreen() {
           justifyContent: "center",
         }}
       >
-        <Text style={{ color: c.foreground }}>مزود غير موجود</Text>
+        <Text style={{ color: c.foreground }}>{t("providerNotFound")}</Text>
       </View>
     );
   }
 
-  const category = getCategory(provider.categoryId);
-  const cover = COVER_BY_CATEGORY[provider.categoryId];
-  const galleryImages = provider.gallery.map((g) => COVER_BY_CATEGORY[g] ?? cover);
+  const category = getCategoryById(provider.categoryId);
+  const fallbackCover =
+    COVER_BY_CATEGORY[provider.categorySlug] ?? DEFAULT_COVER;
+  const cover = provider.coverUrl
+    ? { uri: provider.coverUrl }
+    : fallbackCover;
+
+  const galleryImages =
+    provider.gallery.length > 0
+      ? provider.gallery.map((url) => ({ uri: url }))
+      : [fallbackCover];
 
   const reviews = bookings.filter(
     (b) => b.providerId === provider.id && b.rating != null,
@@ -72,7 +138,7 @@ export default function ProviderScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroWrap}>
+        <View style={[styles.heroWrap, { height: heroHeight }]}>
           <Image source={cover} style={styles.heroImage} />
           <LinearGradient
             colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0)", "rgba(26,11,46,0.6)"]}
@@ -84,10 +150,7 @@ export default function ProviderScreen() {
               { paddingTop: (isWeb ? Math.max(insets.top, 30) : insets.top) + 8 },
             ]}
           >
-            <Pressable
-              onPress={() => router.back()}
-              style={styles.iconBtn}
-            >
+            <Pressable onPress={() => router.back()} style={styles.iconBtn}>
               <Feather name="chevron-right" size={22} color="#ffffff" />
             </Pressable>
             <Pressable style={styles.iconBtn}>
@@ -95,9 +158,11 @@ export default function ProviderScreen() {
             </Pressable>
           </View>
           <View style={styles.heroContent}>
-            <View style={styles.catPill}>
-              <Text style={styles.catPillText}>{category?.name}</Text>
-            </View>
+            {category ? (
+              <View style={styles.catPill}>
+                <Text style={styles.catPillText}>{category.name}</Text>
+              </View>
+            ) : null}
             <Text style={styles.heroTitle}>{provider.name}</Text>
             <View style={styles.heroMeta}>
               <View style={styles.metaItem}>
@@ -117,7 +182,7 @@ export default function ProviderScreen() {
         <View style={styles.body}>
           <Card>
             <Text style={[styles.sectionTitle, { color: c.foreground }]}>
-              {STRINGS.about}
+              {t("about")}
             </Text>
             <Text
               style={[
@@ -125,7 +190,7 @@ export default function ProviderScreen() {
                 { color: c.mutedForeground, marginTop: 8 },
               ]}
             >
-              {provider.description}
+              {provider.description || "—"}
             </Text>
           </Card>
 
@@ -133,7 +198,7 @@ export default function ProviderScreen() {
             <Text
               style={[styles.sectionTitle, { color: c.foreground, marginBottom: 10 }]}
             >
-              {STRINGS.galleryTitle}
+              {t("galleryTitle")}
             </Text>
             <ScrollView
               horizontal
@@ -150,76 +215,84 @@ export default function ProviderScreen() {
             <Text
               style={[styles.sectionTitle, { color: c.foreground, marginBottom: 10 }]}
             >
-              {STRINGS.servicesAndPrices}
+              {t("servicesAndPrices")}
             </Text>
-            <View style={{ gap: 10 }}>
-              {provider.services.map((s) => {
-                const active = selectedServiceId === s.id;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setSelectedServiceId(s.id)}
-                    style={[
-                      styles.serviceCard,
-                      {
-                        backgroundColor: active ? c.primaryBg : c.card,
-                        borderColor: active ? c.primary : c.border,
-                        borderRadius: c.radius,
-                      },
-                    ]}
-                  >
-                    <View style={styles.serviceRow}>
-                      <View
-                        style={[
-                          styles.radio,
-                          {
-                            borderColor: active ? c.primary : c.border,
-                            backgroundColor: active ? c.primary : "transparent",
-                          },
-                        ]}
-                      >
-                        {active ? (
-                          <Feather name="check" size={12} color="#ffffff" />
-                        ) : null}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
+            {provider.services.length === 0 ? (
+              <Card>
+                <Text style={[styles.noReviews, { color: c.mutedForeground }]}>
+                  {t("noServicesByProvider")}
+                </Text>
+              </Card>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {provider.services.map((s) => {
+                  const active = selectedServiceId === s.id;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => setSelectedServiceId(s.id)}
+                      style={[
+                        styles.serviceCard,
+                        {
+                          backgroundColor: active ? c.primaryBg : c.card,
+                          borderColor: active ? c.primary : c.border,
+                          borderRadius: c.radius,
+                        },
+                      ]}
+                    >
+                      <View style={styles.serviceRow}>
+                        <View
                           style={[
-                            styles.serviceTitle,
-                            { color: c.foreground },
+                            styles.radio,
+                            {
+                              borderColor: active ? c.primary : c.border,
+                              backgroundColor: active ? c.primary : "transparent",
+                            },
                           ]}
                         >
-                          {s.title}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.serviceDur,
-                            { color: c.mutedForeground },
-                          ]}
-                        >
-                          {s.duration}
+                          {active ? (
+                            <Feather name="check" size={12} color="#ffffff" />
+                          ) : null}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[
+                              styles.serviceTitle,
+                              { color: c.foreground },
+                            ]}
+                          >
+                            {s.title}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.serviceDur,
+                              { color: c.mutedForeground },
+                            ]}
+                          >
+                            {s.duration || "—"}
+                          </Text>
+                        </View>
+                        <Text style={[styles.servicePrice, { color: c.primary }]}>
+                          {s.price.toLocaleString()} {t("sar")}
                         </Text>
                       </View>
-                      <Text style={[styles.servicePrice, { color: c.primary }]}>
-                        {s.price.toLocaleString()} {STRINGS.sar}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           <View style={{ marginTop: 18 }}>
             <Text
               style={[styles.sectionTitle, { color: c.foreground, marginBottom: 10 }]}
             >
-              {STRINGS.reviewsTitle}
+              {t("reviewsTitle")}
             </Text>
             {reviews.length === 0 ? (
               <Card>
                 <Text style={[styles.noReviews, { color: c.mutedForeground }]}>
-                  لا توجد تقييمات بعد. كن أول من يقيّم بعد إنهاء الخدمة.
+                  {t("noReviewsYet")}
                 </Text>
               </Card>
             ) : (
@@ -260,17 +333,24 @@ export default function ProviderScreen() {
           },
         ]}
       >
-        <Pressable
-          onPress={() => Linking.openURL(`tel:${provider.phone}`)}
-          style={[
-            styles.callBtn,
-            { borderColor: c.primary, borderRadius: c.radius },
-          ]}
-        >
-          <Feather name="phone" size={20} color={c.primary} />
-        </Pressable>
+        {provider.phone ? (
+          <Pressable
+            onPress={() => Linking.openURL(`tel:${provider.phone}`)}
+            style={[
+              styles.callBtn,
+              { borderColor: c.primary, borderRadius: c.radius },
+            ]}
+          >
+            <Feather name="phone" size={20} color={c.primary} />
+          </Pressable>
+        ) : null}
         <View style={{ flex: 1 }}>
-          <Button label={STRINGS.bookNow} onPress={goBook} size="lg" />
+          <Button
+            label={t("bookNow")}
+            onPress={goBook}
+            size="lg"
+            disabled={!selectedServiceId}
+          />
         </View>
       </View>
     </View>
@@ -278,7 +358,7 @@ export default function ProviderScreen() {
 }
 
 const styles = StyleSheet.create({
-  heroWrap: { width: "100%", height: 320, position: "relative" },
+  heroWrap: { width: "100%", position: "relative" },
   heroImage: { width: "100%", height: "100%" },
   heroTop: {
     position: "absolute",

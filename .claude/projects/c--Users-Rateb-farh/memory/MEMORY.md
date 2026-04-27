@@ -1,0 +1,6 @@
+- [Project: Farah (فرح)](project_farah.md) — multi-platform (Expo + Web) Arabic event/services marketplace, full-stack rebuild in progress
+- [User Profile](user_profile.md) — Arabic-speaking project owner, prefers Arabic responses, Windows machine
+- [Tech Stack Decisions](project_tech_stack.md) — Supabase backend, Expo Push, i18next i18n, monorepo + Drizzle + OpenAPI codegen
+- [Full-Stack Rebuild Plan](project_rebuild_plan.md) — 8 phases agreed; do one phase per session and verify before next
+- [Schema Reference](reference_schema.md) — full Supabase schema lives in attached_assets/farah_supabase_schema.sql
+- [Phase 4 Decisions](project_phase4_decisions.md) — role picker, provider onboarding (CR/VAT/commission notice), services tied to provider category, images to Supabase Storage

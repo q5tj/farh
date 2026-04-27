@@ -1,83 +1,83 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { STRINGS } from "@/constants/strings";
-import { isEmail, isPhone } from "@/contexts/AuthContext";
+import { isEmail, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useT } from "@/lib/i18n";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export default function LoginScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const [identifier, setIdentifier] = useState("");
+  const { login } = useAuth();
+  const { t, isRtl } = useT();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const onSend = async () => {
-    const value = identifier.trim();
+  const onSubmit = async () => {
     setError("");
-
-    if (isEmail(value)) {
-      const lower = value.toLowerCase();
-      if (!isSupabaseConfigured) {
-        setError("لم يتم إعداد البريد الإلكتروني. تواصل مع الدعم.");
-        return;
-      }
-      setSending(true);
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email: lower,
-        options: { shouldCreateUser: true },
-      });
-      setSending(false);
-      if (err) {
-        setError(err.message || STRINGS.otpSendFailed);
-        return;
-      }
-      router.push({
-        pathname: "/(auth)/otp",
-        params: { identifier: lower, type: "email" },
-      });
+    const trimmed = email.trim().toLowerCase();
+    if (!isEmail(trimmed)) {
+      setError(t("invalidEmail"));
       return;
     }
-    if (isPhone(value)) {
-      const cleaned = value.replace(/\D/g, "");
-      router.push({
-        pathname: "/(auth)/otp",
-        params: { identifier: cleaned, type: "phone" },
-      });
+    if (password.length < 8) {
+      setError(t("invalidPassword"));
       return;
     }
-    setError("الرجاء إدخال بريد إلكتروني أو رقم جوال صحيح");
+    if (!isSupabaseConfigured) {
+      setError(t("supabaseNotConfigured"));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await login(trimmed, password);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      if (msg.toLowerCase().includes("email not confirmed")) {
+        setError(t("emailNotConfirmed"));
+        router.push({
+          pathname: "/(auth)/otp",
+          params: { email: trimmed },
+        });
+      } else {
+        setError(t("loginFailed"));
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <KeyboardAwareScrollView
       style={{ flex: 1, backgroundColor: c.background }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingTop: isWeb ? 70 : insets.top + 20,
+        paddingBottom: isWeb ? 50 : insets.bottom + 30,
+      }}
+      keyboardShouldPersistTaps="handled"
+      bottomOffset={24}
     >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: isWeb ? 70 : insets.top + 20,
-          paddingBottom: isWeb ? 50 : insets.bottom + 30,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
         <LinearGradient
           colors={["#7b2cbf", "#5a189a"]}
           start={{ x: 0, y: 0 }}
@@ -90,61 +90,89 @@ export default function LoginScreen() {
               style={styles.logo}
             />
           </View>
-          <Text style={styles.appName}>{STRINGS.appName}</Text>
-          <Text style={styles.tagline}>{STRINGS.tagline}</Text>
+          <Text style={styles.appName}>{t("appName")}</Text>
+          <Text style={styles.tagline}>{t("tagline")}</Text>
         </LinearGradient>
 
         <View style={styles.formWrap}>
-          <Text style={[styles.title, { color: c.foreground }]}>
-            {STRINGS.welcome}
+          <Text style={[styles.title, { color: c.foreground, textAlign: isRtl ? "right" : "left" }]}>
+            {t("loginTitle")}
           </Text>
-          <Text style={[styles.subtitle, { color: c.mutedForeground }]}>
-            أدخل بريدك الإلكتروني أو رقم جوالك لإرسال رمز التحقق
+          <Text style={[styles.subtitle, { color: c.mutedForeground, textAlign: isRtl ? "right" : "left" }]}>
+            {t("welcome")}
           </Text>
 
           <View style={{ marginTop: 24 }}>
             <Input
-              label="البريد الإلكتروني أو رقم الجوال"
-              placeholder="example@email.com  أو  05xxxxxxxx"
-              value={identifier}
+              label={t("emailLabel")}
+              placeholder={t("emailPlaceholder")}
+              value={email}
               onChangeText={(t) => {
-                setIdentifier(t);
+                setEmail(t);
                 setError("");
               }}
               keyboardType="email-address"
               autoCapitalize="none"
+              maxLength={120}
+              rightIcon={
+                <Feather name="mail" size={18} color={c.mutedForeground} />
+              }
+            />
+          </View>
+
+          <View style={{ marginTop: 14 }}>
+            <Input
+              label={t("passwordLabel")}
+              placeholder={t("passwordPlaceholder")}
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                setError("");
+              }}
+              secureTextEntry={!showPwd}
+              autoCapitalize="none"
               maxLength={64}
               error={error}
               rightIcon={
-                <Feather
-                  name={isEmail(identifier) ? "mail" : "phone"}
-                  size={18}
-                  color={c.mutedForeground}
-                />
+                <Pressable onPress={() => setShowPwd((v) => !v)} hitSlop={8}>
+                  <Feather
+                    name={showPwd ? "eye-off" : "eye"}
+                    size={18}
+                    color={c.mutedForeground}
+                  />
+                </Pressable>
               }
             />
           </View>
 
           <View style={{ marginTop: 24 }}>
             <Button
-              label={sending ? "جاري الإرسال..." : STRINGS.sendOtp}
-              onPress={onSend}
-              loading={sending}
+              label={submitting ? t("loggingIn") : t("loginAction")}
+              onPress={onSubmit}
+              loading={submitting}
               size="lg"
             />
           </View>
 
           <View
-            style={[styles.hintBox, { backgroundColor: c.primaryBg, borderRadius: c.radius }]}
+            style={[
+              styles.footerRow,
+              { flexDirection: isRtl ? "row-reverse" : "row" },
+            ]}
           >
-            <Feather name="info" size={16} color={c.primary} />
-            <Text style={[styles.hintText, { color: c.primary }]}>
-              للبريد: يصلك رمز حقيقي على إيميلك. للجوال: استخدم 1234 (تجريبي)
+            <Text style={[styles.footerText, { color: c.mutedForeground }]}>
+              {t("noAccount")}{" "}
             </Text>
+            <Link href="/(auth)/signup" asChild>
+              <Pressable>
+                <Text style={[styles.footerLink, { color: c.primary }]}>
+                  {t("goToSignup")}
+                </Text>
+              </Pressable>
+            </Link>
           </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -195,18 +223,18 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: "right",
   },
-  hintBox: {
+  footerRow: {
     marginTop: 28,
-    padding: 14,
     flexDirection: "row-reverse",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 10,
   },
-  hintText: {
-    fontFamily: "Cairo_500Medium",
-    fontSize: 12,
-    flex: 1,
-    textAlign: "right",
-    lineHeight: 18,
+  footerText: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+  },
+  footerLink: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
   },
 });

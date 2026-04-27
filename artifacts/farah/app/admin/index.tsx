@@ -1,10 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +18,11 @@ import { Card } from "@/components/ui/Card";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import {
+  adminFetchDashboardStats,
+  type DashboardStats,
+} from "@/lib/data";
+import { useT } from "@/lib/i18n";
 
 interface ActionTile {
   icon: keyof typeof Feather.glyphMap;
@@ -23,90 +30,110 @@ interface ActionTile {
   desc: string;
   route: string;
   color: string;
+  badge?: number;
 }
-
-const TILES: ActionTile[] = [
-  {
-    icon: "users",
-    title: "إدارة المستخدمين",
-    desc: "العملاء ومزودو الخدمة",
-    route: "/admin/users",
-    color: "#7b2cbf",
-  },
-  {
-    icon: "list",
-    title: "إدارة التصنيفات",
-    desc: "أضف وعدّل التصنيفات",
-    route: "/admin/categories",
-    color: "#9d4edd",
-  },
-  {
-    icon: "calendar",
-    title: "إدارة الطلبات",
-    desc: "متابعة جميع الحجوزات",
-    route: "/admin/bookings",
-    color: "#5a189a",
-  },
-  {
-    icon: "send",
-    title: "إشعار جماعي",
-    desc: "أرسل إشعار لكل المستخدمين",
-    route: "/admin/broadcast",
-    color: "#c026d3",
-  },
-  {
-    icon: "settings",
-    title: "العمولة والإعدادات",
-    desc: "تعديل نسبة العمولة",
-    route: "/admin/settings",
-    color: "#7b2cbf",
-  },
-];
 
 export default function AdminHome() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const isWeb = Platform.OS === "web";
-  const { bookings, providers, categories, commissionRate } = useApp();
+  const { commissionRate } = useApp();
 
-  const stats = useMemo(() => {
-    const total = bookings.length;
-    const completed = bookings.filter((b) => b.status === "completed");
-    const revenue = completed.reduce((s, b) => s + b.price, 0);
-    const ourCut = revenue * (commissionRate / 100);
-    return {
-      total,
-      revenue,
-      ourCut,
-      providers: providers.length,
-      activeCategories: categories.length,
-    };
-  }, [bookings, providers, categories, commissionRate]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const topCategories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    bookings.forEach((b) => {
-      const p = providers.find((pr) => pr.id === b.providerId);
-      if (!p) return;
-      counts[p.categoryId] = (counts[p.categoryId] ?? 0) + 1;
-    });
-    return Object.entries(counts)
-      .map(([id, count]) => {
-        const cat = categories.find((c) => c.id === id);
-        return cat ? { name: cat.name, count, color: cat.color } : null;
-      })
-      .filter((v): v is { name: string; count: number; color: string } => !!v)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [bookings, providers, categories]);
+  const load = async () => {
+    try {
+      const s = await adminFetchDashboardStats();
+      setStats(s);
+    } catch (e) {
+      console.warn("[admin home] stats failed", e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const ourCut = stats ? stats.totalRevenue * (commissionRate / 100) : 0;
+
+  const tiles: ActionTile[] = [
+    {
+      icon: "users",
+      title: t("manageUsers"),
+      desc: stats ? t("manageUsersDesc", { count: stats.totalUsers }) : t("customers"),
+      route: "/admin/users",
+      color: "#7b2cbf",
+    },
+    {
+      icon: "calendar",
+      title: t("manageBookings"),
+      desc: stats ? t("manageBookingsDesc", { count: stats.totalBookings }) : t("manageBookings"),
+      route: "/admin/bookings",
+      color: "#5a189a",
+    },
+    {
+      icon: "list",
+      title: t("manageCategories"),
+      desc: t("manageCategoriesDesc"),
+      route: "/admin/categories",
+      color: "#9d4edd",
+    },
+    {
+      icon: "help-circle",
+      title: t("supportTicketsTitle"),
+      desc: stats?.openTickets
+        ? t("supportTicketsDescNew", { count: stats.openTickets })
+        : t("supportTicketsDescDefault"),
+      route: "/admin/tickets",
+      color: "#ec4899",
+      badge: stats?.openTickets ?? 0,
+    },
+    {
+      icon: "send",
+      title: t("broadcastNotification"),
+      desc: t("broadcastDesc"),
+      route: "/admin/broadcast",
+      color: "#c026d3",
+    },
+    {
+      icon: "info",
+      title: t("aboutContentTitle"),
+      desc: t("aboutContentDesc"),
+      route: "/admin/content",
+      color: "#0891b2",
+    },
+    {
+      icon: "settings",
+      title: t("commissions"),
+      desc: t("settingsCommissionDesc", { rate: commissionRate }),
+      route: "/admin/settings",
+      color: "#7b2cbf",
+    },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title="لوحة تحكم المالك" />
+      <ScreenHeader title={t("adminHome")} />
       <ScrollView
         contentContainerStyle={{
           paddingBottom: insets.bottom + 30,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+            tintColor={c.primary}
+          />
+        }
       >
         <LinearGradient
           colors={["#7b2cbf", "#5a189a"]}
@@ -114,36 +141,52 @@ export default function AdminHome() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
-          <Text style={styles.heroLabel}>إجمالي عمولات المنصة</Text>
+          <Text style={styles.heroLabel}>{t("platformCommissionTotal")}</Text>
           <Text style={styles.heroValue}>
-            {Math.round(stats.ourCut).toLocaleString()} ر.س
+            {Math.round(ourCut).toLocaleString()} ر.س
           </Text>
           <View style={styles.heroFooter}>
             <Feather name="trending-up" size={14} color="#ffffff" />
             <Text style={styles.heroFooterText}>
-              من إيرادات بقيمة {stats.revenue.toLocaleString()} ر.س
+              {t("fromRevenue", {
+                revenue: (stats?.totalRevenue ?? 0).toLocaleString(),
+              })}
             </Text>
           </View>
         </LinearGradient>
 
-        <View style={styles.kpisRow}>
-          <KpiCard label="الطلبات" value={String(stats.total)} icon="calendar" />
-          <KpiCard label="مزودو الخدمة" value={String(stats.providers)} icon="briefcase" />
-          <KpiCard
-            label="التصنيفات"
-            value={String(stats.activeCategories)}
-            icon="grid"
-          />
-        </View>
+        {loading ? (
+          <View style={{ paddingTop: 24, alignItems: "center" }}>
+            <ActivityIndicator color={c.primary} />
+          </View>
+        ) : (
+          <View style={styles.kpisRow}>
+            <KpiCard
+              label={t("providers")}
+              value={String(stats?.totalProviders ?? 0)}
+              icon="briefcase"
+            />
+            <KpiCard
+              label={t("customers")}
+              value={String(stats?.totalCustomers ?? 0)}
+              icon="users"
+            />
+            <KpiCard
+              label={t("completedBookingsKpi")}
+              value={String(stats?.completedBookings ?? 0)}
+              icon="check-circle"
+            />
+          </View>
+        )}
 
         <Text style={[styles.sectionTitle, { color: c.foreground }]}>
-          إدارة المنصة
+          {t("adminMenuTitle")}
         </Text>
         <View style={styles.tilesGrid}>
-          {TILES.map((t) => (
+          {tiles.map((t) => (
             <Pressable
               key={t.route}
-              onPress={() => router.push(t.route as any)}
+              onPress={() => router.push(t.route as never)}
               style={({ pressed }) => [
                 styles.tile,
                 {
@@ -152,7 +195,9 @@ export default function AdminHome() {
                   borderRadius: c.radius,
                   opacity: pressed ? 0.85 : 1,
                   ...(isWeb
-                    ? ({ boxShadow: "0 1px 3px rgba(123,44,191,0.06)" } as object)
+                    ? ({
+                        boxShadow: "0 1px 3px rgba(123,44,191,0.06)",
+                      } as object)
                     : {}),
                 },
               ]}
@@ -161,6 +206,13 @@ export default function AdminHome() {
                 style={[styles.tileIcon, { backgroundColor: t.color + "1A" }]}
               >
                 <Feather name={t.icon} size={22} color={t.color} />
+                {t.badge ? (
+                  <View style={[styles.badge, { backgroundColor: t.color }]}>
+                    <Text style={styles.badgeText}>
+                      {t.badge > 99 ? "99+" : t.badge}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={[styles.tileTitle, { color: c.foreground }]}>
                 {t.title}
@@ -175,49 +227,26 @@ export default function AdminHome() {
         <Text
           style={[styles.sectionTitle, { color: c.foreground, marginTop: 8 }]}
         >
-          أكثر التصنيفات طلباً
+          {t("adminQuickGlance")}
         </Text>
         <View style={{ paddingHorizontal: 16 }}>
           <Card>
-            {topCategories.length === 0 ? (
-              <Text style={[styles.emptyText, { color: c.mutedForeground }]}>
-                لا توجد بيانات بعد
-              </Text>
-            ) : (
-              topCategories.map((cat, i) => {
-                const max = topCategories[0]?.count ?? 1;
-                const w = (cat.count / max) * 100;
-                return (
-                  <View key={i} style={{ marginBottom: 12 }}>
-                    <View style={styles.barRow}>
-                      <Text
-                        style={[styles.barLabel, { color: c.foreground }]}
-                      >
-                        {cat.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.barValue,
-                          { color: c.mutedForeground },
-                        ]}
-                      >
-                        {cat.count} حجز
-                      </Text>
-                    </View>
-                    <View
-                      style={[styles.barTrack, { backgroundColor: c.muted }]}
-                    >
-                      <View
-                        style={[
-                          styles.barFill,
-                          { width: `${w}%`, backgroundColor: cat.color },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                );
-              })
-            )}
+            <SummaryRow
+              label={t("pendingBookingsCount")}
+              value={String(stats?.pendingBookings ?? 0)}
+              accent={(stats?.pendingBookings ?? 0) > 0}
+            />
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+            <SummaryRow
+              label={t("newSupportTickets")}
+              value={String(stats?.openTickets ?? 0)}
+              accent={(stats?.openTickets ?? 0) > 0}
+            />
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+            <SummaryRow
+              label={t("totalBookingsAllTime")}
+              value={String(stats?.totalBookings ?? 0)}
+            />
           </Card>
         </View>
       </ScrollView>
@@ -248,7 +277,36 @@ function KpiCard({
     >
       <Feather name={icon} size={18} color={c.primary} />
       <Text style={[styles.kpiValue, { color: c.foreground }]}>{value}</Text>
-      <Text style={[styles.kpiLabel, { color: c.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.kpiLabel, { color: c.mutedForeground }]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  const c = useColors();
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={[styles.summaryLabel, { color: c.mutedForeground }]}>
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.summaryValue,
+          { color: accent ? c.primary : c.foreground },
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -285,12 +343,14 @@ const styles = StyleSheet.create({
   },
   kpisRow: {
     flexDirection: "row-reverse",
+    flexWrap: "wrap",
     gap: 10,
     paddingHorizontal: 16,
     marginBottom: 20,
   },
   kpi: {
     flex: 1,
+    minWidth: 110,
     padding: 14,
     borderWidth: 1,
     alignItems: "flex-end",
@@ -324,6 +384,23 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 10,
   },
   tileTitle: { fontFamily: "Cairo_700Bold", fontSize: 14, textAlign: "right" },
   tileDesc: {
@@ -332,19 +409,13 @@ const styles = StyleSheet.create({
     textAlign: "right",
     lineHeight: 16,
   },
-  emptyText: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 13,
-    textAlign: "center",
-    paddingVertical: 20,
-  },
-  barRow: {
+  summaryRow: {
     flexDirection: "row-reverse",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    paddingVertical: 10,
   },
-  barLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
-  barValue: { fontFamily: "Cairo_400Regular", fontSize: 12 },
-  barTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 4 },
+  summaryLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
+  summaryValue: { fontFamily: "Cairo_700Bold", fontSize: 16 },
+  divider: { height: 1 },
 });

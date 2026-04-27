@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Linking,
@@ -15,36 +16,44 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { STRINGS } from "@/constants/strings";
 import { Booking, BookingStatus, useApp } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 import { isMapUrl, parseLocation } from "@/lib/location";
-
-const FILTERS: { id: "all" | BookingStatus; label: string }[] = [
-  { id: "pending", label: STRINGS.statusPending },
-  { id: "accepted", label: STRINGS.statusAccepted },
-  { id: "completed", label: STRINGS.statusCompleted },
-  { id: "all", label: "الكل" },
-];
 
 export default function RequestsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const { bookings, updateBookingStatus } = useApp();
-  const providerId = user?.providerId ?? "p1";
+  const { t } = useT();
+  const { providerBookings, updateBookingStatus } = useApp();
   const [filter, setFilter] = useState<"all" | BookingStatus>("pending");
 
+  // Order: rendered LTR; on RTL the eye starts at the right anyway. Avoid
+  // `row-reverse` on horizontal scrolls — breaks on native.
+  const FILTERS: { id: "all" | BookingStatus; label: string }[] = [
+    { id: "all", label: t("all") },
+    { id: "completed", label: t("statusCompleted") },
+    { id: "accepted", label: t("statusAccepted") },
+    { id: "pending", label: t("statusPending") },
+  ];
+
   const filtered = useMemo(() => {
-    const mine = bookings.filter((b) => b.providerId === providerId);
-    if (filter === "all") return mine;
-    return mine.filter((b) => b.status === filter);
-  }, [bookings, providerId, filter]);
+    if (filter === "all") return providerBookings;
+    return providerBookings.filter((b) => b.status === filter);
+  }, [providerBookings, filter]);
+
+  const onBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/provider-zone");
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={STRINGS.incomingRequests} />
+      <ScreenHeader
+        title={t("incomingRequests")}
+        onBack={onBack}
+      />
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -78,10 +87,7 @@ export default function RequestsScreen() {
       </ScrollView>
 
       {filtered.length === 0 ? (
-        <EmptyState
-          icon="inbox"
-          title="لا توجد طلبات في هذا التصنيف"
-        />
+        <EmptyState icon="inbox" title={t("noRequestsInCategory")} />
       ) : (
         <ScrollView
           contentContainerStyle={{
@@ -111,6 +117,7 @@ function RequestCard({
   onChange: (s: BookingStatus) => void;
 }) {
   const c = useColors();
+  const { t } = useT();
   return (
     <Card>
       <View style={styles.row}>
@@ -149,21 +156,21 @@ function RequestCard({
 
       <View style={styles.priceRow}>
         <Text style={[styles.priceLabel, { color: c.mutedForeground }]}>
-          المبلغ
+          {t("amount")}
         </Text>
         <Text style={[styles.price, { color: c.primary }]}>
-          {booking.price.toLocaleString()} ر.س
+          {booking.price.toLocaleString()} {t("sar")}
         </Text>
       </View>
 
       {booking.status === "pending" ? (
         <View style={styles.actionsRow}>
           <View style={{ flex: 1 }}>
-            <Button label={STRINGS.acceptRequest} onPress={() => onChange("accepted")} />
+            <Button label={t("acceptRequest")} onPress={() => onChange("accepted")} />
           </View>
           <View style={{ flex: 1 }}>
             <Button
-              label={STRINGS.rejectRequest}
+              label={t("rejectRequest")}
               variant="ghost"
               onPress={() => onChange("rejected")}
             />
@@ -172,7 +179,7 @@ function RequestCard({
       ) : booking.status === "accepted" ? (
         <View style={{ marginTop: 14 }}>
           <Button
-            label={STRINGS.markCompleted}
+            label={t("markCompleted")}
             variant="secondary"
             onPress={() => onChange("completed")}
           />
@@ -184,6 +191,7 @@ function RequestCard({
 
 function LocationLine({ location }: { location: string }) {
   const c = useColors();
+  const { t } = useT();
   const parsed = parseLocation(location);
   const hasMap = parsed.mapUrl && isMapUrl(parsed.mapUrl);
   const openMap = () => {
@@ -211,7 +219,7 @@ function LocationLine({ location }: { location: string }) {
         >
           <Feather name="external-link" size={11} color={c.primary} />
           <Text style={[styles.mapLinkText, { color: c.primary }]}>
-            {STRINGS.openInMaps}
+            {t("openInMaps")}
           </Text>
         </Pressable>
       ) : null}
@@ -220,11 +228,24 @@ function LocationLine({ location }: { location: string }) {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    flexDirection: "row-reverse",
+  },
+  backBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 100,
+    gap: 6,
+  },
+  backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
   filterRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
-    flexDirection: "row-reverse",
   },
   chip: {
     paddingHorizontal: 16,

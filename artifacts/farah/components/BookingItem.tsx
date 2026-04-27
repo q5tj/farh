@@ -3,17 +3,23 @@ import { router } from "expo-router";
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
 import { Booking, useApp } from "@/contexts/AppContext";
-import { COVER_BY_CATEGORY } from "@/constants/seedData";
-import { STRINGS } from "@/constants/strings";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 export function BookingItem({ booking }: { booking: Booking }) {
   const c = useColors();
+  const { t } = useT();
   const { getProvider } = useApp();
   const provider = getProvider(booking.providerId);
-  const cover = provider ? COVER_BY_CATEGORY[provider.categoryId] : undefined;
+
+  const cover = provider?.coverUrl
+    ? { uri: provider.coverUrl }
+    : COVER_BY_CATEGORY[provider?.categorySlug ?? ""] ?? DEFAULT_COVER;
+
+  const title = provider?.name ?? booking.serviceTitle;
 
   return (
     <Pressable
@@ -29,14 +35,14 @@ export function BookingItem({ booking }: { booking: Booking }) {
       ]}
     >
       <View style={styles.row}>
-        {cover ? <Image source={cover} style={styles.image} /> : null}
+        <Image source={cover} style={styles.image} />
         <View style={styles.content}>
           <View style={styles.headRow}>
             <Text
               style={[styles.title, { color: c.foreground }]}
               numberOfLines={1}
             >
-              {provider?.name ?? STRINGS.empty}
+              {title}
             </Text>
             <StatusBadge status={booking.status} />
           </View>
@@ -60,7 +66,7 @@ export function BookingItem({ booking }: { booking: Booking }) {
               </Text>
             </View>
             <Text style={[styles.price, { color: c.primary }]}>
-              {booking.price.toLocaleString()} {STRINGS.sar}
+              {booking.price.toLocaleString()} {t("sar")}
             </Text>
           </View>
         </View>

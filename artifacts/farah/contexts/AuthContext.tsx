@@ -1,180 +1,352 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { Session } from "@supabase/supabase-js";
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
-export type UserRole = "customer" | "provider" | "admin";
+import { deactivatePushAsync, registerPushAsync } from "@/lib/push";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-export interface AppUser {
+export type UserRole = "customer" | "provider" | "admin";
+export type Gender = "male" | "female";
+export type LangCode = "ar" | "en";
+
+export interface UserProfile {
   id: string;
-  identifier: string; // email or phone
-  identifierType: "email" | "phone";
-  email?: string;
-  phone?: string;
-  name: string;
+  authUserId: string;
+  email: string | null;
+  fullName: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  gender: Gender | null;
+  age: number | null;
+  language: LangCode;
   role: UserRole;
-  city?: string;
-  providerId?: string;
+  city: string | null;
+  providerId: string | null;
+  profileCompleted: boolean;
+}
+
+export interface ProfileUpdate {
+  fullName?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  gender?: Gender;
+  age?: number;
+  language?: LangCode;
 }
 
 interface AuthContextValue {
-  user: AppUser | null;
+  session: Session | null;
+  profile: UserProfile | null;
   loading: boolean;
-  signIn: (identifier: string) => Promise<void>;
+  /** Sign in with email + password. Throws on failure. */
+  login: (email: string, password: string) => Promise<void>;
+  /** Create account with email + password. Returns true if Supabase requires OTP verification. */
+  signup: (email: string, password: string) => Promise<{ needsOtp: boolean }>;
+  /** Verify the 6-digit signup OTP. */
+  verifySignupOtp: (email: string, token: string) => Promise<void>;
+  /** Resend the signup OTP. */
+  resendSignupOtp: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
-  setRole: (role: UserRole) => Promise<void>;
-  updateName: (name: string) => Promise<void>;
+  /** Update profile fields and persist; sets profile_completed=true when all required fields are present. */
+  updateProfile: (patch: ProfileUpdate) => Promise<void>;
+  /** Refetch the public.users row for the current session. */
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const KEY = "@farah/user";
 
-// Predefined role mapping by email (owner-set accounts)
-const ROLE_BY_EMAIL: Record<string, { role: UserRole; name: string; providerId?: string }> = {
-  "r3567089@gmail.com": { role: "admin", name: "مالك المشروع" },
-  "rateb@lazywait.com": { role: "provider", name: "راتب — مزود الخدمة", providerId: "p1" },
-  "developmentservices.sa@gmail.com": { role: "customer", name: "ضيفنا الكريم" },
-};
-
-export function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+function ensureClient() {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error(
+      "Supabase ليس مهيأً. تحقق من ملف .env (EXPO_PUBLIC_SUPABASE_URL و EXPO_PUBLIC_SUPABASE_ANON_KEY)",
+    );
+  }
+  return supabase;
 }
 
-export function isPhone(value: string): boolean {
-  const cleaned = value.replace(/\D/g, "");
-  return cleaned.length >= 9 && cleaned.length <= 14;
-}
-
-function deriveFromIdentifier(raw: string): {
-  identifier: string;
-  identifierType: "email" | "phone";
+interface UsersRow {
+  id: string;
+  auth_user_id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  gender: Gender | null;
+  age: number | null;
+  language: LangCode | null;
   role: UserRole;
-  name: string;
-  email?: string;
-  phone?: string;
-  providerId?: string;
-} {
-  const trimmed = raw.trim();
-  if (isEmail(trimmed)) {
-    const lower = trimmed.toLowerCase();
-    const mapping = ROLE_BY_EMAIL[lower];
-    if (mapping) {
-      return {
-        identifier: lower,
-        identifierType: "email",
-        email: lower,
-        role: mapping.role,
-        name: mapping.name,
-        providerId: mapping.providerId,
-      };
-    }
-    return {
-      identifier: lower,
-      identifierType: "email",
-      email: lower,
-      role: "customer",
-      name: "ضيفنا الكريم",
-    };
-  }
-  // phone: keep last-digit demo rule for unknown phones
-  const cleaned = trimmed.replace(/\D/g, "");
-  const last = cleaned.slice(-1);
-  let role: UserRole = "customer";
-  let name = "ضيفنا الكريم";
-  let providerId: string | undefined;
-  if (last === "0") {
-    role = "admin";
-    name = "مالك المشروع";
-  } else if (last === "1" || last === "2") {
-    role = "provider";
-    name = "مزود الخدمة";
-    providerId = "p1";
-  }
+  city: string | null;
+  profile_completed: boolean;
+}
+
+function mapRow(row: UsersRow, providerId: string | null): UserProfile {
   return {
-    identifier: cleaned,
-    identifierType: "phone",
-    phone: cleaned,
-    role,
-    name,
+    id: row.id,
+    authUserId: row.auth_user_id,
+    email: row.email,
+    fullName: row.full_name,
+    phone: row.phone,
+    avatarUrl: row.avatar_url,
+    gender: row.gender,
+    age: row.age,
+    language: row.language ?? "ar",
+    role: row.role,
+    city: row.city,
     providerId,
+    profileCompleted: row.profile_completed,
   };
 }
 
+const PROFILE_COLS =
+  "id, auth_user_id, email, full_name, phone, avatar_url, gender, age, language, role, city, profile_completed";
+
+async function fetchProfile(
+  authUserId: string,
+  fallbackEmail: string | null,
+): Promise<UserProfile | null> {
+  const client = ensureClient();
+  const { data, error } = await client
+    .from("users")
+    .select(PROFILE_COLS)
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (error) throw error;
+
+  let row = data as UsersRow | null;
+  // Self-heal: if the DB trigger didn't create the row (or migration_v2 not run),
+  // create it from the client. RLS lets the user insert their own row.
+  if (!row) {
+    const { data: inserted, error: insErr } = await client
+      .from("users")
+      .insert({
+        auth_user_id: authUserId,
+        email: fallbackEmail,
+        role: "customer",
+        language: "ar",
+        profile_completed: false,
+      })
+      .select(PROFILE_COLS)
+      .single();
+    if (insErr) throw insErr;
+    row = inserted as UsersRow;
+  }
+
+  const { data: provider } = await client
+    .from("providers")
+    .select("id")
+    .eq("user_id", row.id)
+    .maybeSingle();
+  return mapRow(row, provider?.id ?? null);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadProfile = useCallback(
+    async (authUserId: string | null, email: string | null) => {
+      if (!authUserId) {
+        setProfile(null);
+        return;
+      }
+      try {
+        const next = await fetchProfile(authUserId, email);
+        if (mountedRef.current) setProfile(next);
+      } catch (err) {
+        console.warn("[auth] failed to load profile", err);
+        if (mountedRef.current) setProfile(null);
+      }
+    },
+    [],
+  );
+
+  // Bootstrap + subscribe to auth changes
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+    const client = supabase;
+
+    let unsub: (() => void) | undefined;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(KEY);
-        if (raw) setUser(JSON.parse(raw));
-      } catch {
-        // ignore
+        const { data } = await client.auth.getSession();
+        const s = data.session ?? null;
+        setSession(s);
+        await loadProfile(s?.user.id ?? null, s?.user.email ?? null);
       } finally {
-        setLoading(false);
+        if (mountedRef.current) setLoading(false);
       }
+      const sub = client.auth.onAuthStateChange(async (_event, s) => {
+        setSession(s);
+        await loadProfile(s?.user.id ?? null, s?.user.email ?? null);
+      });
+      unsub = () => sub.data.subscription.unsubscribe();
     })();
+
+    return () => {
+      unsub?.();
+    };
+  }, [loadProfile]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const client = ensureClient();
+    const { error } = await client.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) throw error;
   }, []);
 
-  const persist = useCallback(async (next: AppUser | null) => {
-    setUser(next);
-    if (next) await AsyncStorage.setItem(KEY, JSON.stringify(next));
-    else await AsyncStorage.removeItem(KEY);
+  const signup = useCallback(async (email: string, password: string) => {
+    const client = ensureClient();
+    const { data, error } = await client.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) throw error;
+    // Supabase returns a session immediately when email-confirm is OFF.
+    // When it's ON (recommended), session is null until OTP verified.
+    const needsOtp = !data.session;
+    return { needsOtp };
   }, []);
 
-  const signIn = useCallback(
-    async (identifier: string) => {
-      const derived = deriveFromIdentifier(identifier);
-      const next: AppUser = {
-        id: `u_${Date.now()}`,
-        identifier: derived.identifier,
-        identifierType: derived.identifierType,
-        email: derived.email,
-        phone: derived.phone,
-        name: derived.name,
-        role: derived.role,
-        city: "الرياض",
-        providerId: derived.providerId,
-      };
-      await persist(next);
-    },
-    [persist],
-  );
+  const verifySignupOtp = useCallback(async (email: string, token: string) => {
+    const client = ensureClient();
+    const { error } = await client.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: "signup",
+    });
+    if (error) throw error;
+  }, []);
+
+  const resendSignupOtp = useCallback(async (email: string) => {
+    const client = ensureClient();
+    const { error } = await client.auth.resend({
+      type: "signup",
+      email: email.trim().toLowerCase(),
+    });
+    if (error) throw error;
+  }, []);
 
   const signOut = useCallback(async () => {
-    await persist(null);
-  }, [persist]);
+    // Best-effort: deactivate this device's push token before clearing the
+    // session. RLS only allows the authenticated user to update their own
+    // tokens, so this must run before signOut() drops the JWT.
+    if (profile?.id) {
+      await deactivatePushAsync(profile.id).catch(() => {});
+    }
+    if (!supabase) {
+      setSession(null);
+      setProfile(null);
+      return;
+    }
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }, [profile?.id]);
 
-  const setRole = useCallback(
-    async (role: UserRole) => {
-      if (!user) return;
-      const next: AppUser = {
-        ...user,
-        role,
-        providerId: role === "provider" ? user.providerId ?? "p1" : user.providerId,
+  const refreshProfile = useCallback(async () => {
+    if (!session?.user.id) return;
+    await loadProfile(session.user.id, session.user.email ?? null);
+  }, [loadProfile, session?.user.id, session?.user.email]);
+
+  // Auto-register the current device for push as soon as we have a profile.
+  // `registerPushAsync` is a no-op on web/simulators and when permission was
+  // not granted — so this is safe to run unconditionally; the OS won't
+  // re-prompt the user once they've decided.
+  useEffect(() => {
+    if (!profile?.id) return;
+    registerPushAsync(profile.id).catch((err) => {
+      console.warn("[auth] push registration failed", err);
+    });
+  }, [profile?.id]);
+
+  const updateProfile = useCallback(
+    async (patch: ProfileUpdate) => {
+      if (!profile) throw new Error("لا يوجد ملف مستخدم لتحديثه");
+      const client = ensureClient();
+
+      const next: Partial<UsersRow> = {};
+      if (patch.fullName !== undefined) next.full_name = patch.fullName;
+      if (patch.phone !== undefined) next.phone = patch.phone;
+      if (patch.avatarUrl !== undefined) next.avatar_url = patch.avatarUrl;
+      if (patch.gender !== undefined) next.gender = patch.gender;
+      if (patch.age !== undefined) next.age = patch.age;
+      if (patch.language !== undefined) next.language = patch.language;
+
+      // Determine if profile is now complete (after applying patch)
+      const merged: Pick<
+        UserProfile,
+        "fullName" | "phone" | "gender" | "age" | "language"
+      > = {
+        fullName: patch.fullName ?? profile.fullName,
+        phone: patch.phone ?? profile.phone,
+        gender: patch.gender ?? profile.gender,
+        age: patch.age ?? profile.age,
+        language: patch.language ?? profile.language,
       };
-      await persist(next);
-    },
-    [persist, user],
-  );
+      const isComplete =
+        Boolean(merged.fullName?.trim()) &&
+        Boolean(merged.phone?.trim()) &&
+        merged.gender !== null &&
+        merged.age !== null &&
+        merged.language !== null;
+      if (isComplete) next.profile_completed = true;
 
-  const updateName = useCallback(
-    async (name: string) => {
-      if (!user) return;
-      await persist({ ...user, name });
+      const { error } = await client
+        .from("users")
+        .update(next)
+        .eq("id", profile.id);
+      if (error) throw error;
+      await refreshProfile();
     },
-    [persist, user],
+    [profile, refreshProfile],
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, signIn, signOut, setRole, updateName }),
-    [user, loading, signIn, signOut, setRole, updateName],
+    () => ({
+      session,
+      profile,
+      loading,
+      login,
+      signup,
+      verifySignupOtp,
+      resendSignupOtp,
+      signOut,
+      updateProfile,
+      refreshProfile,
+    }),
+    [
+      session,
+      profile,
+      loading,
+      login,
+      signup,
+      verifySignupOtp,
+      resendSignupOtp,
+      signOut,
+      updateProfile,
+      refreshProfile,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -184,4 +356,13 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+export function isEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function isPhone(value: string): boolean {
+  const cleaned = value.replace(/\D/g, "");
+  return cleaned.length >= 9 && cleaned.length <= 14;
 }

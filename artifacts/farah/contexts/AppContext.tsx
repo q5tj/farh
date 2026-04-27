@@ -1,334 +1,536 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
-import { CATEGORIES, Category } from "@/constants/categories";
-import { SEED_PROVIDERS, SeedProvider } from "@/constants/seedData";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  adminAddCategory,
+  adminBroadcastNotification,
+  adminRemoveCategory,
+  adminSetCommissionRate,
+  AppNotification,
+  Booking,
+  BookingStatus,
+  Category,
+  Provider,
+  ProviderService,
+  createBooking as createBookingDb,
+  createReview as createReviewDb,
+  deleteService as deleteServiceDb,
+  fetchCategories,
+  fetchCommissionRate,
+  fetchNotifications,
+  fetchProviderBookings,
+  fetchProviderById,
+  fetchProviders,
+  fetchUserBookings,
+  markAllNotificationsRead as markAllReadDb,
+  updateBookingStatus as updateBookingStatusDb,
+  upsertService as upsertServiceDb,
+} from "@/lib/data";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-export type BookingStatus =
-  | "pending"
-  | "accepted"
-  | "rejected"
-  | "completed"
-  | "cancelled";
+// Re-export so existing screens that import these names from AppContext keep working.
+export type { AppNotification, Booking, BookingStatus, Category, Provider, ProviderService };
 
-export interface Booking {
-  id: string;
-  userId: string;
-  userName: string;
-  userPhone: string;
+interface AppContextValue {
+  // catalog (read-only, from DB)
+  categories: Category[];
+  providers: Provider[];
+  // user data (scoped to current auth user)
+  bookings: Booking[]; // bookings the user made AS a customer
+  providerBookings: Booking[]; // bookings received AS a provider (only if user has a provider record)
+  notifications: AppNotification[];
+  // settings
+  commissionRate: number;
+  // load state
+  loading: boolean;
+  refreshing: boolean;
+  // actions
+  refresh: () => Promise<void>;
+  addBooking: (input: AddBookingInput) => Promise<Booking>;
+  updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
+  rateBooking: (id: string, rating: number, text: string) => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
+  upsertProviderService: (
+    providerId: string,
+    service: {
+      id?: string;
+      titleAr: string;
+      titleEn: string;
+      descriptionAr?: string;
+      descriptionEn?: string;
+      price: number;
+      duration: string;
+      durationMinutes: number;
+    },
+  ) => Promise<void>;
+  removeProviderService: (providerId: string, serviceId: string) => Promise<void>;
+  // admin actions (RLS enforces admin-only)
+  addCategory: (name: string, slug?: string) => Promise<void>;
+  removeCategory: (id: string) => Promise<void>;
+  setCommissionRate: (rate: number) => Promise<void>;
+  pushNotification: (input: { title: string; body: string }) => Promise<void>;
+  // helpers
+  getProvider: (id: string) => Provider | undefined;
+  getProviderBySlug: (slug: string) => Provider | undefined;
+  getCategoryById: (id: string) => Category | undefined;
+  getCategoryBySlug: (slug: string) => Category | undefined;
+  getProvidersByCategorySlug: (slug: string) => Provider[];
+}
+
+interface AddBookingInput {
   providerId: string;
   serviceId: string;
   serviceTitle: string;
   price: number;
-  date: string; // ISO date
-  time: string;
-  location: string;
+  startAt: Date;
+  endAt: Date;
+  city: string;
+  address: string; // map url
   notes: string;
-  status: BookingStatus;
-  createdAt: number;
-  rating?: number;
-  reviewText?: string;
-}
-
-export interface AppNotification {
-  id: string;
-  title: string;
-  body: string;
-  createdAt: number;
-  read: boolean;
-  bookingId?: string;
-}
-
-export interface ProviderService {
-  id: string;
-  title: string;
-  price: number;
-  duration: string;
-}
-
-interface AppContextValue {
-  // catalog
-  categories: Category[];
-  providers: SeedProvider[];
-  // user data
-  bookings: Booking[];
-  notifications: AppNotification[];
-  // settings
-  commissionRate: number; // %
-  // actions
-  addBooking: (
-    b: Omit<Booking, "id" | "status" | "createdAt">,
-  ) => Promise<Booking>;
-  updateBookingStatus: (id: string, status: BookingStatus) => Promise<void>;
-  rateBooking: (id: string, rating: number, text: string) => Promise<void>;
-  markNotificationsRead: () => Promise<void>;
-  pushNotification: (n: Omit<AppNotification, "id" | "createdAt" | "read">) => Promise<void>;
-  // catalog mutations
-  addCategory: (name: string) => Promise<void>;
-  removeCategory: (id: string) => Promise<void>;
-  upsertProviderService: (
-    providerId: string,
-    service: ProviderService,
-  ) => Promise<void>;
-  removeProviderService: (providerId: string, serviceId: string) => Promise<void>;
-  setCommissionRate: (rate: number) => Promise<void>;
-  // helpers
-  getProvider: (id: string) => SeedProvider | undefined;
-  getCategory: (id: string) => Category | undefined;
-  getProvidersByCategory: (catId: string) => SeedProvider[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-const STORAGE_KEY = "@farah/state";
-
-interface PersistShape {
-  bookings: Booking[];
-  notifications: AppNotification[];
-  categories: Category[];
-  providers: SeedProvider[];
-  commissionRate: number;
-}
-
-const defaultState: PersistShape = {
-  bookings: [],
-  notifications: [
-    {
-      id: "n0",
-      title: "أهلاً بك في فرح",
-      body: "تصفح أفضل مزودي الخدمات لتنظيم مناسبتك المثالية",
-      createdAt: Date.now(),
-      read: false,
-    },
-  ],
-  categories: CATEGORIES,
-  providers: SEED_PROVIDERS,
-  commissionRate: 10,
-};
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PersistShape>(defaultState);
-  const [hydrated, setHydrated] = useState(false);
+  const { profile } = useAuth();
+  const lang = profile?.language ?? "ar";
+  const userDbId = profile?.id ?? null;
+  const providerId = profile?.providerId ?? null;
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [providerBookings, setProviderBookings] = useState<Booking[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [commissionRate, setCommissionRateState] = useState<number>(10);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as Partial<PersistShape>;
-          setState({
-            bookings: parsed.bookings ?? defaultState.bookings,
-            notifications: parsed.notifications ?? defaultState.notifications,
-            categories: parsed.categories ?? defaultState.categories,
-            providers: parsed.providers ?? defaultState.providers,
-            commissionRate: parsed.commissionRate ?? defaultState.commissionRate,
-          });
-        }
-      } catch {
-        // ignore
-      } finally {
-        setHydrated(true);
-      }
-    })();
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
+  // ----------------------------------------------------------
+  // Loaders
+  // ----------------------------------------------------------
+  const loadBookings = useCallback(async () => {
+    if (!userDbId) {
+      setBookings([]);
+      return;
+    }
+    const list = await fetchUserBookings(userDbId);
+    if (mountedRef.current) setBookings(list);
+  }, [userDbId]);
+
+  const loadProviderBookings = useCallback(async () => {
+    if (!providerId) {
+      setProviderBookings([]);
+      return;
+    }
+    const list = await fetchProviderBookings(providerId);
+    if (mountedRef.current) setProviderBookings(list);
+  }, [providerId]);
+
+  const loadNotifications = useCallback(async () => {
+    if (!userDbId) {
+      setNotifications([]);
+      return;
+    }
+    const list = await fetchNotifications(userDbId);
+    if (mountedRef.current) setNotifications(list);
+  }, [userDbId]);
+
+  const loadCatalog = useCallback(async () => {
+    const [cats, provs] = await Promise.all([
+      fetchCategories(lang),
+      fetchProviders(lang),
+    ]);
+    if (!mountedRef.current) return;
+    setCategories(cats);
+    setProviders(provs);
+  }, [lang]);
+
+  const loadAll = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+    try {
+      await Promise.all([
+        loadCatalog(),
+        loadBookings(),
+        loadProviderBookings(),
+        loadNotifications(),
+        fetchCommissionRate()
+          .then((rate) => {
+            if (mountedRef.current) setCommissionRateState(rate);
+          })
+          .catch(() => {}),
+      ]);
+    } catch (err) {
+      console.warn("[app] initial load failed", err);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, [loadCatalog, loadBookings, loadProviderBookings, loadNotifications]);
+
+  // initial load + reload when language or profile-scope changes
   useEffect(() => {
-    if (!hydrated) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-  }, [state, hydrated]);
+    setLoading(true);
+    loadAll();
+  }, [loadAll]);
 
-  const addBooking: AppContextValue["addBooking"] = useCallback(async (b) => {
-    const booking: Booking = {
-      ...b,
-      id: `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      status: "pending",
-      createdAt: Date.now(),
-    };
-    const notif: AppNotification = {
-      id: `n_${Date.now()}`,
-      title: "تم إرسال الحجز",
-      body: `تم استلام طلبك "${b.serviceTitle}" وهو قيد المراجعة`,
-      createdAt: Date.now(),
-      read: false,
-      bookingId: booking.id,
-    };
-    setState((prev) => ({
-      ...prev,
-      bookings: [booking, ...prev.bookings],
-      notifications: [notif, ...prev.notifications],
-    }));
-    return booking;
-  }, []);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadAll();
+    } finally {
+      if (mountedRef.current) setRefreshing(false);
+    }
+  }, [loadAll]);
 
-  const updateBookingStatus: AppContextValue["updateBookingStatus"] =
-    useCallback(async (id, status) => {
-      setState((prev) => {
-        const booking = prev.bookings.find((b) => b.id === id);
-        const map: Record<BookingStatus, string> = {
-          pending: "بانتظار الرد",
-          accepted: "تم قبول حجزك",
-          rejected: "تم رفض حجزك",
-          completed: "تم إنهاء الخدمة",
-          cancelled: "تم إلغاء الحجز",
-        };
-        const note: AppNotification | null = booking
-          ? {
-              id: `n_${Date.now()}`,
-              title: map[status],
-              body: booking.serviceTitle,
-              createdAt: Date.now(),
-              read: false,
-              bookingId: id,
-            }
-          : null;
-        return {
-          ...prev,
-          bookings: prev.bookings.map((b) =>
-            b.id === id ? { ...b, status } : b,
-          ),
-          notifications: note ? [note, ...prev.notifications] : prev.notifications,
-        };
+  // ----------------------------------------------------------
+  // Realtime subscriptions
+  // ----------------------------------------------------------
+  // Bookings as customer
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !userDbId) return;
+    const client = supabase;
+    const channel = client
+      .channel(`bookings_user_${userDbId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookings",
+          filter: `user_id=eq.${userDbId}`,
+        },
+        () => {
+          loadBookings().catch(() => {});
+        },
+      )
+      .subscribe();
+    return () => {
+      client.removeChannel(channel).catch(() => {});
+    };
+  }, [userDbId, loadBookings]);
+
+  // Bookings as provider
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !providerId) return;
+    const client = supabase;
+    const channel = client
+      .channel(`bookings_provider_${providerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookings",
+          filter: `provider_id=eq.${providerId}`,
+        },
+        () => {
+          loadProviderBookings().catch(() => {});
+        },
+      )
+      .subscribe();
+    return () => {
+      client.removeChannel(channel).catch(() => {});
+    };
+  }, [providerId, loadProviderBookings]);
+
+  // Notifications: scoped to user.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !userDbId) return;
+    const client = supabase;
+
+    const channel = client
+      .channel(`notifications_${userDbId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userDbId}`,
+        },
+        () => {
+          loadNotifications().catch(() => {});
+        },
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel).catch(() => {});
+    };
+  }, [userDbId, loadNotifications]);
+
+  // Catalog (providers/services): refresh when any provider or service changes.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        loadCatalog().catch(() => {});
+      }, 400);
+    };
+
+    const channel = client
+      .channel("catalog")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "providers" },
+        debounced,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "services" },
+        debounced,
+      )
+      .subscribe();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      client.removeChannel(channel).catch(() => {});
+    };
+  }, [loadCatalog]);
+
+  // ----------------------------------------------------------
+  // Mutations
+  // ----------------------------------------------------------
+  const addBooking = useCallback(
+    async (input: AddBookingInput) => {
+      if (!userDbId) throw new Error("لم يتم العثور على حسابك");
+      const booking = await createBookingDb({
+        userId: userDbId,
+        providerId: input.providerId,
+        serviceId: input.serviceId,
+        serviceTitle: input.serviceTitle,
+        price: input.price,
+        startAt: input.startAt,
+        endAt: input.endAt,
+        city: input.city,
+        address: input.address,
+        notes: input.notes,
       });
-    }, []);
+      // Optimistic add — Realtime will reconcile shortly.
+      setBookings((prev) =>
+        prev.some((b) => b.id === booking.id) ? prev : [booking, ...prev],
+      );
+      return booking;
+    },
+    [userDbId],
+  );
 
-  const rateBooking: AppContextValue["rateBooking"] = useCallback(
-    async (id, rating, text) => {
-      setState((prev) => ({
-        ...prev,
-        bookings: prev.bookings.map((b) =>
-          b.id === id ? { ...b, rating, reviewText: text } : b,
-        ),
-      }));
+  const updateBookingStatus = useCallback(
+    async (id: string, status: BookingStatus) => {
+      await updateBookingStatusDb(id, status);
+      // Optimistic update — Realtime will reconcile.
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status } : b)),
+      );
+      setProviderBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status } : b)),
+      );
     },
     [],
+  );
+
+  const rateBooking = useCallback(
+    async (id: string, rating: number, text: string) => {
+      const booking =
+        bookings.find((b) => b.id === id) ??
+        providerBookings.find((b) => b.id === id);
+      if (!booking || !userDbId) return;
+      await createReviewDb({
+        bookingId: id,
+        userId: userDbId,
+        providerId: booking.providerId,
+        rating,
+        comment: text,
+      });
+      // Optimistic local update
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id ? { ...b, rating, reviewText: text } : b,
+        ),
+      );
+      // Provider rating_avg/rating_count refresh via DB trigger; refetch catalog soon.
+      loadCatalog().catch(() => {});
+    },
+    [bookings, providerBookings, userDbId, loadCatalog],
   );
 
   const markNotificationsRead = useCallback(async () => {
-    setState((prev) => ({
-      ...prev,
-      notifications: prev.notifications.map((n) => ({ ...n, read: true })),
-    }));
-  }, []);
+    if (!userDbId) return;
+    await markAllReadDb(userDbId);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, [userDbId]);
 
-  const pushNotification: AppContextValue["pushNotification"] = useCallback(
-    async (n) => {
-      const note: AppNotification = {
-        ...n,
-        id: `n_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        createdAt: Date.now(),
-        read: false,
-      };
-      setState((prev) => ({
-        ...prev,
-        notifications: [note, ...prev.notifications],
-      }));
+  const upsertProviderService = useCallback(
+    async (
+      providerIdArg: string,
+      service: {
+        id?: string;
+        titleAr: string;
+        titleEn: string;
+        descriptionAr?: string;
+        descriptionEn?: string;
+        price: number;
+        duration: string;
+        durationMinutes: number;
+      },
+    ) => {
+      await upsertServiceDb({
+        id: service.id,
+        providerId: providerIdArg,
+        titleAr: service.titleAr,
+        titleEn: service.titleEn,
+        descriptionAr: service.descriptionAr,
+        descriptionEn: service.descriptionEn,
+        price: service.price,
+        duration: service.duration,
+        durationMinutes: service.durationMinutes,
+      });
+      // Realtime on `services` will refresh the catalog.
+      await loadCatalog();
     },
-    [],
+    [loadCatalog],
   );
 
-  const addCategory = useCallback(async (name: string) => {
-    const id = `c_${Date.now()}`;
-    const cat: Category = { id, name, icon: "star", color: "#7b2cbf" };
-    setState((prev) => ({ ...prev, categories: [...prev.categories, cat] }));
-  }, []);
-
-  const removeCategory = useCallback(async (id: string) => {
-    setState((prev) => ({
-      ...prev,
-      categories: prev.categories.filter((c) => c.id !== id),
-    }));
-  }, []);
-
-  const upsertProviderService: AppContextValue["upsertProviderService"] =
-    useCallback(async (providerId, service) => {
-      setState((prev) => ({
-        ...prev,
-        providers: prev.providers.map((p) => {
-          if (p.id !== providerId) return p;
-          const exists = p.services.some((s) => s.id === service.id);
-          return {
-            ...p,
-            services: exists
-              ? p.services.map((s) => (s.id === service.id ? service : s))
-              : [...p.services, service],
-          };
-        }),
-      }));
-    }, []);
-
   const removeProviderService = useCallback(
-    async (providerId: string, serviceId: string) => {
-      setState((prev) => ({
-        ...prev,
-        providers: prev.providers.map((p) =>
-          p.id === providerId
-            ? { ...p, services: p.services.filter((s) => s.id !== serviceId) }
-            : p,
-        ),
-      }));
+    async (_providerIdArg: string, serviceId: string) => {
+      await deleteServiceDb(serviceId);
+      await loadCatalog();
     },
-    [],
+    [loadCatalog],
+  );
+
+  // ---- Admin actions ----
+  const addCategory = useCallback(
+    async (name: string, slug?: string) => {
+      const finalSlug =
+        slug?.trim() ||
+        `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      await adminAddCategory({ name, slug: finalSlug });
+      await loadCatalog();
+    },
+    [loadCatalog],
+  );
+
+  const removeCategory = useCallback(
+    async (id: string) => {
+      await adminRemoveCategory(id);
+      await loadCatalog();
+    },
+    [loadCatalog],
   );
 
   const setCommissionRate = useCallback(async (rate: number) => {
-    setState((prev) => ({ ...prev, commissionRate: rate }));
+    await adminSetCommissionRate(rate);
+    setCommissionRateState(rate);
   }, []);
 
+  const pushNotification = useCallback(
+    async (input: { title: string; body: string }) => {
+      await adminBroadcastNotification(input);
+      // Realtime will pick the new row up; nothing else to do.
+    },
+    [],
+  );
+
+  // ----------------------------------------------------------
+  // Helpers / selectors
+  // ----------------------------------------------------------
   const getProvider = useCallback(
-    (id: string) => state.providers.find((p) => p.id === id),
-    [state.providers],
+    (id: string) => providers.find((p) => p.id === id),
+    [providers],
   );
-  const getCategory = useCallback(
-    (id: string) => state.categories.find((c) => c.id === id),
-    [state.categories],
+  const getProviderBySlug = useCallback(
+    (slug: string) =>
+      providers.find((p) => p.categorySlug === slug),
+    [providers],
   );
-  const getProvidersByCategory = useCallback(
-    (catId: string) => state.providers.filter((p) => p.categoryId === catId),
-    [state.providers],
+  const getCategoryById = useCallback(
+    (id: string) => categories.find((cat) => cat.id === id),
+    [categories],
+  );
+  const getCategoryBySlug = useCallback(
+    (slug: string) => categories.find((cat) => cat.slug === slug),
+    [categories],
+  );
+  const getProvidersByCategorySlug = useCallback(
+    (slug: string) => providers.filter((p) => p.categorySlug === slug),
+    [providers],
   );
 
   const value = useMemo<AppContextValue>(
     () => ({
-      categories: state.categories,
-      providers: state.providers,
-      bookings: state.bookings,
-      notifications: state.notifications,
-      commissionRate: state.commissionRate,
+      categories,
+      providers,
+      bookings,
+      providerBookings,
+      notifications,
+      commissionRate,
+      loading,
+      refreshing,
+      refresh,
       addBooking,
       updateBookingStatus,
       rateBooking,
       markNotificationsRead,
-      pushNotification,
-      addCategory,
-      removeCategory,
       upsertProviderService,
       removeProviderService,
+      addCategory,
+      removeCategory,
       setCommissionRate,
+      pushNotification,
       getProvider,
-      getCategory,
-      getProvidersByCategory,
+      getProviderBySlug,
+      getCategoryById,
+      getCategoryBySlug,
+      getProvidersByCategorySlug,
     }),
     [
-      state,
+      categories,
+      providers,
+      bookings,
+      providerBookings,
+      notifications,
+      commissionRate,
+      loading,
+      refreshing,
+      refresh,
       addBooking,
       updateBookingStatus,
       rateBooking,
       markNotificationsRead,
-      pushNotification,
-      addCategory,
-      removeCategory,
       upsertProviderService,
       removeProviderService,
+      addCategory,
+      removeCategory,
       setCommissionRate,
+      pushNotification,
       getProvider,
-      getCategory,
-      getProvidersByCategory,
+      getProviderBySlug,
+      getCategoryById,
+      getCategoryBySlug,
+      getProvidersByCategorySlug,
     ],
   );
 
@@ -340,3 +542,6 @@ export function useApp() {
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
 }
+
+// Lazy fetch helper used by booking detail screen.
+export { fetchProviderById };

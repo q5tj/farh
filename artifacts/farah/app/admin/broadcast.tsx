@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -16,10 +15,12 @@ import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function BroadcastScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { pushNotification } = useApp();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -35,30 +36,29 @@ export default function BroadcastScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: c.background }}
-    >
-      <ScreenHeader title="إشعار جماعي" />
-      <ScrollView
+    <View style={{ flex: 1, backgroundColor: c.background }}>
+      <ScreenHeader title={t("broadcastScreenTitle")} />
+      <KeyboardAwareScrollView
         contentContainerStyle={{
           padding: 16,
           paddingBottom: insets.bottom + 30,
         }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
       >
         <Card>
           <Text style={[styles.title, { color: c.foreground }]}>
-            أرسل إشعاراً لجميع المستخدمين
+            {t("broadcastHeading")}
           </Text>
           <Text style={[styles.desc, { color: c.mutedForeground }]}>
-            استخدمها للترويج لعروض موسمية أو إعلانات هامة.
+            {t("broadcastDescription")}
           </Text>
           <View style={{ marginTop: 16, gap: 12 }}>
             <Input
-              label="عنوان الإشعار"
+              label={t("broadcastTitle")}
               value={title}
               onChangeText={setTitle}
-              placeholder="مثال: عروض الصيف"
+              placeholder={t("broadcastTitlePlaceholder")}
             />
             <View>
               <Text
@@ -67,12 +67,12 @@ export default function BroadcastScreen() {
                   { color: c.foreground },
                 ]}
               >
-                محتوى الإشعار
+                {t("broadcastBodyLabel")}
               </Text>
               <TextInput
                 value={body}
                 onChangeText={setBody}
-                placeholder="اكتب نص الإشعار..."
+                placeholder={t("broadcastBodyPlaceholder")}
                 placeholderTextColor={c.mutedForeground}
                 multiline
                 numberOfLines={5}
@@ -88,14 +88,14 @@ export default function BroadcastScreen() {
               />
             </View>
             <Button
-              label={sent ? "تم الإرسال ✓" : "إرسال للجميع"}
+              label={sent ? t("broadcastSent") : t("broadcastSendToAll")}
               onPress={send}
               variant={sent ? "secondary" : "primary"}
             />
           </View>
         </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

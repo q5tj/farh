@@ -10,14 +10,21 @@ interface Props {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  /** Custom handler — forces the back button to render (skips canGoBack check). */
+  onBack?: () => void;
   right?: React.ReactNode;
 }
 
-export function ScreenHeader({ title, subtitle, showBack = true, right }: Props) {
+export function ScreenHeader({ title, subtitle, showBack = true, onBack, right }: Props) {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const top = isWeb ? Math.max(insets.top, 24) : insets.top;
+
+  // If an explicit onBack handler is provided, always render the back button.
+  // Otherwise fall back to router.canGoBack() (default for tabs etc).
+  const renderBack = showBack && (onBack ? true : router.canGoBack());
+  const backHandler = onBack ?? (() => router.back());
 
   return (
     <View
@@ -33,9 +40,9 @@ export function ScreenHeader({ title, subtitle, showBack = true, right }: Props)
       <View style={styles.row}>
         {/* In RTL the back chevron should point right; placing on the right side */}
         <View style={{ minWidth: 40 }}>
-          {showBack && router.canGoBack() ? (
+          {renderBack ? (
             <Pressable
-              onPress={() => router.back()}
+              onPress={backHandler}
               style={[styles.iconBtn, { backgroundColor: c.muted }]}
             >
               <Feather name="chevron-right" size={22} color={c.foreground} />

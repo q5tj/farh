@@ -1,12 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProviderCard } from "@/components/ProviderCard";
@@ -19,9 +13,11 @@ export default function CategoryScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getCategory, getProvidersByCategory } = useApp();
-  const category = getCategory(String(id));
-  const providers = getProvidersByCategory(String(id));
+  // Param `id` is the category slug (e.g. "halls", "photo").
+  const slug = String(id);
+  const { getCategoryBySlug, getProvidersByCategorySlug } = useApp();
+  const category = getCategoryBySlug(slug);
+  const providers = getProvidersByCategorySlug(slug);
   const isWeb = Platform.OS === "web";
 
   return (

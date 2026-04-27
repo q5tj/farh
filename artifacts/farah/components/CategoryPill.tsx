@@ -3,14 +3,14 @@ import { router } from "expo-router";
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Category } from "@/constants/categories";
+import { Category } from "@/lib/data";
 import { useColors } from "@/hooks/useColors";
 
 export function CategoryPill({ category }: { category: Category }) {
   const c = useColors();
   return (
     <Pressable
-      onPress={() => router.push(`/category/${category.id}`)}
+      onPress={() => router.push(`/category/${category.slug}`)}
       style={({ pressed }) => [
         styles.wrap,
         {

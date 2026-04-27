@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -13,33 +14,49 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BookingItem } from "@/components/BookingItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { STRINGS } from "@/constants/strings";
 import { BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
-
-const FILTERS: { id: "all" | BookingStatus; label: string }[] = [
-  { id: "all", label: "الكل" },
-  { id: "pending", label: STRINGS.statusPending },
-  { id: "accepted", label: STRINGS.statusAccepted },
-  { id: "completed", label: STRINGS.statusCompleted },
-  { id: "rejected", label: STRINGS.statusRejected },
-];
+import { useT } from "@/lib/i18n";
 
 export default function BookingsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { bookings } = useApp();
+  const { t, isRtl } = useT();
   const [filter, setFilter] = useState<"all" | BookingStatus>("all");
+
+  const FILTERS = useMemo(() => {
+    const list: { id: "all" | BookingStatus; label: string }[] = [
+      { id: "all", label: t("all") },
+      { id: "pending", label: t("statusPending") },
+      { id: "accepted", label: t("statusAccepted") },
+      { id: "completed", label: t("statusCompleted") },
+      { id: "rejected", label: t("statusRejected") },
+    ];
+    // On RTL we render in natural row order but reverse the array so the
+    // first item still appears on the right (Arabic reading direction).
+    // `flexDirection: row-reverse` inside a horizontal ScrollView breaks
+    // on native — items get hidden behind the start edge. Reversing the
+    // data array sidesteps that quirk and works identically on web/iOS/Android.
+    return isRtl ? [...list].reverse() : list;
+  }, [t, isRtl]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return bookings;
     return bookings.filter((b) => b.status === filter);
   }, [bookings, filter]);
 
+  const onBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  };
+
+  const flexDir = isRtl ? ("row-reverse" as const) : ("row" as const);
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={STRINGS.myBookings} showBack={false} />
+      <ScreenHeader title={t("myBookings")} onBack={onBack} />
 
       <ScrollView
         horizontal
@@ -77,10 +94,10 @@ export default function BookingsScreen() {
       {filtered.length === 0 ? (
         <EmptyState
           icon="calendar"
-          title={STRINGS.noBookings}
-          description={STRINGS.noBookingsDesc}
+          title={t("noBookings")}
+          description={t("noBookingsDesc")}
           cta={{
-            label: STRINGS.exploreNow,
+            label: t("exploreNow"),
             onPress: () => router.push("/(tabs)"),
           }}
         />
@@ -102,11 +119,23 @@ export default function BookingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 100,
+    gap: 6,
+  },
+  backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
   filterRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
-    flexDirection: "row-reverse",
   },
   chip: {
     paddingHorizontal: 16,

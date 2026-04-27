@@ -13,26 +13,40 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { STRINGS } from "@/constants/strings";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function NotificationsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { notifications, markNotificationsRead } = useApp();
+  const { t, isRtl, lang } = useT();
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       markNotificationsRead();
     }, 600);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [markNotificationsRead]);
+
+  const onBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  };
 
   const formatTime = (ts: number) => {
     const diff = Date.now() - ts;
     const m = Math.floor(diff / 60000);
+    if (lang === "en") {
+      if (m < 1) return "now";
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      return `${d}d ago`;
+    }
     if (m < 1) return "الآن";
     if (m < 60) return `قبل ${m} دقيقة`;
     const h = Math.floor(m / 60);
@@ -41,15 +55,45 @@ export default function NotificationsScreen() {
     return `قبل ${d} يوم`;
   };
 
+  const align = isRtl ? ("right" as const) : ("left" as const);
+  const flexDir = isRtl ? ("row-reverse" as const) : ("row" as const);
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={STRINGS.notifications} showBack={false} />
+      <ScreenHeader
+        title={t("notifications")}
+        showBack={true}
+        right={
+          // Replace default back chevron with a back button always visible
+          null
+        }
+      />
+
+      {/* The header shows back only if router.canGoBack(). On the notifications
+          tab the back stack may be empty, so render an extra inline back button. */}
+      {!router.canGoBack() ? (
+        <View style={[styles.backRow, { flexDirection: flexDir }]}>
+          <Pressable
+            onPress={onBack}
+            style={[styles.backBtn, { backgroundColor: c.muted }]}
+          >
+            <Feather
+              name={isRtl ? "chevron-right" : "chevron-left"}
+              size={20}
+              color={c.foreground}
+            />
+            <Text style={[styles.backText, { color: c.foreground }]}>
+              {t("back")}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {notifications.length === 0 ? (
         <EmptyState
           icon="bell"
-          title={STRINGS.noNotifications}
-          description={STRINGS.noNotificationsDesc}
+          title={t("noNotifications")}
+          description={t("noNotificationsDesc")}
         />
       ) : (
         <ScrollView
@@ -71,6 +115,7 @@ export default function NotificationsScreen() {
                   borderColor: c.border,
                   borderRadius: c.radius,
                   opacity: pressed ? 0.9 : 1,
+                  flexDirection: flexDir,
                 },
               ]}
             >
@@ -87,9 +132,12 @@ export default function NotificationsScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <View style={styles.head}>
+                <View style={[styles.head, { flexDirection: flexDir }]}>
                   <Text
-                    style={[styles.title, { color: c.foreground }]}
+                    style={[
+                      styles.title,
+                      { color: c.foreground, textAlign: align },
+                    ]}
                     numberOfLines={1}
                   >
                     {n.title}
@@ -98,7 +146,12 @@ export default function NotificationsScreen() {
                     {formatTime(n.createdAt)}
                   </Text>
                 </View>
-                <Text style={[styles.body, { color: c.mutedForeground }]}>
+                <Text
+                  style={[
+                    styles.body,
+                    { color: c.mutedForeground, textAlign: align },
+                  ]}
+                >
                   {n.body}
                 </Text>
               </View>
@@ -111,11 +164,23 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 100,
+    gap: 6,
+  },
+  backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
   item: {
     borderWidth: 1,
     padding: 12,
     marginBottom: 10,
-    flexDirection: "row-reverse",
     gap: 12,
     alignItems: "flex-start",
   },
@@ -127,17 +192,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   head: {
-    flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  title: { fontFamily: "Cairo_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
-  time: { fontFamily: "Cairo_400Regular", fontSize: 11, marginRight: 8 },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 14, flex: 1 },
+  time: { fontFamily: "Cairo_400Regular", fontSize: 11, marginHorizontal: 8 },
   body: {
     fontFamily: "Cairo_400Regular",
     fontSize: 13,
-    textAlign: "right",
     lineHeight: 19,
   },
 });

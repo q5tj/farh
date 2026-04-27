@@ -10,28 +10,26 @@ import {
   View,
 } from "react-native";
 
-import { COVER_BY_CATEGORY } from "@/constants/seedData";
-import { STRINGS } from "@/constants/strings";
+import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
+import { Provider } from "@/lib/data";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 import { Stars } from "@/components/ui/Stars";
 
 interface Props {
-  provider: {
-    id: string;
-    name: string;
-    city: string;
-    rating: number;
-    reviews: number;
-    priceFrom: number;
-    cover: string;
-    categoryId: string;
-  };
+  provider: Provider;
   variant?: "wide" | "horizontal";
+}
+
+function pickCover(provider: Provider) {
+  if (provider.coverUrl) return { uri: provider.coverUrl };
+  return COVER_BY_CATEGORY[provider.categorySlug] ?? DEFAULT_COVER;
 }
 
 export function ProviderCard({ provider, variant = "wide" }: Props) {
   const c = useColors();
-  const cover = COVER_BY_CATEGORY[provider.categoryId];
+  const { t } = useT();
+  const cover = pickCover(provider);
 
   if (variant === "horizontal") {
     return (
@@ -66,7 +64,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
               </Text>
             </View>
             <Text style={[styles.price, { color: c.primary }]}>
-              {STRINGS.startingFrom} {provider.priceFrom.toLocaleString()} {STRINGS.sar}
+              {t("startingFrom")} {provider.priceFrom.toLocaleString()} {t("sar")}
             </Text>
           </View>
         </View>
@@ -109,7 +107,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
           </Text>
           <View style={[styles.dot, { backgroundColor: c.mutedForeground }]} />
           <Text style={[styles.city, { color: c.mutedForeground }]}>
-            {provider.reviews} تقييم
+            {t("reviewsCount", { count: provider.reviews })}
           </Text>
         </View>
         <View style={styles.bottomRow}>
@@ -120,7 +118,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
             </Text>
           </View>
           <Text style={[styles.price, { color: c.primary }]}>
-            {STRINGS.startingFrom} {provider.priceFrom.toLocaleString()} {STRINGS.sar}
+            {t("startingFrom")} {provider.priceFrom.toLocaleString()} {t("sar")}
           </Text>
         </View>
       </View>

@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -17,29 +18,41 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { STRINGS } from "@/constants/strings";
 import { ProviderService, useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function ServicesScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { t } = useT();
+  const { profile } = useAuth();
   const { getProvider, upsertProviderService, removeProviderService } = useApp();
-  const providerId = user?.providerId ?? "p1";
-  const provider = getProvider(providerId);
+  const providerId = profile?.providerId ?? null;
+  const provider = providerId ? getProvider(providerId) : undefined;
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProviderService | null>(null);
-  const [title, setTitle] = useState("");
+  const [titleAr, setTitleAr] = useState("");
+  const [titleEn, setTitleEn] = useState("");
+  const [descriptionAr, setDescriptionAr] = useState("");
+  const [descriptionEn, setDescriptionEn] = useState("");
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("60");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const reset = () => {
-    setTitle("");
+    setTitleAr("");
+    setTitleEn("");
+    setDescriptionAr("");
+    setDescriptionEn("");
     setPrice("");
     setDuration("");
+    setDurationMinutes("60");
+    setError("");
     setEditing(null);
   };
 
@@ -50,33 +63,65 @@ export default function ServicesScreen() {
 
   const openEdit = (s: ProviderService) => {
     setEditing(s);
-    setTitle(s.title);
+    setTitleAr(s.titleAr);
+    setTitleEn(s.titleEn ?? "");
+    setDescriptionAr("");
+    setDescriptionEn("");
     setPrice(String(s.price));
     setDuration(s.duration);
+    setDurationMinutes(String(s.durationMinutes));
+    setError("");
     setOpen(true);
   };
 
   const save = async () => {
-    if (!title.trim() || !price.trim()) return;
-    const id = editing?.id ?? `s_${Date.now()}`;
-    await upsertProviderService(providerId, {
-      id,
-      title: title.trim(),
-      price: Number(price.replace(/[^0-9]/g, "")) || 0,
-      duration: duration.trim() || "غير محدد",
-    });
-    setOpen(false);
-    reset();
+    setError("");
+    if (!providerId) return;
+    if (!titleAr.trim()) {
+      setError(t("enterServiceNameAr"));
+      return;
+    }
+    if (!titleEn.trim()) {
+      setError(t("enterServiceNameEn"));
+      return;
+    }
+    if (!price.trim()) {
+      setError(t("enterPrice"));
+      return;
+    }
+    const minutes = Math.max(15, Math.min(1440, Number(durationMinutes) || 60));
+    setSaving(true);
+    try {
+      await upsertProviderService(providerId, {
+        id: editing?.id,
+        titleAr: titleAr.trim(),
+        titleEn: titleEn.trim(),
+        descriptionAr: descriptionAr.trim() || undefined,
+        descriptionEn: descriptionEn.trim() || undefined,
+        price: Number(price.replace(/[^0-9]/g, "")) || 0,
+        duration: duration.trim() || "غير محدد",
+        durationMinutes: minutes,
+      });
+      setOpen(false);
+      reset();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = (s: ProviderService) => {
+    if (!providerId) return;
     removeProviderService(providerId, s.id);
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader
-        title={STRINGS.myServices}
+        title={t("myServices")}
+        onBack={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/provider-zone");
+        }}
         right={
           <Pressable
             onPress={openNew}
@@ -89,9 +134,9 @@ export default function ServicesScreen() {
       {!provider || provider.services.length === 0 ? (
         <EmptyState
           icon="package"
-          title="لم تضف خدمات بعد"
-          description="ابدأ بإضافة خدماتك وأسعارها لتظهر للعملاء"
-          cta={{ label: STRINGS.addService, onPress: openNew }}
+          title={t("noServicesAddedYet")}
+          description={t("startAddingServices")}
+          cta={{ label: t("addService"), onPress: openNew }}
         />
       ) : (
         <ScrollView
@@ -123,7 +168,7 @@ export default function ServicesScreen() {
                 >
                   <Feather name="edit-2" size={14} color={c.primary} />
                   <Text style={[styles.actionText, { color: c.primary }]}>
-                    {STRINGS.editService}
+                    {t("editService")}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -132,7 +177,7 @@ export default function ServicesScreen() {
                 >
                   <Feather name="trash-2" size={14} color={c.destructive} />
                   <Text style={[styles.actionText, { color: c.destructive }]}>
-                    {STRINGS.deleteService}
+                    {t("deleteService")}
                   </Text>
                 </Pressable>
               </View>
@@ -159,36 +204,84 @@ export default function ServicesScreen() {
               ]}
             >
               <Text style={[styles.modalTitle, { color: c.foreground }]}>
-                {editing ? STRINGS.editService : STRINGS.addService}
+                {editing ? t("editService") : t("addService")}
               </Text>
-              <View style={{ marginTop: 14, gap: 12 }}>
+              <ScrollView
+                style={{ maxHeight: 480 }}
+                contentContainerStyle={{ gap: 12, paddingTop: 14 }}
+                keyboardShouldPersistTaps="handled"
+              >
                 <Input
-                  label={STRINGS.serviceTitle}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="مثال: تصوير زفاف باقة فضية"
+                  label={t("serviceNameArLabel")}
+                  value={titleAr}
+                  onChangeText={setTitleAr}
+                  placeholder={t("serviceNameArExample")}
                 />
                 <Input
-                  label={STRINGS.servicePrice}
+                  label={t("serviceNameEnLabel")}
+                  value={titleEn}
+                  onChangeText={setTitleEn}
+                  placeholder={t("serviceNameEnExample")}
+                  autoCapitalize="words"
+                />
+                <Input
+                  label={t("serviceDescArLabel")}
+                  value={descriptionAr}
+                  onChangeText={setDescriptionAr}
+                  placeholder={t("serviceDescArPlaceholder")}
+                  multiline
+                  numberOfLines={3}
+                  style={{ height: 70, textAlignVertical: "top" }}
+                />
+                <Input
+                  label={t("serviceDescEnLabel")}
+                  value={descriptionEn}
+                  onChangeText={setDescriptionEn}
+                  placeholder={t("serviceDescEnPlaceholder")}
+                  multiline
+                  numberOfLines={3}
+                  style={{ height: 70, textAlignVertical: "top" }}
+                />
+                <Input
+                  label={t("servicePriceField")}
                   value={price}
                   onChangeText={setPrice}
                   keyboardType="numeric"
                   placeholder="3000"
                 />
                 <Input
-                  label={STRINGS.serviceDuration}
+                  label={t("serviceDuration")}
                   value={duration}
                   onChangeText={setDuration}
-                  placeholder="مثال: 4 ساعات"
+                  placeholder={t("serviceDurationExample")}
                 />
-              </View>
+                <Input
+                  label={t("serviceDurationMinutesLabel")}
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                  keyboardType="numeric"
+                  placeholder="60"
+                />
+                {error ? (
+                  <Text
+                    style={{
+                      color: c.destructive,
+                      fontFamily: "Cairo_500Medium",
+                      fontSize: 12,
+                      textAlign: "right",
+                    }}
+                  >
+                    {error}
+                  </Text>
+                ) : null}
+              </ScrollView>
               <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
                 <View style={{ flex: 1 }}>
-                  <Button label={STRINGS.saveService} onPress={save} />
+                  <Button label={t("saveService")} onPress={save} loading={saving} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Button
-                    label={STRINGS.cancel}
+                    label={t("cancel")}
                     variant="ghost"
                     onPress={() => setOpen(false)}
                   />
