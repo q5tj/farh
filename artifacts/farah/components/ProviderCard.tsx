@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
+import { useApp } from "@/contexts/AppContext";
 import { Provider } from "@/lib/data";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
@@ -29,7 +30,14 @@ function pickCover(provider: Provider) {
 export function ProviderCard({ provider, variant = "wide" }: Props) {
   const c = useColors();
   const { t } = useT();
+  const { isFavorite, toggleFavorite } = useApp();
+  const fav = isFavorite(provider.id);
   const cover = pickCover(provider);
+
+  const onToggleFav = (e: { stopPropagation?: () => void }) => {
+    e.stopPropagation?.();
+    toggleFavorite(provider.id).catch(() => {});
+  };
 
   if (variant === "horizontal") {
     return (
@@ -45,7 +53,21 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
           },
         ]}
       >
-        <Image source={cover} style={styles.hImage} />
+        <View>
+          <Image source={cover} style={styles.hImage} />
+          <Pressable
+            onPress={onToggleFav}
+            hitSlop={10}
+            style={[styles.heartBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+          >
+            <Feather
+              name="heart"
+              size={16}
+              color={fav ? "#dc2626" : c.mutedForeground}
+              style={fav ? { } : undefined}
+            />
+          </Pressable>
+        </View>
         <View style={styles.hContent}>
           <Text style={[styles.title, { color: c.foreground }]} numberOfLines={1}>
             {provider.name}
@@ -95,7 +117,20 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
         },
       ]}
     >
-      <Image source={cover} style={styles.image} />
+      <View>
+        <Image source={cover} style={styles.image} />
+        <Pressable
+          onPress={onToggleFav}
+          hitSlop={10}
+          style={[styles.heartBtn, { backgroundColor: "rgba(255,255,255,0.92)" }]}
+        >
+          <Feather
+            name="heart"
+            size={18}
+            color={fav ? "#dc2626" : c.mutedForeground}
+          />
+        </Pressable>
+      </View>
       <View style={styles.content}>
         <Text style={[styles.title, { color: c.foreground }]} numberOfLines={1}>
           {provider.name}
@@ -169,4 +204,14 @@ const styles = StyleSheet.create({
   },
   ratingText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
   price: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  heartBtn: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

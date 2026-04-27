@@ -294,6 +294,15 @@ export default function ProfileScreen() {
             </Card>
           )}
 
+          <Card style={{ marginBottom: 14 }} padded={false}>
+            <Row
+              icon="heart"
+              label={t("favorites")}
+              chevron={chevron}
+              onPress={() => router.push("/favorites")}
+            />
+          </Card>
+
           <Card padded={false}>
             <Row
               icon="user"

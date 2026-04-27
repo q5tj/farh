@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BookingItem } from "@/components/BookingItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { BookingItemSkeleton } from "@/components/ui/Skeleton";
 import { BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
@@ -22,7 +23,7 @@ export default function BookingsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { bookings } = useApp();
+  const { bookings, loading } = useApp();
   const { t, isRtl } = useT();
   const [filter, setFilter] = useState<"all" | BookingStatus>("all");
 
@@ -91,7 +92,19 @@ export default function BookingsScreen() {
         })}
       </ScrollView>
 
-      {filtered.length === 0 ? (
+      {loading && bookings.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: isWeb ? 110 : insets.bottom + 90,
+          }}
+        >
+          {Array.from({ length: 4 }).map((_, i) => (
+            <BookingItemSkeleton key={i} />
+          ))}
+        </ScrollView>
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon="calendar"
           title={t("noBookings")}

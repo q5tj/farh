@@ -72,7 +72,7 @@ export default function BookingDetailScreen() {
       };
     }
     setLoading(true);
-    fetchBookingById(bookingId)
+    fetchBookingById(bookingId, lang)
       .then(async (b) => {
         if (!alive) return;
         setBooking(b);

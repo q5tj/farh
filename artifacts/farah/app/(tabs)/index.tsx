@@ -18,6 +18,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryPill } from "@/components/CategoryPill";
 import { ProviderCard } from "@/components/ProviderCard";
 import { Input } from "@/components/ui/Input";
+import {
+  CategoryPillSkeleton,
+  FadeIntoView,
+  ProviderCardSkeleton,
+} from "@/components/ui/Skeleton";
 import { FEATURED_CATEGORY_SLUGS } from "@/constants/categories";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,11 +114,24 @@ export default function HomeScreen() {
         </LinearGradient>
 
         {loading && categories.length === 0 ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator color={c.primary} />
+          <View style={{ marginTop: -50, paddingTop: 22 }}>
+            <View style={styles.sectionHeader}>
+              <View style={{ width: 100, height: 16, backgroundColor: c.muted, borderRadius: 8 }} />
+            </View>
+            <View style={styles.catsGrid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <CategoryPillSkeleton key={i} />
+              ))}
+            </View>
+            <View style={[styles.banner, { backgroundColor: c.muted }]} />
+            <View style={{ paddingHorizontal: 16, gap: 14, marginTop: 24 }}>
+              {Array.from({ length: 2 }).map((_, i) => (
+                <ProviderCardSkeleton key={i} />
+              ))}
+            </View>
           </View>
         ) : query.length === 0 ? (
-          <>
+          <FadeIntoView>
             <Section title={t("featured")} icon="grid" pullUp>
               <View style={styles.catsGrid}>
                 {featured.map((cat) => (
@@ -193,7 +211,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ) : null}
-          </>
+          </FadeIntoView>
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
             <Text style={[styles.searchTitle, { color: c.foreground }]}>

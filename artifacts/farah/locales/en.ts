@@ -468,4 +468,105 @@ export const en: Strings = {
 
   // About app footer
   appDomain: "farhatukum.com",
+
+  // System
+  offlineBanner: "You are offline — some features are disabled",
+  rateLimitExceeded: "Rate limit exceeded — please try again later",
+  requestTimeout: "Request timed out — check your connection",
+  sessionExpired: "Your session has expired, please sign in again",
+  newProvider: "New",
+
+  // Favorites
+  favorites: "Favorites",
+  favoritesEmpty: "No favorite providers yet",
+  favoritesEmptyDesc: "Tap ♥ on any provider card to save it here",
+  exploreProviders: "Explore providers",
+  addedToFavorites: "Added to favorites",
+  removedFromFavorites: "Removed from favorites",
+
+  // Admin verifications
+  adminVerifications: "Verifications",
+  adminVerificationsDesc: "{{count}} pending review",
+  noPendingVerifications: "No pending verifications",
+  verificationApproved: "Provider approved",
+  verificationRejected: "Provider rejected",
+  approve: "Approve",
+  reject: "Reject",
+  rejectReasonLabel: "Rejection reason (optional)",
+  rejectReasonPlaceholder: "Sent to the provider as a notification...",
+  confirmApprove: "Confirm approval",
+  confirmReject: "Confirm rejection",
+  pendingTab: "Pending",
+  approvedTab: "Approved",
+  rejectedTab: "Rejected",
+  verificationActionFailed: "Action failed",
+
+  // Admin audit log
+  adminAuditLog: "Audit log",
+  adminAuditLogDesc: "Track sensitive changes",
+  auditFilterAll: "All",
+  auditActionRoleChange: "Role change",
+  auditActionCommissionChange: "Commission change",
+  auditActionContentEdit: "Content edit",
+  auditEmpty: "No audit entries yet",
+
+  // Upload
+  uploadingPercent: "Uploading {{percent}}%",
+  uploadCancel: "Cancel upload",
+  uploadCancelled: "Upload cancelled",
+  uploadFailed: "Image upload failed",
+
+  // Booking success
+  bookingSuccessTitle: "Your request was sent",
+  bookingSuccessDesc: "You'll be notified when the provider responds",
+
+  // Provider verification flow (provider-side)
+  verificationPendingTitle: "Your application is under review",
+  verificationPendingDesc:
+    "We're reviewing your documents — typically under 24 hours. You'll be notified the moment a decision is made.",
+  verificationRejectedTitle: "Your application was declined",
+  verificationRejectedDesc:
+    "Unfortunately your verification didn't pass. Contact support to learn more and re-upload your documents.",
+  verificationApprovedToast: "Your account is approved! Welcome to Farhatukum.",
+  contactSupport: "Contact support",
+  backToHome: "Back to home",
+  refreshStatus: "Refresh status",
+
+  // Onboarding documents section
+  documentsSection: "Verification documents",
+  documentsSectionDesc:
+    "To keep service quality high we ask for clear photos of the documents below. They're uploaded securely and shown only to the review team.",
+  providerLogo: "Business logo",
+  providerLogoDesc: "Shown on your card to customers",
+  commercialRegistration: "Commercial registration",
+  commercialRegistrationDesc: "A clear photo of the CR certificate",
+  taxNumber: "Tax (VAT) number",
+  taxNumberDesc: "A clear photo of the VAT certificate",
+  nationalAddress: "National address",
+  nationalAddressDesc: "A clear photo of the National Address certificate",
+  replaceImage: "Replace",
+  removeImage: "Remove",
+  documentRequired: "This document is required",
+  imagePickFailed: "Couldn't select the image",
+
+  // Onboarding commission disclosure
+  commissionDisclosureTitle: "Platform commission",
+  commissionDisclosureBody:
+    "Farhatukum applies a {{rate}}% commission on each successful booking. It's calculated from the service price and the remainder is paid out to you after completion.",
+  commissionAcceptanceLabel: "I accept the commission rate above",
+  commissionLockedNote:
+    "This rate is snapshotted when your account is created and won't change automatically.",
+  finishOnboarding: "Submit for review",
+  acceptCommissionFirst: "Please accept the commission rate to continue",
+  uploadAllDocsFirst: "Please upload all required documents",
+
+  // Admin — verification doc viewer
+  adminDocumentsTitle: "Provider documents",
+  adminDocLogo: "Logo",
+  adminDocCR: "Commercial registration",
+  adminDocTax: "Tax number",
+  adminDocAddress: "National address",
+  adminDocMissing: "Not uploaded",
+  adminViewFullSize: "View full size",
+  adminCommissionSnapshot: "Agreed commission rate",
 };

@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BookingSuccessOverlay } from "@/components/BookingSuccessOverlay";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -144,6 +145,11 @@ export default function BookingFormScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const successTargetRef = useRef<string | null>(null);
+  // useRef lock — survives multiple state updates from rapid taps. State-only
+  // locks have a render-cycle gap that allows double-submit on slow devices.
+  const submitLock = useRef(false);
 
   // Sync default city once provider loads
   useEffect(() => {
@@ -220,6 +226,8 @@ export default function BookingFormScreen() {
 
   const submit = async () => {
     if (!selectedSlot) return;
+    if (submitLock.current) return; // hard-block re-entry
+    submitLock.current = true;
     setSubmitting(true);
     try {
       const booking = await addBooking({
@@ -234,7 +242,9 @@ export default function BookingFormScreen() {
         notes,
       });
       setConfirmOpen(false);
-      router.replace(`/booking/${booking.id}`);
+      // Show animated success overlay; navigate after dismiss.
+      successTargetRef.current = `/booking/${booking.id}`;
+      setSuccessOpen(true);
     } catch (e) {
       const err = e as Error;
       const isSlotTaken = err?.message === SLOT_TAKEN_ERROR;
@@ -259,6 +269,7 @@ export default function BookingFormScreen() {
       }
     } finally {
       setSubmitting(false);
+      submitLock.current = false;
     }
   };
 
@@ -606,6 +617,16 @@ export default function BookingFormScreen() {
           </View>
         </View>
       </Modal>
+
+      <BookingSuccessOverlay
+        visible={successOpen}
+        onDismiss={() => {
+          setSuccessOpen(false);
+          const target = successTargetRef.current;
+          successTargetRef.current = null;
+          if (target) router.replace(target as never);
+        }}
+      />
     </View>
   );
 }

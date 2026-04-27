@@ -6,10 +6,15 @@
  */
 
 import { CategoryIcon } from "@/constants/categories";
+import { formatLocalDate, formatTime, formatTimeRange } from "@/lib/format";
 import { buildLocation, parseLocation } from "@/lib/location";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { withTimeout } from "@/lib/timeouts";
 
 import type { AppLang } from "@/lib/i18n";
+
+// Re-export for screens that imported these from data.ts historically
+export { formatTime, formatTimeRange } from "@/lib/format";
 
 // ============================================================
 // Types — DB rows
@@ -41,9 +46,16 @@ interface ProviderRow {
   phone: string | null;
   email: string | null;
   cover_url: string | null;
+  logo_url: string | null;
+  commercial_registration_path: string | null;
+  tax_number_path: string | null;
+  national_address_path: string | null;
+  commission_rate_snapshot: number | string | null;
+  verification_rejection_reason: string | null;
   rating_avg: number | null;
   rating_count: number | null;
   is_active: boolean | null;
+  verification_status: VerificationStatus | null;
   working_hours: WorkingHoursRow | null;
   category?: { slug: string } | null;
   provider_images?: { url: string; sort_order: number | null }[] | null;
@@ -127,6 +139,8 @@ export type BookingStatus =
 
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
 
+export type VerificationStatus = "pending" | "approved" | "rejected";
+
 export interface Category {
   id: string; // UUID
   slug: string; // 'halls', 'photo' …
@@ -163,10 +177,17 @@ export interface Provider {
   phone: string;
   email: string | null;
   coverUrl: string | null;
+  logoUrl: string | null;
+  commercialRegistrationPath: string | null;
+  taxNumberPath: string | null;
+  nationalAddressPath: string | null;
+  commissionRateSnapshot: number | null;
+  verificationRejectionReason: string | null;
   rating: number;
   reviews: number;
   priceFrom: number;
   isActive: boolean;
+  verificationStatus: VerificationStatus;
   gallery: string[];
   services: ProviderService[];
   workingHours: WorkingHours;
@@ -286,24 +307,34 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
     phone: row.phone ?? "",
     email: row.email,
     coverUrl: row.cover_url,
+    logoUrl: row.logo_url,
+    commercialRegistrationPath: row.commercial_registration_path,
+    taxNumberPath: row.tax_number_path,
+    nationalAddressPath: row.national_address_path,
+    commissionRateSnapshot:
+      row.commission_rate_snapshot != null
+        ? Number(row.commission_rate_snapshot)
+        : null,
+    verificationRejectionReason: row.verification_rejection_reason,
     rating: Number(row.rating_avg ?? 0),
     reviews: Number(row.rating_count ?? 0),
     priceFrom,
     isActive: row.is_active ?? true,
+    verificationStatus: row.verification_status ?? "pending",
     gallery,
     services,
     workingHours: mapWorkingHours(row.working_hours),
   };
 }
 
-function mapBooking(row: BookingRow): Booking {
+function mapBooking(row: BookingRow, lang: AppLang): Booking {
   const review = (row.reviews ?? [])[0];
   const start = new Date(row.start_at);
   const end = new Date(row.end_at);
   return {
     id: row.id,
     userId: row.user_id,
-    userName: row.user?.full_name?.trim() || row.user?.email || "ضيف",
+    userName: row.user?.full_name?.trim() || row.user?.email || "—",
     userPhone: row.user?.phone ?? row.user?.email ?? "",
     providerId: row.provider_id,
     serviceId: row.service_id,
@@ -312,7 +343,7 @@ function mapBooking(row: BookingRow): Booking {
     startAt: row.start_at,
     endAt: row.end_at,
     date: formatLocalDate(start),
-    time: `${formatTimeAr(start)} – ${formatTimeAr(end)}`,
+    time: formatTimeRange(start, end, lang),
     location: composeLocation(row.city, row.address),
     notes: row.notes ?? "",
     status: row.status,
@@ -324,27 +355,9 @@ function mapBooking(row: BookingRow): Booking {
   };
 }
 
-// ============================================================
-// Time helpers — Arabic-friendly slot formatting
-// ============================================================
-function formatLocalDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
+// Back-compat shim — slot generator still calls formatTimeAr.
 export function formatTimeAr(d: Date): string {
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const period =
-    h < 5 || h >= 21 ? "ليلاً" :
-    h < 12 ? "صباحاً" :
-    h < 16 ? "ظهراً" :
-    h < 18 ? "عصراً" :
-    "مساءً";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${period} ${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return formatTime(d, "ar");
 }
 
 const WEEKDAYS: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -364,16 +377,19 @@ export interface AvailableSlot {
  *  - Each slot is `durationMinutes` long.
  *  - Filters out slots overlapping any busy interval.
  *  - Filters out slots in the past (for today).
+ *  - Slot labels are localized via `lang`.
  */
 export function generateSlots(input: {
-  date: Date; // local date (time component ignored)
+  date: Date;
   workingHours: [string, string] | null;
   durationMinutes: number;
   intervalMinutes?: number;
   busy: { start: Date; end: Date }[];
+  lang?: AppLang;
 }): AvailableSlot[] {
   const { date, workingHours, durationMinutes, busy } = input;
   const interval = input.intervalMinutes ?? 30;
+  const lang = input.lang ?? "ar";
   if (!workingHours) return [];
 
   const [openStr, closeStr] = workingHours;
@@ -403,7 +419,7 @@ export function generateSlots(input: {
     slots.push({
       start: new Date(t),
       end: slotEnd,
-      label: formatTimeAr(t),
+      label: formatTime(t, lang),
     });
   }
   return slots;
@@ -475,8 +491,12 @@ export async function fetchCategories(lang: AppLang): Promise<Category[]> {
 const PROVIDER_SELECT = `
   id, user_id, category_id, name, name_ar, name_en,
   description, description_ar, description_en,
-  city, phone, email, cover_url, rating_avg, rating_count, is_active,
-  working_hours,
+  city, phone, email, cover_url,
+  logo_url, commercial_registration_path, tax_number_path,
+  national_address_path, commission_rate_snapshot,
+  verification_rejection_reason,
+  rating_avg, rating_count, is_active,
+  verification_status, working_hours,
   category:categories ( slug ),
   provider_images ( url, sort_order ),
   services (
@@ -490,7 +510,8 @@ export async function fetchProviders(lang: AppLang): Promise<Provider[]> {
   const { data, error } = await client()
     .from("providers")
     .select(PROVIDER_SELECT)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .eq("verification_status", "approved");
   if (error) throw error;
   return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
     mapProvider(
@@ -690,18 +711,22 @@ const BOOKING_SELECT = `
   reviews ( id, booking_id, user_id, provider_id, rating, comment, created_at )
 `;
 
-export async function fetchUserBookings(userId: string): Promise<Booking[]> {
+export async function fetchUserBookings(
+  userId: string,
+  lang: AppLang,
+): Promise<Booking[]> {
   const { data, error } = await client()
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as unknown as BookingRow[]).map(mapBooking);
+  return ((data ?? []) as unknown as BookingRow[]).map((r) => mapBooking(r, lang));
 }
 
 export async function fetchProviderBookings(
   providerId: string,
+  lang: AppLang,
 ): Promise<Booking[]> {
   const { data, error } = await client()
     .from("bookings")
@@ -709,7 +734,7 @@ export async function fetchProviderBookings(
     .eq("provider_id", providerId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as unknown as BookingRow[]).map(mapBooking);
+  return ((data ?? []) as unknown as BookingRow[]).map((r) => mapBooking(r, lang));
 }
 
 /** Fetch the busy intervals for a provider on a given local date, via the
@@ -731,7 +756,10 @@ export async function fetchProviderBusyIntervals(
   }));
 }
 
-export async function fetchBookingById(id: string): Promise<Booking | null> {
+export async function fetchBookingById(
+  id: string,
+  lang: AppLang,
+): Promise<Booking | null> {
   const { data, error } = await client()
     .from("bookings")
     .select(BOOKING_SELECT)
@@ -739,7 +767,7 @@ export async function fetchBookingById(id: string): Promise<Booking | null> {
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  return mapBooking(data as unknown as BookingRow);
+  return mapBooking(data as unknown as BookingRow, lang);
 }
 
 export interface CreateBookingInput {
@@ -760,26 +788,31 @@ export const SLOT_TAKEN_ERROR = "SLOT_TAKEN";
 
 export async function createBooking(
   input: CreateBookingInput,
+  lang: AppLang = "ar",
 ): Promise<Booking> {
-  const { data, error } = await client()
-    .from("bookings")
-    .insert({
-      user_id: input.userId,
-      provider_id: input.providerId,
-      service_id: input.serviceId,
-      service_title: input.serviceTitle,
-      price: input.price,
-      start_at: input.startAt.toISOString(),
-      end_at: input.endAt.toISOString(),
-      city: input.city,
-      address: input.address,
-      notes: input.notes,
-      status: "pending" as BookingStatus,
-    })
-    .select(BOOKING_SELECT)
-    .single();
+  // Wrap the supabase builder in a real Promise so withTimeout's race works.
+  const op: Promise<{ data: unknown; error: { message?: string; code?: string } | null }> =
+    Promise.resolve(
+      client()
+        .from("bookings")
+        .insert({
+          user_id: input.userId,
+          provider_id: input.providerId,
+          service_id: input.serviceId,
+          service_title: input.serviceTitle,
+          price: input.price,
+          start_at: input.startAt.toISOString(),
+          end_at: input.endAt.toISOString(),
+          city: input.city,
+          address: input.address,
+          notes: input.notes,
+          status: "pending" as BookingStatus,
+        })
+        .select(BOOKING_SELECT)
+        .single(),
+    );
+  const { data, error } = await withTimeout(op);
   if (error) {
-    // 23P01 = exclusion_violation (overlapping booking)
     if (
       (error as { code?: string }).code === "23P01" ||
       /no_overlap/i.test(error.message ?? "")
@@ -788,7 +821,7 @@ export async function createBooking(
     }
     throw error;
   }
-  return mapBooking(data as unknown as BookingRow);
+  return mapBooking(data as unknown as BookingRow, lang);
 }
 
 export async function updateBookingStatus(
@@ -1158,9 +1191,10 @@ export async function adminSetUserRole(
   if (error) throw error;
 }
 
-export async function adminFetchAllBookings(filters?: {
-  status?: BookingStatus;
-}): Promise<Booking[]> {
+export async function adminFetchAllBookings(
+  filters?: { status?: BookingStatus },
+  lang: AppLang = "ar",
+): Promise<Booking[]> {
   let q = client()
     .from("bookings")
     .select(BOOKING_SELECT)
@@ -1168,7 +1202,252 @@ export async function adminFetchAllBookings(filters?: {
   if (filters?.status) q = q.eq("status", filters.status);
   const { data, error } = await q;
   if (error) throw error;
-  return ((data ?? []) as unknown as BookingRow[]).map(mapBooking);
+  return ((data ?? []) as unknown as BookingRow[]).map((r) =>
+    mapBooking(r, lang),
+  );
+}
+
+// ============================================================
+// CITIES (from DB)
+// ============================================================
+export interface City {
+  id: string;
+  slug: string;
+  nameAr: string;
+  nameEn: string;
+  isActive: boolean;
+}
+
+interface CityRow {
+  id: string;
+  slug: string;
+  name_ar: string;
+  name_en: string;
+  is_active: boolean;
+  sort_order: number | null;
+}
+
+export async function fetchCities(): Promise<City[]> {
+  const { data, error } = await client()
+    .from("cities")
+    .select("id, slug, name_ar, name_en, is_active, sort_order")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as CityRow[]).map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    nameAr: r.name_ar,
+    nameEn: r.name_en,
+    isActive: r.is_active,
+  }));
+}
+
+// ============================================================
+// PROVIDER SERVICE AREAS
+// ============================================================
+export async function fetchProviderServiceAreas(
+  providerId: string,
+): Promise<string[]> {
+  const { data, error } = await client()
+    .from("provider_service_areas")
+    .select("city")
+    .eq("provider_id", providerId);
+  if (error) throw error;
+  return ((data ?? []) as { city: string }[]).map((r) => r.city);
+}
+
+export async function setProviderServiceAreas(
+  providerId: string,
+  cities: string[],
+): Promise<void> {
+  const c = client();
+  // Replace strategy: delete all then insert.
+  const { error: delErr } = await c
+    .from("provider_service_areas")
+    .delete()
+    .eq("provider_id", providerId);
+  if (delErr) throw delErr;
+  if (cities.length === 0) return;
+  const { error: insErr } = await c
+    .from("provider_service_areas")
+    .insert(cities.map((city) => ({ provider_id: providerId, city })));
+  if (insErr) throw insErr;
+}
+
+// ============================================================
+// PROVIDER VERIFICATION (admin)
+// ============================================================
+export async function adminFetchProvidersByStatus(
+  status: VerificationStatus,
+  lang: AppLang,
+): Promise<Provider[]> {
+  const { data, error } = await client()
+    .from("providers")
+    .select(PROVIDER_SELECT)
+    .eq("verification_status", status)
+    .order("created_at" as never, { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
+    mapProvider(
+      { ...r, services: (r.services ?? []).filter((s) => s.is_active !== false) },
+      lang,
+    ),
+  );
+}
+
+export async function adminApproveProvider(providerId: string): Promise<void> {
+  // Notification is fired automatically by the
+  // notify_verification_change trigger (migration v8).
+  const { error } = await client()
+    .from("providers")
+    .update({
+      verification_status: "approved",
+      verification_rejection_reason: null,
+    })
+    .eq("id", providerId);
+  if (error) throw error;
+}
+
+export async function adminRejectProvider(
+  providerId: string,
+  reason: string,
+): Promise<void> {
+  // Set the reason BEFORE/atomically with the status flip — the trigger reads
+  // verification_rejection_reason and uses it as the notification body.
+  const trimmed = (reason ?? "").trim();
+  const { error } = await client()
+    .from("providers")
+    .update({
+      verification_status: "rejected",
+      verification_rejection_reason: trimmed || null,
+    })
+    .eq("id", providerId);
+  if (error) throw error;
+}
+
+// Back-compat: kept signature so older imports don't break
+export async function adminSetProviderVerification(
+  providerId: string,
+  status: VerificationStatus,
+): Promise<void> {
+  if (status === "approved") return adminApproveProvider(providerId);
+  if (status === "rejected") return adminRejectProvider(providerId, "");
+  const { error } = await client()
+    .from("providers")
+    .update({ verification_status: status })
+    .eq("id", providerId);
+  if (error) throw error;
+}
+
+// ============================================================
+// AUDIT LOG (admin read-only)
+// ============================================================
+export interface AuditLogEntry {
+  id: string;
+  actorUserId: string | null;
+  action: string;
+  targetTable: string | null;
+  targetId: string | null;
+  payload: unknown;
+  createdAt: string;
+}
+
+interface AuditRow {
+  id: string;
+  actor_user_id: string | null;
+  action: string;
+  target_table: string | null;
+  target_id: string | null;
+  payload: unknown;
+  created_at: string;
+}
+
+export async function adminFetchAuditLog(filters?: {
+  action?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  let q = client()
+    .from("audit_log")
+    .select("id, actor_user_id, action, target_table, target_id, payload, created_at")
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 100);
+  if (filters?.action) q = q.eq("action", filters.action);
+  const { data, error } = await q;
+  if (error) throw error;
+  return ((data ?? []) as AuditRow[]).map((r) => ({
+    id: r.id,
+    actorUserId: r.actor_user_id,
+    action: r.action,
+    targetTable: r.target_table,
+    targetId: r.target_id,
+    payload: r.payload,
+    createdAt: r.created_at,
+  }));
+}
+
+// ============================================================
+// CUSTOMER FAVORITES
+// ============================================================
+export async function fetchUserFavorites(userId: string): Promise<string[]> {
+  const { data, error } = await client()
+    .from("customer_favorites")
+    .select("provider_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+  return ((data ?? []) as { provider_id: string }[]).map((r) => r.provider_id);
+}
+
+export async function toggleFavorite(
+  userId: string,
+  providerId: string,
+  add: boolean,
+): Promise<void> {
+  const c = client();
+  if (add) {
+    const { error } = await c
+      .from("customer_favorites")
+      .insert({ user_id: userId, provider_id: providerId });
+    if (error && (error as { code?: string }).code !== "23505") throw error;
+  } else {
+    const { error } = await c
+      .from("customer_favorites")
+      .delete()
+      .eq("user_id", userId)
+      .eq("provider_id", providerId);
+    if (error) throw error;
+  }
+}
+
+// ============================================================
+// PROVIDER ONBOARDING — atomic via RPC (replaces createProvider + role update)
+// ============================================================
+export async function becomeProvider(input: {
+  categoryId: string;
+  name: string;
+  description?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  logoUrl?: string | null;
+  commercialRegistrationPath?: string | null;
+  taxNumberPath?: string | null;
+  nationalAddressPath?: string | null;
+}): Promise<{ id: string }> {
+  const { data, error } = await client().rpc("become_provider", {
+    p_category_id: input.categoryId,
+    p_name: input.name,
+    p_description: input.description ?? null,
+    p_city: input.city ?? null,
+    p_phone: input.phone ?? null,
+    p_email: input.email ?? null,
+    p_logo_url: input.logoUrl ?? null,
+    p_commercial_registration_path: input.commercialRegistrationPath ?? null,
+    p_tax_number_path: input.taxNumberPath ?? null,
+    p_national_address_path: input.nationalAddressPath ?? null,
+  });
+  if (error) throw error;
+  return { id: data as string };
 }
 
 // ============================================================

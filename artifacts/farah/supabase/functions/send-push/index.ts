@@ -59,6 +59,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("PUSH_WEBHOOK_SECRET");
 
+// Fail closed: function refuses to start if secret is unset.
+if (!WEBHOOK_SECRET || WEBHOOK_SECRET.length < 16) {
+  console.error(
+    "[send-push] PUSH_WEBHOOK_SECRET is missing or too short. " +
+      "Set it (>= 16 chars) in Function Secrets before deploying.",
+  );
+}
+
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -98,12 +106,16 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Optional shared-secret check (set Authorization header in the webhook).
-  if (WEBHOOK_SECRET) {
-    const auth = req.headers.get("Authorization") ?? "";
-    if (auth !== `Bearer ${WEBHOOK_SECRET}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  // MANDATORY shared-secret check — fail closed.
+  if (!WEBHOOK_SECRET || WEBHOOK_SECRET.length < 16) {
+    return new Response(
+      "Misconfigured: PUSH_WEBHOOK_SECRET not set",
+      { status: 500 },
+    );
+  }
+  const auth = req.headers.get("Authorization") ?? "";
+  if (auth !== `Bearer ${WEBHOOK_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   let payload: WebhookPayload;

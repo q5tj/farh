@@ -468,6 +468,106 @@ export const ar = {
 
   // About app footer
   appDomain: "farhatukum.com",
+
+  // System
+  offlineBanner: "أنت غير متصل بالإنترنت — بعض الميزات معطّلة",
+  rateLimitExceeded: "تم تجاوز الحد المسموح، حاول لاحقاً",
+  requestTimeout: "انتهت مهلة الطلب — تحقق من اتصالك",
+  sessionExpired: "انتهت جلستك، الرجاء تسجيل الدخول من جديد",
+  newProvider: "جديد",
+
+  // Favorites
+  favorites: "المفضلة",
+  favoritesEmpty: "لم تضف مزودين للمفضلة بعد",
+  favoritesEmptyDesc: "اضغط على ♥ في بطاقة المزود لإضافته هنا",
+  exploreProviders: "تصفّح المزودين",
+  addedToFavorites: "أُضيف للمفضلة",
+  removedFromFavorites: "أُزيل من المفضلة",
+
+  // Admin verifications
+  adminVerifications: "طلبات الاعتماد",
+  adminVerificationsDesc: "{{count}} طلب بانتظار المراجعة",
+  noPendingVerifications: "لا توجد طلبات اعتماد جديدة",
+  verificationApproved: "تم اعتماد المزود",
+  verificationRejected: "تم رفض الطلب",
+  approve: "اعتماد",
+  reject: "رفض",
+  rejectReasonLabel: "سبب الرفض (اختياري)",
+  rejectReasonPlaceholder: "سيُرسل للمزود في الإشعارات...",
+  confirmApprove: "تأكيد الاعتماد",
+  confirmReject: "تأكيد الرفض",
+  pendingTab: "بانتظار",
+  approvedTab: "معتمد",
+  rejectedTab: "مرفوض",
+  verificationActionFailed: "تعذّر تنفيذ العملية",
+
+  // Admin audit log
+  adminAuditLog: "سجل العمليات",
+  adminAuditLogDesc: "تتبّع التغييرات الحساسة",
+  auditFilterAll: "الكل",
+  auditActionRoleChange: "تغيير دور",
+  auditActionCommissionChange: "تغيير عمولة",
+  auditActionContentEdit: "تحرير محتوى",
+  auditEmpty: "لا توجد عمليات مسجّلة بعد",
+
+  // Upload
+  uploadingPercent: "جاري الرفع {{percent}}%",
+  uploadCancel: "إلغاء الرفع",
+  uploadCancelled: "تم إلغاء الرفع",
+  uploadFailed: "فشل رفع الصورة",
+
+  // Booking success
+  bookingSuccessTitle: "تم إرسال طلبك",
+  bookingSuccessDesc: "سيتم إشعارك عند رد المزود",
+
+  // Provider verification flow (provider-side)
+  verificationPendingTitle: "طلبك قيد المراجعة",
+  verificationPendingDesc:
+    "نراجع مستنداتك وعادةً يستغرق ذلك أقل من ٢٤ ساعة. ستصلك إشعارات فور صدور القرار.",
+  verificationRejectedTitle: "تم رفض طلبك",
+  verificationRejectedDesc:
+    "للأسف لم تجتز مرحلة المراجعة. تواصل مع الدعم لمعرفة التفاصيل وإعادة رفع المستندات.",
+  verificationApprovedToast: "تم اعتماد حسابك! أهلاً بك في فرحتكم.",
+  contactSupport: "تواصل مع الدعم",
+  backToHome: "العودة للرئيسية",
+  refreshStatus: "تحديث الحالة",
+
+  // Onboarding documents section
+  documentsSection: "مستندات التحقق",
+  documentsSectionDesc:
+    "لضمان جودة الخدمة نطلب صوراً واضحة من المستندات التالية. تُرفع بشكل آمن وتُعرض على فريق المراجعة فقط.",
+  providerLogo: "شعار النشاط",
+  providerLogoDesc: "يُعرض على بطاقتك للعملاء",
+  commercialRegistration: "السجل التجاري",
+  commercialRegistrationDesc: "صورة واضحة للسجل التجاري",
+  taxNumber: "الرقم الضريبي",
+  taxNumberDesc: "صورة شهادة ضريبة القيمة المضافة",
+  nationalAddress: "العنوان الوطني",
+  nationalAddressDesc: "صورة شهادة العنوان الوطني",
+  replaceImage: "تغيير",
+  removeImage: "إزالة",
+  documentRequired: "هذا المستند مطلوب",
+  imagePickFailed: "تعذّر اختيار الصورة",
+
+  // Onboarding commission disclosure
+  commissionDisclosureTitle: "نسبة العمولة",
+  commissionDisclosureBody:
+    "تطبّق فرحتكم عمولة بنسبة {{rate}}% على كل حجز يتم إنجازه بنجاح. تُحسب النسبة من سعر الخدمة وتُرسل لك المتبقي بعد الحجز.",
+  commissionAcceptanceLabel: "أوافق على نسبة العمولة المذكورة",
+  commissionLockedNote: "هذه النسبة تُخزّن وقت إنشاء حسابك ولا تتغيّر تلقائياً.",
+  finishOnboarding: "إرسال للمراجعة",
+  acceptCommissionFirst: "يرجى الموافقة على نسبة العمولة للمتابعة",
+  uploadAllDocsFirst: "يرجى رفع جميع المستندات المطلوبة",
+
+  // Admin — verification doc viewer
+  adminDocumentsTitle: "مستندات المزود",
+  adminDocLogo: "الشعار",
+  adminDocCR: "السجل التجاري",
+  adminDocTax: "الرقم الضريبي",
+  adminDocAddress: "العنوان الوطني",
+  adminDocMissing: "لم يُرفع",
+  adminViewFullSize: "عرض بالحجم الكامل",
+  adminCommissionSnapshot: "نسبة العمولة المتفق عليها",
 };
 
 export type Strings = typeof ar;

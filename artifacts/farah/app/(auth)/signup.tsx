@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -55,15 +55,9 @@ export default function SignupScreen() {
     }
     setSubmitting(true);
     try {
-      const { needsOtp } = await signup(trimmed, password);
-      if (needsOtp) {
-        // push (not replace) so the user can navigate back to the signup form
-        // if they need to fix their email.
-        router.push({
-          pathname: "/(auth)/otp",
-          params: { email: trimmed },
-        });
-      }
+      await signup(trimmed, password);
+      // signup() establishes a session via Supabase's auto-confirm; the
+      // AuthGate will redirect to (tabs) once the session lands.
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       if (msg.toLowerCase().includes("already registered")) {

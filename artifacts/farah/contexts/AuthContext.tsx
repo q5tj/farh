@@ -15,6 +15,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 export type UserRole = "customer" | "provider" | "admin";
 export type Gender = "male" | "female";
 export type LangCode = "ar" | "en";
+export type ProviderVerificationStatus = "pending" | "approved" | "rejected";
 
 export interface UserProfile {
   id: string;
@@ -29,6 +30,10 @@ export interface UserProfile {
   role: UserRole;
   city: string | null;
   providerId: string | null;
+  /** Only meaningful when providerId is set. Pending until admin approves. */
+  providerVerificationStatus: ProviderVerificationStatus | null;
+  /** Optional reason when status === 'rejected'. */
+  providerRejectionReason: string | null;
   profileCompleted: boolean;
 }
 
@@ -47,12 +52,8 @@ interface AuthContextValue {
   loading: boolean;
   /** Sign in with email + password. Throws on failure. */
   login: (email: string, password: string) => Promise<void>;
-  /** Create account with email + password. Returns true if Supabase requires OTP verification. */
-  signup: (email: string, password: string) => Promise<{ needsOtp: boolean }>;
-  /** Verify the 6-digit signup OTP. */
-  verifySignupOtp: (email: string, token: string) => Promise<void>;
-  /** Resend the signup OTP. */
-  resendSignupOtp: (email: string) => Promise<void>;
+  /** Create account with email + password and auto sign-in. Throws on failure. */
+  signup: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Update profile fields and persist; sets profile_completed=true when all required fields are present. */
   updateProfile: (patch: ProfileUpdate) => Promise<void>;
@@ -86,7 +87,13 @@ interface UsersRow {
   profile_completed: boolean;
 }
 
-function mapRow(row: UsersRow, providerId: string | null): UserProfile {
+interface ProviderInfo {
+  id: string;
+  status: ProviderVerificationStatus | null;
+  reason: string | null;
+}
+
+function mapRow(row: UsersRow, provider: ProviderInfo | null): UserProfile {
   return {
     id: row.id,
     authUserId: row.auth_user_id,
@@ -99,7 +106,9 @@ function mapRow(row: UsersRow, providerId: string | null): UserProfile {
     language: row.language ?? "ar",
     role: row.role,
     city: row.city,
-    providerId,
+    providerId: provider?.id ?? null,
+    providerVerificationStatus: provider?.status ?? null,
+    providerRejectionReason: provider?.reason ?? null,
     profileCompleted: row.profile_completed,
   };
 }
@@ -140,10 +149,21 @@ async function fetchProfile(
 
   const { data: provider } = await client
     .from("providers")
-    .select("id")
+    .select("id, verification_status, verification_rejection_reason")
     .eq("user_id", row.id)
     .maybeSingle();
-  return mapRow(row, provider?.id ?? null);
+  const providerInfo: ProviderInfo | null = provider
+    ? {
+        id: (provider as { id: string }).id,
+        status:
+          (provider as { verification_status: ProviderVerificationStatus | null })
+            .verification_status ?? null,
+        reason:
+          (provider as { verification_rejection_reason: string | null })
+            .verification_rejection_reason ?? null,
+      }
+    : null;
+  return mapRow(row, providerInfo);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -217,34 +237,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(async (email: string, password: string) => {
     const client = ensureClient();
+    const trimmed = email.trim().toLowerCase();
     const { data, error } = await client.auth.signUp({
-      email: email.trim().toLowerCase(),
+      email: trimmed,
       password,
     });
     if (error) throw error;
-    // Supabase returns a session immediately when email-confirm is OFF.
-    // When it's ON (recommended), session is null until OTP verified.
-    const needsOtp = !data.session;
-    return { needsOtp };
-  }, []);
-
-  const verifySignupOtp = useCallback(async (email: string, token: string) => {
-    const client = ensureClient();
-    const { error } = await client.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token,
-      type: "signup",
-    });
-    if (error) throw error;
-  }, []);
-
-  const resendSignupOtp = useCallback(async (email: string) => {
-    const client = ensureClient();
-    const { error } = await client.auth.resend({
-      type: "signup",
-      email: email.trim().toLowerCase(),
-    });
-    if (error) throw error;
+    // Supabase returns a session immediately when "Confirm email" is OFF in
+    // the dashboard (Auth → Providers → Email). If it's ON, no session is
+    // returned and signInWithPassword fails with "Email not confirmed". In
+    // that case raise a clear error so the user knows the dashboard setting
+    // needs to change.
+    if (!data.session) {
+      const { error: loginErr } = await client.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+      if (loginErr) {
+        throw new Error(
+          "تأكيد الإيميل ما زال مفعّلاً في Supabase. " +
+            "أوقفه من Authentication → Providers → Email → Confirm email.",
+        );
+      }
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -293,24 +308,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (patch.age !== undefined) next.age = patch.age;
       if (patch.language !== undefined) next.language = patch.language;
 
-      // Determine if profile is now complete (after applying patch)
-      const merged: Pick<
-        UserProfile,
-        "fullName" | "phone" | "gender" | "age" | "language"
-      > = {
-        fullName: patch.fullName ?? profile.fullName,
-        phone: patch.phone ?? profile.phone,
-        gender: patch.gender ?? profile.gender,
-        age: patch.age ?? profile.age,
-        language: patch.language ?? profile.language,
-      };
-      const isComplete =
-        Boolean(merged.fullName?.trim()) &&
-        Boolean(merged.phone?.trim()) &&
-        merged.gender !== null &&
-        merged.age !== null &&
-        merged.language !== null;
-      if (isComplete) next.profile_completed = true;
+      // Note: profile_completed is now computed by a server-side trigger
+      // (`update_profile_completed` in migration_v6) — do NOT set from client.
+      // Client-set was a security gap allowing the auth gate to be bypassed.
 
       const { error } = await client
         .from("users")
@@ -329,8 +329,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       signup,
-      verifySignupOtp,
-      resendSignupOtp,
       signOut,
       updateProfile,
       refreshProfile,
@@ -341,8 +339,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       signup,
-      verifySignupOtp,
-      resendSignupOtp,
       signOut,
       updateProfile,
       refreshProfile,

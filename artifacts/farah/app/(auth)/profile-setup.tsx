@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Image,
   Modal,
@@ -31,28 +31,11 @@ import {
   registerPushAsync,
   requestPushPermission,
 } from "@/lib/push";
-import { supabase } from "@/lib/supabase";
-
-async function uploadAvatar(
-  authUserId: string,
-  asset: ImagePicker.ImagePickerAsset,
-): Promise<string> {
-  if (!supabase) throw new Error("Supabase not configured");
-  const ext = (asset.uri.split(".").pop() ?? "jpg").toLowerCase();
-  const path = `${authUserId}/${Date.now()}.${ext}`;
-  // ImagePicker on RN gives us a uri; convert to blob for Supabase storage
-  const res = await fetch(asset.uri);
-  const blob = await res.blob();
-  const { error } = await supabase.storage
-    .from("avatars")
-    .upload(path, blob, {
-      upsert: true,
-      contentType: asset.mimeType ?? `image/${ext === "jpg" ? "jpeg" : ext}`,
-    });
-  if (error) throw error;
-  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-  return data.publicUrl;
-}
+import {
+  uploadAvatarWithProgress,
+  UploadCancelledError,
+  type UploadJob,
+} from "@/lib/upload";
 
 export default function ProfileSetupScreen() {
   const c = useColors();
@@ -74,6 +57,8 @@ export default function ProfileSetupScreen() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const uploadJobRef = useRef<UploadJob | null>(null);
   const [pushPromptOpen, setPushPromptOpen] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
 
@@ -96,15 +81,35 @@ export default function ProfileSetupScreen() {
       return;
     }
     setUploading(true);
+    setUploadPct(0);
+    const asset = result.assets[0];
+    const ext = (asset.uri.split(".").pop() ?? "jpg").toLowerCase();
+    const job = uploadAvatarWithProgress({
+      uri: asset.uri,
+      ext,
+      authUserId: session.user.id,
+      mimeType: asset.mimeType ?? undefined,
+      onProgress: (pct) => setUploadPct(Math.round(pct * 100)),
+    });
+    uploadJobRef.current = job;
     try {
-      const url = await uploadAvatar(session.user.id, result.assets[0]);
+      const url = await job.promise;
       setAvatarUrl(url);
     } catch (e) {
-      const msg = (e as Error)?.message ?? "";
-      setError(msg || t("imageUploadFailed"));
+      if (e instanceof UploadCancelledError) {
+        setError(t("uploadCancelled"));
+      } else {
+        const msg = (e as Error)?.message ?? "";
+        setError(msg || t("uploadFailed"));
+      }
     } finally {
       setUploading(false);
+      uploadJobRef.current = null;
     }
+  };
+
+  const onCancelUpload = () => {
+    uploadJobRef.current?.cancel();
   };
 
   const onSubmit = async () => {
@@ -235,11 +240,30 @@ export default function ProfileSetupScreen() {
             </Pressable>
             <Text style={[styles.avatarLabel, { color: c.mutedForeground }]}>
               {uploading
-                ? t("uploadingImage")
+                ? t("uploadingPercent", { percent: uploadPct })
                 : avatarUrl
                   ? t("changeImage")
                   : t("pickImage")}
             </Text>
+            {uploading ? (
+              <View style={styles.progressWrap}>
+                <View
+                  style={[styles.progressTrack, { backgroundColor: c.muted }]}
+                >
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${uploadPct}%`, backgroundColor: c.primary },
+                    ]}
+                  />
+                </View>
+                <Pressable onPress={onCancelUpload} hitSlop={8}>
+                  <Text style={[styles.cancelLink, { color: c.destructive }]}>
+                    {t("uploadCancel")}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           <View style={{ marginTop: 14 }}>
@@ -512,6 +536,26 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_500Medium",
     fontSize: 12,
     marginTop: 8,
+  },
+  progressWrap: {
+    width: 200,
+    marginTop: 10,
+    alignItems: "center",
+    gap: 6,
+  },
+  progressTrack: {
+    width: "100%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  cancelLink: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
   },
   fieldLabel: {
     fontFamily: "Cairo_500Medium",

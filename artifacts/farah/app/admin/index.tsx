@@ -20,6 +20,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import {
   adminFetchDashboardStats,
+  adminFetchProvidersByStatus,
   type DashboardStats,
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
@@ -41,13 +42,18 @@ export default function AdminHome() {
   const { commissionRate } = useApp();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [pendingVerifications, setPendingVerifications] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
     try {
-      const s = await adminFetchDashboardStats();
+      const [s, pending] = await Promise.all([
+        adminFetchDashboardStats(),
+        adminFetchProvidersByStatus("pending", "ar").catch(() => []),
+      ]);
       setStats(s);
+      setPendingVerifications(pending.length);
     } catch (e) {
       console.warn("[admin home] stats failed", e);
     } finally {
@@ -93,6 +99,21 @@ export default function AdminHome() {
       route: "/admin/tickets",
       color: "#ec4899",
       badge: stats?.openTickets ?? 0,
+    },
+    {
+      icon: "shield",
+      title: t("adminVerifications"),
+      desc: t("adminVerificationsDesc", { count: pendingVerifications }),
+      route: "/admin/verifications",
+      color: "#16a34a",
+      badge: pendingVerifications,
+    },
+    {
+      icon: "file-text",
+      title: t("adminAuditLog"),
+      desc: t("adminAuditLogDesc"),
+      route: "/admin/audit",
+      color: "#525252",
     },
     {
       icon: "send",

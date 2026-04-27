@@ -74,14 +74,23 @@ export default function ProviderHome() {
   const { providerBookings, commissionRate } = useApp();
 
   const providerId = profile?.providerId ?? null;
+  const verificationStatus = profile?.providerVerificationStatus ?? null;
 
-  // If user isn't yet a provider (no providers row), redirect to onboarding.
+  // Gate: admins always see the dashboard. Non-admins go through three states:
+  //   • no providers row              → onboarding form
+  //   • status pending or rejected    → pending screen
+  //   • status approved               → this dashboard
   useEffect(() => {
     if (!profile) return;
-    if (profile.role !== "admin" && !providerId) {
+    if (profile.role === "admin") return;
+    if (!providerId) {
       router.replace("/provider-zone/onboarding");
+      return;
     }
-  }, [profile, providerId]);
+    if (verificationStatus && verificationStatus !== "approved") {
+      router.replace("/provider-zone/pending");
+    }
+  }, [profile, providerId, verificationStatus]);
 
   const pending = useMemo(
     () => providerBookings.filter((b) => b.status === "pending"),
@@ -95,9 +104,15 @@ export default function ProviderHome() {
   const grossEarnings = completed.reduce((sum, b) => sum + b.price, 0);
   const netEarnings = grossEarnings * (1 - commissionRate / 100);
 
-  if (!providerId && profile?.role !== "admin") {
-    // Wait for redirect to fire
-    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  if (profile?.role !== "admin") {
+    if (!providerId) {
+      // Waiting for redirect to onboarding.
+      return <View style={{ flex: 1, backgroundColor: c.background }} />;
+    }
+    if (verificationStatus && verificationStatus !== "approved") {
+      // Waiting for redirect to pending screen.
+      return <View style={{ flex: 1, backgroundColor: c.background }} />;
+    }
   }
 
   return (

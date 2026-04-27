@@ -15,6 +15,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { applyDirection, setAppLanguage } from "@/lib/i18n";
@@ -86,6 +87,7 @@ function AuthGate() {
       <Stack.Screen name="admin" />
       <Stack.Screen name="support" />
       <Stack.Screen name="about" />
+      <Stack.Screen name="favorites" />
     </Stack>
   );
 }
@@ -126,6 +128,7 @@ export default function RootLayout() {
                 <AppProvider>
                   <StatusBar barStyle="dark-content" />
                   <AuthGate />
+                  <OfflineBanner />
                 </AppProvider>
               </AuthProvider>
             </KeyboardProvider>

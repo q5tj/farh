@@ -30,7 +30,9 @@ import {
   fetchProviderById,
   fetchProviders,
   fetchUserBookings,
+  fetchUserFavorites,
   markAllNotificationsRead as markAllReadDb,
+  toggleFavorite as toggleFavoriteDb,
   updateBookingStatus as updateBookingStatusDb,
   upsertService as upsertServiceDb,
 } from "@/lib/data";
@@ -47,6 +49,7 @@ interface AppContextValue {
   bookings: Booking[]; // bookings the user made AS a customer
   providerBookings: Booking[]; // bookings received AS a provider (only if user has a provider record)
   notifications: AppNotification[];
+  favoriteIds: Set<string>; // provider ids the current user has favorited
   // settings
   commissionRate: number;
   // load state
@@ -72,6 +75,9 @@ interface AppContextValue {
     },
   ) => Promise<void>;
   removeProviderService: (providerId: string, serviceId: string) => Promise<void>;
+  // favorites
+  isFavorite: (providerId: string) => boolean;
+  toggleFavorite: (providerId: string) => Promise<void>;
   // admin actions (RLS enforces admin-only)
   addCategory: (name: string, slug?: string) => Promise<void>;
   removeCategory: (id: string) => Promise<void>;
@@ -100,7 +106,7 @@ interface AddBookingInput {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const lang = profile?.language ?? "ar";
   const userDbId = profile?.id ?? null;
   const providerId = profile?.providerId ?? null;
@@ -110,6 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [providerBookings, setProviderBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [commissionRate, setCommissionRateState] = useState<number>(10);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -130,18 +137,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBookings([]);
       return;
     }
-    const list = await fetchUserBookings(userDbId);
+    const list = await fetchUserBookings(userDbId, lang);
     if (mountedRef.current) setBookings(list);
-  }, [userDbId]);
+  }, [userDbId, lang]);
 
   const loadProviderBookings = useCallback(async () => {
     if (!providerId) {
       setProviderBookings([]);
       return;
     }
-    const list = await fetchProviderBookings(providerId);
+    const list = await fetchProviderBookings(providerId, lang);
     if (mountedRef.current) setProviderBookings(list);
-  }, [providerId]);
+  }, [providerId, lang]);
 
   const loadNotifications = useCallback(async () => {
     if (!userDbId) {
@@ -150,6 +157,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const list = await fetchNotifications(userDbId);
     if (mountedRef.current) setNotifications(list);
+  }, [userDbId]);
+
+  const loadFavorites = useCallback(async () => {
+    if (!userDbId) {
+      setFavoriteIds(new Set());
+      return;
+    }
+    try {
+      const ids = await fetchUserFavorites(userDbId);
+      if (mountedRef.current) setFavoriteIds(new Set(ids));
+    } catch (err) {
+      console.warn("[app] failed to load favorites", err);
+    }
   }, [userDbId]);
 
   const loadCatalog = useCallback(async () => {
@@ -173,6 +193,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadBookings(),
         loadProviderBookings(),
         loadNotifications(),
+        loadFavorites(),
         fetchCommissionRate()
           .then((rate) => {
             if (mountedRef.current) setCommissionRateState(rate);
@@ -184,7 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [loadCatalog, loadBookings, loadProviderBookings, loadNotifications]);
+  }, [loadCatalog, loadBookings, loadProviderBookings, loadNotifications, loadFavorites]);
 
   // initial load + reload when language or profile-scope changes
   useEffect(() => {
@@ -267,8 +288,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           table: "notifications",
           filter: `user_id=eq.${userDbId}`,
         },
-        () => {
+        (payload) => {
           loadNotifications().catch(() => {});
+          // Verification status flips fan-in via this same channel: when the
+          // admin approves/rejects, a notification arrives with
+          // data.kind === 'verification_status' — refresh the profile so the
+          // provider-zone gate flips to the right screen automatically.
+          const next = (payload as { new?: { data?: { kind?: string } } })?.new;
+          if (next?.data?.kind === "verification_status") {
+            refreshProfile().catch(() => {});
+          }
         },
       )
       .subscribe();
@@ -276,7 +305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       client.removeChannel(channel).catch(() => {});
     };
-  }, [userDbId, loadNotifications]);
+  }, [userDbId, loadNotifications, refreshProfile]);
 
   // Catalog (providers/services): refresh when any provider or service changes.
   useEffect(() => {
@@ -421,6 +450,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [loadCatalog],
   );
 
+  // ---- Favorites ----
+  const isFavorite = useCallback(
+    (providerId: string) => favoriteIds.has(providerId),
+    [favoriteIds],
+  );
+
+  const toggleFavorite = useCallback(
+    async (providerId: string) => {
+      if (!userDbId) return;
+      const currently = favoriteIds.has(providerId);
+      // Optimistic update
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (currently) next.delete(providerId);
+        else next.add(providerId);
+        return next;
+      });
+      try {
+        await toggleFavoriteDb(userDbId, providerId, !currently);
+      } catch (err) {
+        // Rollback on failure
+        setFavoriteIds((prev) => {
+          const next = new Set(prev);
+          if (currently) next.add(providerId);
+          else next.delete(providerId);
+          return next;
+        });
+        throw err;
+      }
+    },
+    [userDbId, favoriteIds],
+  );
+
   // ---- Admin actions ----
   const addCategory = useCallback(
     async (name: string, slug?: string) => {
@@ -486,6 +548,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings,
       providerBookings,
       notifications,
+      favoriteIds,
       commissionRate,
       loading,
       refreshing,
@@ -500,6 +563,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeCategory,
       setCommissionRate,
       pushNotification,
+      isFavorite,
+      toggleFavorite,
       getProvider,
       getProviderBySlug,
       getCategoryById,
@@ -512,6 +577,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bookings,
       providerBookings,
       notifications,
+      favoriteIds,
       commissionRate,
       loading,
       refreshing,
@@ -526,6 +592,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeCategory,
       setCommissionRate,
       pushNotification,
+      isFavorite,
+      toggleFavorite,
       getProvider,
       getProviderBySlug,
       getCategoryById,

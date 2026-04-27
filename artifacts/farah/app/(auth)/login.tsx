@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -54,11 +54,9 @@ export default function LoginScreen() {
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       if (msg.toLowerCase().includes("email not confirmed")) {
+        // Email-confirm is still ON in Supabase Dashboard. Surface a clear
+        // hint instead of redirecting to an OTP screen.
         setError(t("emailNotConfirmed"));
-        router.push({
-          pathname: "/(auth)/otp",
-          params: { email: trimmed },
-        });
       } else {
         setError(t("loginFailed"));
       }
