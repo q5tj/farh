@@ -31,7 +31,13 @@ export default function CategoryScreen() {
           icon="search"
           title="لا يوجد مزودون لهذا التصنيف بعد"
           description="نعمل على إضافة المزيد من مزودي الخدمة قريباً"
-          cta={{ label: "العودة", onPress: () => router.back() }}
+          cta={{
+            label: "العودة",
+            onPress: () => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(tabs)");
+            },
+          }}
         />
       ) : (
         <ScrollView

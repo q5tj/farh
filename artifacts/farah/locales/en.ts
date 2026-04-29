@@ -569,4 +569,130 @@ export const en: Strings = {
   adminDocMissing: "Not uploaded",
   adminViewFullSize: "View full size",
   adminCommissionSnapshot: "Agreed commission rate",
+
+  // Provider gallery
+  galleryManageTitle: "Portfolio gallery",
+  galleryManageDesc:
+    "Add photos, videos, and files that showcase your work. Images are compressed automatically.",
+  galleryAddImage: "Add photo",
+  galleryAddVideo: "Add video",
+  galleryAddFile: "Add file",
+  galleryEmpty: "Nothing in the gallery yet",
+  galleryItemImage: "Photo",
+  galleryItemVideo: "Video",
+  galleryItemFile: "File",
+  galleryDelete: "Delete",
+  galleryDeleteConfirm: "Delete this item?",
+  galleryUploadFailed: "Couldn't upload the item",
+  galleryVideoTooLarge: "Video too large (max {{max}} MB)",
+  galleryFileTooLarge: "File too large (max {{max}} MB)",
+  galleryCaption: "Optional caption",
+
+  // Booking cancellation
+  cancelBookingTitle: "Cancel booking",
+  cancelBookingPrompt:
+    "Pick a reason for the cancellation (optional) — the other party will see it.",
+  cancelBookingReasonLabel: "Reason",
+  cancelBookingConfirmBtn: "Confirm cancellation",
+  cancelBookingKeep: "Keep booking",
+  cancelBookingFailed: "Couldn't cancel the booking",
+  cancelledByCustomer: "Cancelled by customer",
+  cancelledByProvider: "Cancelled by provider",
+  cancelledByAdmin: "Cancelled by admin",
+  cancellationReasonLabel: "Cancellation reason",
+
+  // Refunds
+  refundStatusNotRequired: "No refund needed",
+  refundStatusPending: "Refund pending",
+  refundStatusCompleted: "Refunded",
+  refundStatusFailed: "Refund failed",
+  adminRefunds: "Refund queue",
+  adminRefundsDesc: "Cancelled paid bookings awaiting processing",
+  noPendingRefunds: "No refunds waiting",
+  markRefundCompleted: "Mark refund completed",
+  markRefundFailed: "Mark refund failed",
+  refundNoteOptional: "Internal note (optional)",
+
+  // Advanced filtering (home)
+  filterTitle: "Filter",
+  filterApply: "Apply",
+  filterClear: "Clear all",
+  filterCity: "City",
+  filterAllCities: "All cities",
+  filterPriceRange: "Price",
+  filterMinPrice: "From",
+  filterMaxPrice: "To",
+  filterMinRating: "Min rating",
+  filterAnyRating: "Any rating",
+  filterResultsCount: "{{count}} matching providers",
+
+  // Service areas (multi-city)
+  serviceAreasTitle: "Service areas",
+  serviceAreasDesc:
+    "Pick the cities you serve — you can choose more than one.",
+  serviceAreasManage: "Edit service areas",
+  serviceAreasSaved: "Service areas saved",
+  pickAtLeastOneCity: "Pick at least one city",
+
+  // Geolocation
+  useMyLocation: "Use my current location",
+  locationCaptured: "Location captured",
+  locationPermissionDenied:
+    "Location permission is needed to set your business location",
+  locationFetchFailed: "Couldn't fetch location",
+
+  // Admin reviews moderation
+  adminReviews: "Reviews moderation",
+  adminReviewsDesc: "Review and hide reports of inappropriate reviews",
+  reviewHidden: "Hidden",
+  hideReview: "Hide review",
+  unhideReview: "Restore review",
+  hideReviewReason: "Reason for hiding (optional)",
+  hideReviewConfirm: "Hide this review?",
+  filterReviewsAll: "All",
+  filterReviewsVisible: "Visible",
+  filterReviewsHidden: "Hidden",
+  noReviewsToModerate: "No reviews to moderate",
+
+  // Legal documents
+  termsConditionsTitle: "Terms & Conditions",
+  privacyPolicyTitle: "Privacy Policy",
+  termsAcceptCheckbox: "I agree to the Terms & Conditions and Privacy Policy",
+  termsLoginNote:
+    "By signing in you agree to the Terms & Conditions and Privacy Policy",
+  termsSignupNote: "I agree to the Terms & Conditions and Privacy Policy",
+  termsPleaseAccept: "Please accept the Terms & Conditions to continue",
+  termsViewTerms: "View Terms & Conditions",
+  termsViewPrivacy: "View Privacy Policy",
+  termsLastUpdated: "Last updated: {{date}}",
+
+  // Audit — human readable
+  auditByUser: "{{actor}} {{action}}",
+  auditCommissionMsg: "changed commission from {{from}}% to {{to}}%",
+  auditRoleMsg: "changed user role from {{from}} to {{to}}",
+  auditContentMsg: "updated content \"{{key}}\"",
+  auditRefundMsg: "set refund status to {{status}} on booking",
+  auditUnknownActor: "An admin",
+
+  // App settings hub (admin)
+  appSettingsTitle: "App Settings",
+  appSettingsDesc: "Commission, terms, privacy, and app content",
+  appSettingsCommissionSection: "Commission",
+  appSettingsLegalSection: "Legal documents",
+  appSettingsAboutSection: "About the app",
+  appSettingsSystemSection: "System info",
+  appSettingsEditTerms: "Edit terms & conditions",
+  appSettingsEditPrivacy: "Edit privacy policy",
+  appSettingsEditAbout: "Edit about page",
+
+  // Booking detail
+  showBookingStatus: "Show booking status",
+
+  // Smart location prompt
+  locationPromptTitle: "Find providers near you",
+  locationPromptBody:
+    "Allow access to your location and we'll auto-filter providers in your city. You can clear the filter anytime from the filter button.",
+  locationPromptAllow: "Allow",
+  locationPromptDeny: "Not now",
+  locationDetectedCity: "Auto-selected city: {{city}}",
 };

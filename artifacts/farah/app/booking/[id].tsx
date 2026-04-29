@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,10 +14,12 @@ import {
   Text,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Stars } from "@/components/ui/Stars";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -26,10 +29,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
 import {
+  cancelBooking as cancelBookingDb,
   fetchBookingById,
   fetchProviderById,
   type Booking,
   type Provider,
+  type RefundStatus,
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
 
@@ -124,21 +129,43 @@ export default function BookingDetailScreen() {
     ? { uri: provider.coverUrl }
     : COVER_BY_CATEGORY[provider?.categorySlug ?? ""] ?? DEFAULT_COVER;
 
-  const cancelBooking = () => {
-    const run = () => updateBookingStatus(booking.id, "cancelled");
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("هل تريد إلغاء الحجز؟")) run();
-      return;
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
+  const submitCancel = async () => {
+    setCancelling(true);
+    try {
+      await cancelBookingDb(booking.id, cancelReason);
+      // Optimistic local refresh: re-fetch the row.
+      const fresh = await fetchBookingById(booking.id, lang);
+      if (fresh) setBooking(fresh);
+      setCancelOpen(false);
+      setCancelReason("");
+    } catch (e) {
+      const msg = (e as Error)?.message ?? t("cancelBookingFailed");
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.alert(msg);
+      } else {
+        Alert.alert(t("error"), msg);
+      }
+    } finally {
+      setCancelling(false);
     }
-    Alert.alert("إلغاء الحجز", "هل تريد فعلاً إلغاء هذا الحجز؟", [
-      { text: "تراجع", style: "cancel" },
-      { text: "نعم", style: "destructive", onPress: run },
-    ]);
   };
 
   const canRate = booking.status === "completed" && booking.rating == null;
   const canCancel =
     booking.status === "pending" || booking.status === "accepted";
+
+  const cancelledByLabel =
+    booking.cancelledBy === "customer"
+      ? t("cancelledByCustomer")
+      : booking.cancelledBy === "provider"
+        ? t("cancelledByProvider")
+        : booking.cancelledBy === "admin"
+          ? t("cancelledByAdmin")
+          : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
@@ -240,22 +267,128 @@ export default function BookingDetailScreen() {
           ) : null}
           {canCancel ? (
             <Button
-              label={t("cancel")}
+              label={t("cancelBookingTitle")}
               variant="ghost"
-              onPress={cancelBooking}
+              onPress={() => setCancelOpen(true)}
             />
           ) : null}
 
           <Button
-            label={t("close")}
+            label={t("showBookingStatus")}
             variant="ghost"
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace("/(tabs)/bookings");
-            }}
+            icon={<Feather name="list" size={16} color={c.primary} />}
+            onPress={() => router.replace("/(tabs)/bookings")}
           />
         </View>
+
+        {booking.status === "cancelled" ? (
+          <Card style={{ marginTop: 14 }}>
+            <View style={styles.cancelInfoHead}>
+              <Feather name="x-circle" size={18} color={c.destructive} />
+              <Text style={[styles.cancelInfoTitle, { color: c.foreground }]}>
+                {cancelledByLabel ?? t("cancelBookingTitle")}
+              </Text>
+            </View>
+            {booking.cancellationReason ? (
+              <Text style={[styles.cancelInfoBody, { color: c.foreground }]}>
+                {booking.cancellationReason}
+              </Text>
+            ) : null}
+            <RefundBadge status={booking.refundStatus} />
+          </Card>
+        ) : null}
       </ScrollView>
+
+      <Modal
+        visible={cancelOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !cancelling && setCancelOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <KeyboardAwareScrollView
+            contentContainerStyle={styles.modalContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View
+              style={[
+                styles.modalCard,
+                { backgroundColor: c.background, borderRadius: c.radius },
+              ]}
+            >
+              <Text style={[styles.modalTitle, { color: c.foreground }]}>
+                {t("cancelBookingTitle")}
+              </Text>
+              <Text
+                style={[styles.modalDesc, { color: c.mutedForeground }]}
+              >
+                {t("cancelBookingPrompt")}
+              </Text>
+              <Input
+                label={t("cancelBookingReasonLabel")}
+                placeholder={t("cancelBookingReasonLabel")}
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={3}
+                style={{ height: 90, textAlignVertical: "top" }}
+                maxLength={400}
+              />
+              <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label={t("cancelBookingConfirmBtn")}
+                    onPress={submitCancel}
+                    loading={cancelling}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label={t("cancelBookingKeep")}
+                    variant="ghost"
+                    onPress={() => !cancelling && setCancelOpen(false)}
+                  />
+                </View>
+              </View>
+            </View>
+          </KeyboardAwareScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function RefundBadge({ status }: { status: RefundStatus }) {
+  const c = useColors();
+  const { t } = useT();
+  if (status === "not_required") return null;
+  const config: Record<
+    Exclude<RefundStatus, "not_required">,
+    { label: string; bg: string; fg: string }
+  > = {
+    pending: { label: t("refundStatusPending"), bg: "#fef3c7", fg: "#a16207" },
+    completed: {
+      label: t("refundStatusCompleted"),
+      bg: "#dcfce7",
+      fg: "#166534",
+    },
+    failed: { label: t("refundStatusFailed"), bg: "#fee2e2", fg: c.destructive },
+  };
+  const { label, bg, fg } = config[status as Exclude<RefundStatus, "not_required">];
+  return (
+    <View
+      style={{
+        marginTop: 10,
+        alignSelf: "flex-end",
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 100,
+        backgroundColor: bg,
+      }}
+    >
+      <Text style={{ color: fg, fontFamily: "Cairo_600SemiBold", fontSize: 11 }}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -411,4 +544,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   openMapText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
+  cancelInfoHead: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  cancelInfoTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  cancelInfoBody: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 13,
+    textAlign: "right",
+    lineHeight: 21,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(26,11,46,0.6)",
+  },
+  modalContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 460,
+    alignSelf: "center",
+    padding: 20,
+  },
+  modalTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  modalDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "right",
+    lineHeight: 21,
+    marginBottom: 14,
+  },
 });

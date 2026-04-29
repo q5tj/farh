@@ -62,9 +62,11 @@
     "@expo-google-fonts/cairo": "^0.4.2",
     "@supabase/supabase-js": "^2.104.1",
     "expo-device": "^8.0.10",
+    "expo-document-picker": "~14.0.8",
     "expo-image-manipulator": "~14.0.8",
     "expo-localization": "^17.0.8",
     "expo-notifications": "^0.32.16",
+    "expo-video-thumbnails": "~10.0.8",
     "i18next": "^26.0.8",
     "react-i18next": "^17.0.4"
   }

@@ -183,6 +183,18 @@ export default function ProviderHome() {
             desc={t("workingHoursDesc")}
             onPress={() => router.push("/provider-zone/availability")}
           />
+          <ActionCard
+            icon="image"
+            title={t("galleryManageTitle")}
+            desc={t("galleryManageDesc")}
+            onPress={() => router.push("/provider-zone/gallery")}
+          />
+          <ActionCard
+            icon="map-pin"
+            title={t("serviceAreasTitle")}
+            desc={t("serviceAreasDesc")}
+            onPress={() => router.push("/provider-zone/service-areas")}
+          />
         </View>
 
         <Text

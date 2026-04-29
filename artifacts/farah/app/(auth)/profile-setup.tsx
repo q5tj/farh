@@ -32,10 +32,10 @@ import {
   requestPushPermission,
 } from "@/lib/push";
 import {
-  uploadAvatarWithProgress,
+  uploadImage,
   UploadCancelledError,
   type UploadJob,
-} from "@/lib/upload";
+} from "@/lib/image-upload";
 
 export default function ProfileSetupScreen() {
   const c = useColors();
@@ -83,18 +83,19 @@ export default function ProfileSetupScreen() {
     setUploading(true);
     setUploadPct(0);
     const asset = result.assets[0];
-    const ext = (asset.uri.split(".").pop() ?? "jpg").toLowerCase();
-    const job = uploadAvatarWithProgress({
+    const job = uploadImage({
       uri: asset.uri,
-      ext,
+      bucket: "avatars",
       authUserId: session.user.id,
-      mimeType: asset.mimeType ?? undefined,
+      fileName: "avatar",
+      withPublicUrl: true,
+      compress: { maxWidth: 512, quality: 0.8 },
       onProgress: (pct) => setUploadPct(Math.round(pct * 100)),
     });
     uploadJobRef.current = job;
     try {
-      const url = await job.promise;
-      setAvatarUrl(url);
+      const { publicUrl } = await job.promise;
+      setAvatarUrl(publicUrl);
     } catch (e) {
       if (e instanceof UploadCancelledError) {
         setError(t("uploadCancelled"));

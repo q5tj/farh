@@ -52,14 +52,30 @@ interface ProviderRow {
   national_address_path: string | null;
   commission_rate_snapshot: number | string | null;
   verification_rejection_reason: string | null;
+  lat: number | string | null;
+  lng: number | string | null;
   rating_avg: number | null;
   rating_count: number | null;
   is_active: boolean | null;
   verification_status: VerificationStatus | null;
   working_hours: WorkingHoursRow | null;
   category?: { slug: string } | null;
-  provider_images?: { url: string; sort_order: number | null }[] | null;
+  provider_images?: GalleryItemRow[] | null;
   services?: ServiceRow[] | null;
+}
+
+interface GalleryItemRow {
+  id: string;
+  provider_id: string;
+  kind: MediaKind;
+  url: string;
+  storage_path: string | null;
+  mime_type: string | null;
+  size_bytes: number | string | null;
+  thumbnail_url: string | null;
+  caption: string | null;
+  sort_order: number | null;
+  created_at: string;
 }
 
 export type Weekday = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
@@ -101,8 +117,13 @@ interface BookingRow {
   payment_method: string | null;
   payment_id: string | null;
   commission_rate: number | string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
+  refund_status: RefundStatus | null;
   created_at: string;
   user?: { full_name: string | null; phone: string | null; email: string | null } | null;
+  provider?: { name: string | null; name_ar: string | null } | null;
   reviews?: ReviewRow[] | null;
 }
 
@@ -113,7 +134,12 @@ interface ReviewRow {
   provider_id: string;
   rating: number;
   comment: string | null;
+  is_hidden: boolean | null;
+  hidden_reason: string | null;
+  hidden_at: string | null;
   created_at: string;
+  user?: { full_name: string | null } | null;
+  provider?: { name: string | null; name_ar: string | null } | null;
 }
 
 interface NotificationRow {
@@ -138,6 +164,14 @@ export type BookingStatus =
   | "cancelled";
 
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
+
+export type RefundStatus =
+  | "not_required"
+  | "pending"
+  | "completed"
+  | "failed";
+
+export type MediaKind = "image" | "video" | "file";
 
 export type VerificationStatus = "pending" | "approved" | "rejected";
 
@@ -183,14 +217,32 @@ export interface Provider {
   nationalAddressPath: string | null;
   commissionRateSnapshot: number | null;
   verificationRejectionReason: string | null;
+  lat: number | null;
+  lng: number | null;
   rating: number;
   reviews: number;
   priceFrom: number;
   isActive: boolean;
   verificationStatus: VerificationStatus;
+  /** First N URLs only — for backwards compatibility with existing screens. */
   gallery: string[];
+  galleryItems: GalleryItem[];
   services: ProviderService[];
   workingHours: WorkingHours;
+}
+
+export interface GalleryItem {
+  id: string;
+  providerId: string;
+  kind: MediaKind;
+  url: string;
+  storagePath: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  thumbnailUrl: string | null;
+  caption: string | null;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface Booking {
@@ -211,6 +263,11 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: string | null;
+  refundStatus: RefundStatus;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  cancellationReason: string | null;
+  providerName: string | null;
   createdAt: number; // ms
   rating: number | null;
   reviewText: string | null;
@@ -279,14 +336,35 @@ function mapWorkingHours(raw: WorkingHoursRow | null): WorkingHours {
   return out;
 }
 
+function mapGalleryItem(row: GalleryItemRow): GalleryItem {
+  return {
+    id: row.id,
+    providerId: row.provider_id,
+    kind: row.kind,
+    url: row.url,
+    storagePath: row.storage_path,
+    mimeType: row.mime_type,
+    sizeBytes: row.size_bytes != null ? Number(row.size_bytes) : null,
+    thumbnailUrl: row.thumbnail_url,
+    caption: row.caption,
+    sortOrder: row.sort_order ?? 0,
+    createdAt: row.created_at,
+  };
+}
+
 function mapProvider(row: ProviderRow, lang: AppLang): Provider {
   const services = (row.services ?? []).map((s) => mapService(s, lang));
   const prices = services.map((s) => s.price).filter((p) => p > 0);
   const priceFrom = prices.length ? Math.min(...prices) : 0;
 
-  const gallery = (row.provider_images ?? [])
+  const galleryItems = (row.provider_images ?? [])
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map(mapGalleryItem);
+
+  // Backward-compat: legacy callers expect a string[] of image URLs.
+  const gallery = galleryItems
+    .filter((g) => g.kind === "image")
     .map((g) => g.url);
 
   return {
@@ -316,12 +394,15 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
         ? Number(row.commission_rate_snapshot)
         : null,
     verificationRejectionReason: row.verification_rejection_reason,
+    lat: row.lat != null ? Number(row.lat) : null,
+    lng: row.lng != null ? Number(row.lng) : null,
     rating: Number(row.rating_avg ?? 0),
     reviews: Number(row.rating_count ?? 0),
     priceFrom,
     isActive: row.is_active ?? true,
     verificationStatus: row.verification_status ?? "pending",
     gallery,
+    galleryItems,
     services,
     workingHours: mapWorkingHours(row.working_hours),
   };
@@ -349,6 +430,16 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
     status: row.status,
     paymentStatus: row.payment_status ?? "pending",
     paymentMethod: row.payment_method ?? null,
+    refundStatus: row.refund_status ?? "not_required",
+    cancelledAt: row.cancelled_at,
+    cancelledBy: row.cancelled_by,
+    cancellationReason: row.cancellation_reason,
+    providerName: pickLocalized(
+      row.provider?.name_ar ?? null,
+      null,
+      row.provider?.name ?? "",
+      lang,
+    ) || null,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     rating: review?.rating ?? null,
     reviewText: review?.comment ?? null,
@@ -495,10 +586,14 @@ const PROVIDER_SELECT = `
   logo_url, commercial_registration_path, tax_number_path,
   national_address_path, commission_rate_snapshot,
   verification_rejection_reason,
+  lat, lng,
   rating_avg, rating_count, is_active,
   verification_status, working_hours,
   category:categories ( slug ),
-  provider_images ( url, sort_order ),
+  provider_images (
+    id, provider_id, kind, url, storage_path, mime_type,
+    size_bytes, thumbnail_url, caption, sort_order, created_at
+  ),
   services (
     id, provider_id, title, title_ar, title_en,
     description, description_ar, description_en,
@@ -706,8 +801,11 @@ const BOOKING_SELECT = `
   id, user_id, provider_id, service_id, service_title, price,
   start_at, end_at, city, address, notes, status,
   payment_status, payment_method, payment_id,
-  commission_rate, created_at,
+  commission_rate,
+  cancelled_at, cancelled_by, cancellation_reason, refund_status,
+  created_at,
   user:users!bookings_user_id_fkey ( full_name, phone, email ),
+  provider:providers!bookings_provider_id_fkey ( name, name_ar ),
   reviews ( id, booking_id, user_id, provider_id, rating, comment, created_at )
 `;
 
@@ -1111,6 +1209,25 @@ export async function fetchAppContent(): Promise<AppContentEntry[]> {
   }));
 }
 
+export async function fetchAppContentByKey(
+  key: string,
+): Promise<AppContentEntry | null> {
+  const { data, error } = await client()
+    .from("app_content")
+    .select("key, value_ar, value_en, updated_at")
+    .eq("key", key)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as AppContentRow;
+  return {
+    key: r.key,
+    valueAr: r.value_ar,
+    valueEn: r.value_en,
+    updatedAt: r.updated_at,
+  };
+}
+
 export async function adminUpdateAppContent(
   key: string,
   patch: { valueAr?: string; valueEn?: string },
@@ -1346,6 +1463,7 @@ export async function adminSetProviderVerification(
 export interface AuditLogEntry {
   id: string;
   actorUserId: string | null;
+  actorName: string | null;
   action: string;
   targetTable: string | null;
   targetId: string | null;
@@ -1361,6 +1479,7 @@ interface AuditRow {
   target_id: string | null;
   payload: unknown;
   created_at: string;
+  actor?: { full_name: string | null; email: string | null } | null;
 }
 
 export async function adminFetchAuditLog(filters?: {
@@ -1369,15 +1488,18 @@ export async function adminFetchAuditLog(filters?: {
 }): Promise<AuditLogEntry[]> {
   let q = client()
     .from("audit_log")
-    .select("id, actor_user_id, action, target_table, target_id, payload, created_at")
+    .select(
+      "id, actor_user_id, action, target_table, target_id, payload, created_at, actor:users!audit_log_actor_user_id_fkey ( full_name, email )",
+    )
     .order("created_at", { ascending: false })
     .limit(filters?.limit ?? 100);
   if (filters?.action) q = q.eq("action", filters.action);
   const { data, error } = await q;
   if (error) throw error;
-  return ((data ?? []) as AuditRow[]).map((r) => ({
+  return ((data ?? []) as unknown as AuditRow[]).map((r) => ({
     id: r.id,
     actorUserId: r.actor_user_id,
+    actorName: r.actor?.full_name?.trim() || r.actor?.email || null,
     action: r.action,
     targetTable: r.target_table,
     targetId: r.target_id,
@@ -1449,6 +1571,262 @@ export async function becomeProvider(input: {
   if (error) throw error;
   return { id: data as string };
 }
+
+// ============================================================
+// PROVIDER GALLERY (images / videos / files)
+// ============================================================
+const GALLERY_COLS =
+  "id, provider_id, kind, url, storage_path, mime_type, size_bytes, thumbnail_url, caption, sort_order, created_at";
+
+export async function fetchProviderGallery(
+  providerId: string,
+): Promise<GalleryItem[]> {
+  const { data, error } = await client()
+    .from("provider_images")
+    .select(GALLERY_COLS)
+    .eq("provider_id", providerId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as GalleryItemRow[]).map(mapGalleryItem);
+}
+
+export async function addGalleryItem(input: {
+  providerId: string;
+  kind: MediaKind;
+  url: string;
+  storagePath: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  thumbnailUrl: string | null;
+  caption?: string | null;
+}): Promise<GalleryItem> {
+  const c = client();
+  // Compute the next sort_order so insert order is preserved.
+  const { data: tail } = await c
+    .from("provider_images")
+    .select("sort_order")
+    .eq("provider_id", input.providerId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder =
+    ((tail as { sort_order: number | null } | null)?.sort_order ?? 0) + 1;
+
+  const { data, error } = await c
+    .from("provider_images")
+    .insert({
+      provider_id: input.providerId,
+      kind: input.kind,
+      url: input.url,
+      storage_path: input.storagePath,
+      mime_type: input.mimeType,
+      size_bytes: input.sizeBytes,
+      thumbnail_url: input.thumbnailUrl,
+      caption: input.caption ?? null,
+      sort_order: nextOrder,
+    })
+    .select(GALLERY_COLS)
+    .single();
+  if (error) throw error;
+  return mapGalleryItem(data as GalleryItemRow);
+}
+
+export async function removeGalleryItem(
+  itemId: string,
+  storagePaths?: (string | null)[],
+): Promise<void> {
+  const c = client();
+  const { error } = await c.from("provider_images").delete().eq("id", itemId);
+  if (error) throw error;
+  // Best-effort: clean up storage objects (the row is gone either way).
+  if (storagePaths) {
+    const paths = storagePaths.filter((p): p is string => !!p);
+    if (paths.length > 0) {
+      await c.storage
+        .from("provider-media")
+        .remove(paths)
+        .catch(() => {});
+    }
+  }
+}
+
+
+// ============================================================
+// BOOKING CANCELLATION (customer / provider / admin)
+// ============================================================
+export async function cancelBooking(
+  bookingId: string,
+  reason?: string,
+): Promise<void> {
+  const { error } = await client().rpc("cancel_booking", {
+    p_booking_id: bookingId,
+    p_reason: reason?.trim() ? reason.trim() : null,
+  });
+  if (error) throw error;
+}
+
+
+// ============================================================
+// ADMIN — refund queue
+// ============================================================
+export async function adminFetchPendingRefunds(
+  lang: AppLang,
+): Promise<Booking[]> {
+  const { data, error } = await client()
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .in("refund_status", ["pending", "failed"])
+    .order("cancelled_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as BookingRow[]).map((r) =>
+    mapBooking(r, lang),
+  );
+}
+
+export async function adminMarkRefund(
+  bookingId: string,
+  status: RefundStatus,
+  note?: string,
+): Promise<void> {
+  const { error } = await client().rpc("admin_mark_refund", {
+    p_booking_id: bookingId,
+    p_status: status,
+    p_note: note?.trim() ? note.trim() : null,
+  });
+  if (error) throw error;
+}
+
+
+// ============================================================
+// ADMIN — review moderation
+// ============================================================
+export interface ReviewWithContext {
+  id: string;
+  bookingId: string;
+  userId: string;
+  providerId: string;
+  rating: number;
+  comment: string | null;
+  isHidden: boolean;
+  hiddenReason: string | null;
+  hiddenAt: string | null;
+  createdAt: string;
+  userName: string | null;
+  providerName: string | null;
+}
+
+function mapReviewWithContext(
+  row: ReviewRow,
+  lang: AppLang,
+): ReviewWithContext {
+  return {
+    id: row.id,
+    bookingId: row.booking_id,
+    userId: row.user_id,
+    providerId: row.provider_id,
+    rating: row.rating,
+    comment: row.comment,
+    isHidden: row.is_hidden ?? false,
+    hiddenReason: row.hidden_reason,
+    hiddenAt: row.hidden_at,
+    createdAt: row.created_at,
+    userName: row.user?.full_name ?? null,
+    providerName: pickLocalized(
+      row.provider?.name_ar ?? null,
+      null,
+      row.provider?.name ?? "",
+      lang,
+    ) || null,
+  };
+}
+
+export async function adminFetchReviews(
+  filter: "all" | "visible" | "hidden",
+  lang: AppLang,
+): Promise<ReviewWithContext[]> {
+  let q = client()
+    .from("reviews")
+    .select(
+      "id, booking_id, user_id, provider_id, rating, comment, is_hidden, hidden_reason, hidden_at, created_at, user:users!reviews_user_id_fkey ( full_name ), provider:providers!reviews_provider_id_fkey ( name, name_ar )",
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (filter === "visible") q = q.eq("is_hidden", false);
+  else if (filter === "hidden") q = q.eq("is_hidden", true);
+  const { data, error } = await q;
+  if (error) throw error;
+  return ((data ?? []) as unknown as ReviewRow[]).map((r) =>
+    mapReviewWithContext(r, lang),
+  );
+}
+
+export async function adminSetReviewHidden(
+  reviewId: string,
+  hidden: boolean,
+  reason?: string,
+): Promise<void> {
+  const { error } = await client().rpc("admin_set_review_hidden", {
+    p_review_id: reviewId,
+    p_hidden: hidden,
+    p_reason: reason?.trim() ? reason.trim() : null,
+  });
+  if (error) throw error;
+}
+
+
+// ============================================================
+// PROVIDER GEOLOCATION
+// ============================================================
+export async function updateProviderLocation(
+  providerId: string,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  const { error } = await client()
+    .from("providers")
+    .update({ lat, lng })
+    .eq("id", providerId);
+  if (error) throw error;
+}
+
+
+// ============================================================
+// CLIENT-SIDE PROVIDER FILTERING
+// ============================================================
+export interface ProviderFilters {
+  query?: string;
+  city?: string | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  minRating?: number | null;
+}
+
+export function filterProviders(
+  providers: Provider[],
+  f: ProviderFilters,
+): Provider[] {
+  const q = f.query?.trim() ?? "";
+  return providers.filter((p) => {
+    if (q) {
+      if (
+        !p.name.includes(q) &&
+        !p.city.includes(q) &&
+        !p.description.includes(q)
+      ) {
+        return false;
+      }
+    }
+    if (f.city && p.city !== f.city) return false;
+    if (f.minPrice != null && p.priceFrom > 0 && p.priceFrom < f.minPrice) {
+      return false;
+    }
+    if (f.maxPrice != null && p.priceFrom > f.maxPrice) return false;
+    if (f.minRating != null && p.rating < f.minRating) return false;
+    return true;
+  });
+}
+
 
 // ============================================================
 // ADMIN — dashboard stats

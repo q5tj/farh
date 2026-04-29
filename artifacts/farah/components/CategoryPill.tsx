@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Category } from "@/lib/data";
 import { useColors } from "@/hooks/useColors";
@@ -19,9 +19,6 @@ export function CategoryPill({ category }: { category: Category }) {
           borderRadius: c.radius,
           opacity: pressed ? 0.85 : 1,
           transform: [{ scale: pressed ? 0.97 : 1 }],
-          ...(Platform.OS === "web"
-            ? ({ boxShadow: "0 1px 2px rgba(123,44,191,0.05)" } as object)
-            : {}),
         },
       ]}
     >

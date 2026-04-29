@@ -124,6 +124,13 @@ export default function AdminAuditScreen() {
   );
 }
 
+function jsonbToNumeric(v: unknown): string {
+  if (v == null) return "—";
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v.replace(/^"|"$/g, "");
+  return String(v);
+}
+
 function AuditCard({ entry }: { entry: AuditLogEntry }) {
   const c = useColors();
   const { t } = useT();
@@ -134,15 +141,6 @@ function AuditCard({ entry }: { entry: AuditLogEntry }) {
     date.getMinutes(),
   ).padStart(2, "0")}`;
 
-  const actionLabel =
-    entry.action === "role_change"
-      ? t("auditActionRoleChange")
-      : entry.action === "commission_change"
-        ? t("auditActionCommissionChange")
-        : entry.action === "content_edit"
-          ? t("auditActionContentEdit")
-          : entry.action;
-
   const actionIcon: keyof typeof Feather.glyphMap =
     entry.action === "role_change"
       ? "user-check"
@@ -150,18 +148,43 @@ function AuditCard({ entry }: { entry: AuditLogEntry }) {
         ? "percent"
         : entry.action === "content_edit"
           ? "edit-3"
-          : "activity";
+          : entry.action === "refund_mark"
+            ? "rotate-ccw"
+            : "activity";
 
-  const payloadStr = useMemo(() => {
-    if (entry.payload && typeof entry.payload === "object") {
-      try {
-        return JSON.stringify(entry.payload);
-      } catch {
-        return String(entry.payload);
-      }
+  // Build the human-readable sentence from the payload.
+  const sentence = useMemo(() => {
+    const actor = entry.actorName ?? t("auditUnknownActor");
+    const p = (entry.payload ?? {}) as Record<string, unknown>;
+    let action = "";
+    switch (entry.action) {
+      case "commission_change":
+        action = t("auditCommissionMsg", {
+          from: jsonbToNumeric(p.from),
+          to: jsonbToNumeric(p.to),
+        });
+        break;
+      case "role_change":
+        action = t("auditRoleMsg", {
+          from: jsonbToNumeric(p.from),
+          to: jsonbToNumeric(p.to),
+        });
+        break;
+      case "content_edit":
+        action = t("auditContentMsg", {
+          key: jsonbToNumeric((p.key ?? entry.targetId) as unknown),
+        });
+        break;
+      case "refund_mark":
+        action = t("auditRefundMsg", {
+          status: jsonbToNumeric(p.status),
+        });
+        break;
+      default:
+        action = entry.action;
     }
-    return entry.payload ? String(entry.payload) : "";
-  }, [entry.payload]);
+    return t("auditByUser", { actor, action });
+  }, [entry, t]);
 
   return (
     <Card>
@@ -170,30 +193,14 @@ function AuditCard({ entry }: { entry: AuditLogEntry }) {
           <Feather name={actionIcon} size={18} color={c.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: c.foreground }]}>{actionLabel}</Text>
+          <Text style={[styles.title, { color: c.foreground }]}>
+            {sentence}
+          </Text>
           <Text style={[styles.meta, { color: c.mutedForeground }]}>
-            {entry.targetTable ?? "—"}
-            {entry.targetId ? ` • ${entry.targetId.slice(0, 8)}` : ""}
-            {" • "}
             {dateLabel}
           </Text>
         </View>
       </View>
-      {payloadStr ? (
-        <View
-          style={[
-            styles.payloadBox,
-            { backgroundColor: c.muted, borderColor: c.border },
-          ]}
-        >
-          <Text
-            style={[styles.payloadText, { color: c.foreground }]}
-            numberOfLines={3}
-          >
-            {payloadStr}
-          </Text>
-        </View>
-      ) : null}
     </Card>
   );
 }

@@ -1,14 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import {
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
@@ -105,15 +98,6 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
           borderRadius: c.radius,
           opacity: pressed ? 0.95 : 1,
           transform: [{ scale: pressed ? 0.99 : 1 }],
-          ...(Platform.OS === "web"
-            ? ({ boxShadow: "0 4px 14px rgba(123,44,191,0.08)" } as object)
-            : {
-                shadowColor: "#7b2cbf",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.08,
-                shadowRadius: 12,
-                elevation: 3,
-              }),
         },
       ]}
     >

@@ -152,6 +152,33 @@ export default function LoginScreen() {
             />
           </View>
 
+          <Text style={[styles.legalNote, { color: c.mutedForeground }]}>
+            {t("termsLoginNote")}
+          </Text>
+          <View style={styles.legalLinksRow}>
+            <Link
+              href={{ pathname: "/legal/[key]", params: { key: "terms_conditions" } }}
+              asChild
+            >
+              <Pressable>
+                <Text style={[styles.legalLink, { color: c.primary }]}>
+                  {t("termsViewTerms")}
+                </Text>
+              </Pressable>
+            </Link>
+            <Text style={{ color: c.mutedForeground }}> • </Text>
+            <Link
+              href={{ pathname: "/legal/[key]", params: { key: "privacy_policy" } }}
+              asChild
+            >
+              <Pressable>
+                <Text style={[styles.legalLink, { color: c.primary }]}>
+                  {t("termsViewPrivacy")}
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+
           <View
             style={[
               styles.footerRow,
@@ -234,5 +261,22 @@ const styles = StyleSheet.create({
   footerLink: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
+  },
+  legalNote: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 14,
+    lineHeight: 19,
+  },
+  legalLinksRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  legalLink: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
   },
 });

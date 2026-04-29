@@ -45,15 +45,6 @@ export default function TabLayout() {
           height: tabBarHeight,
           paddingTop: 6,
           paddingBottom: bottomInset + labelPad,
-          ...(isWeb
-            ? ({
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                boxShadow: "0 -2px 8px rgba(0,0,0,0.06)",
-              } as object)
-            : {}),
         },
         tabBarLabelStyle: {
           fontFamily: "Cairo_500Medium",

@@ -123,16 +123,23 @@ export default function AdminHome() {
       color: "#c026d3",
     },
     {
-      icon: "info",
-      title: t("aboutContentTitle"),
-      desc: t("aboutContentDesc"),
-      route: "/admin/content",
-      color: "#0891b2",
+      icon: "star",
+      title: t("adminReviews"),
+      desc: t("adminReviewsDesc"),
+      route: "/admin/reviews",
+      color: "#f59e0b",
+    },
+    {
+      icon: "rotate-ccw",
+      title: t("adminRefunds"),
+      desc: t("adminRefundsDesc"),
+      route: "/admin/refunds",
+      color: "#dc2626",
     },
     {
       icon: "settings",
-      title: t("commissions"),
-      desc: t("settingsCommissionDesc", { rate: commissionRate }),
+      title: t("appSettingsTitle"),
+      desc: t("appSettingsDesc"),
       route: "/admin/settings",
       color: "#7b2cbf",
     },
@@ -140,7 +147,13 @@ export default function AdminHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={t("adminHome")} />
+      <ScreenHeader
+        title={t("adminHome")}
+        onBack={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/(tabs)/profile");
+        }}
+      />
       <ScrollView
         contentContainerStyle={{
           paddingBottom: insets.bottom + 30,
@@ -215,11 +228,6 @@ export default function AdminHome() {
                   borderColor: c.border,
                   borderRadius: c.radius,
                   opacity: pressed ? 0.85 : 1,
-                  ...(isWeb
-                    ? ({
-                        boxShadow: "0 1px 3px rgba(123,44,191,0.06)",
-                      } as object)
-                    : {}),
                 },
               ]}
             >

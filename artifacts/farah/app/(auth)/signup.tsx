@@ -33,6 +33,7 @@ export default function SignupScreen() {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const onSubmit = async () => {
     setError("");
@@ -47,6 +48,10 @@ export default function SignupScreen() {
     }
     if (password !== confirm) {
       setError(t("passwordsMismatch"));
+      return;
+    }
+    if (!acceptedTerms) {
+      setError(t("termsPleaseAccept"));
       return;
     }
     if (!isSupabaseConfigured) {
@@ -165,12 +170,67 @@ export default function SignupScreen() {
             />
           </View>
 
-          <View style={{ marginTop: 24 }}>
+          <Pressable
+            onPress={() => setAcceptedTerms((v) => !v)}
+            style={[
+              styles.termsRow,
+              {
+                borderColor: acceptedTerms ? c.primary : c.border,
+                backgroundColor: acceptedTerms
+                  ? "rgba(123,44,191,0.06)"
+                  : "transparent",
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.termsBox,
+                {
+                  borderColor: acceptedTerms ? c.primary : c.border,
+                  backgroundColor: acceptedTerms ? c.primary : "transparent",
+                },
+              ]}
+            >
+              {acceptedTerms ? (
+                <Feather name="check" size={14} color="#ffffff" />
+              ) : null}
+            </View>
+            <Text style={[styles.termsText, { color: c.foreground }]}>
+              {t("termsSignupNote")}
+            </Text>
+          </Pressable>
+
+          <View style={styles.legalLinksRow}>
+            <Link
+              href={{ pathname: "/legal/[key]", params: { key: "terms_conditions" } }}
+              asChild
+            >
+              <Pressable>
+                <Text style={[styles.legalLink, { color: c.primary }]}>
+                  {t("termsViewTerms")}
+                </Text>
+              </Pressable>
+            </Link>
+            <Text style={{ color: c.mutedForeground }}> • </Text>
+            <Link
+              href={{ pathname: "/legal/[key]", params: { key: "privacy_policy" } }}
+              asChild
+            >
+              <Pressable>
+                <Text style={[styles.legalLink, { color: c.primary }]}>
+                  {t("termsViewPrivacy")}
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+
+          <View style={{ marginTop: 16 }}>
             <Button
               label={submitting ? t("creatingAccount") : t("signupAction")}
               onPress={onSubmit}
               loading={submitting}
               size="lg"
+              disabled={!acceptedTerms}
             />
           </View>
 
@@ -253,5 +313,39 @@ const styles = StyleSheet.create({
   footerLink: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
+  },
+  termsRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginTop: 18,
+  },
+  termsBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  termsText: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 13,
+    flex: 1,
+    textAlign: "right",
+    lineHeight: 19,
+  },
+  legalLinksRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  legalLink: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
   },
 });

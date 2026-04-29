@@ -568,6 +568,127 @@ export const ar = {
   adminDocMissing: "لم يُرفع",
   adminViewFullSize: "عرض بالحجم الكامل",
   adminCommissionSnapshot: "نسبة العمولة المتفق عليها",
+
+  // Provider gallery
+  galleryManageTitle: "معرض الأعمال",
+  galleryManageDesc: "أضف صور وفيديوهات وملفات تعرّف بأعمالك. تُضغط الصور تلقائياً.",
+  galleryAddImage: "إضافة صورة",
+  galleryAddVideo: "إضافة فيديو",
+  galleryAddFile: "إضافة ملف",
+  galleryEmpty: "ما فيه عناصر بالمعرض حالياً",
+  galleryItemImage: "صورة",
+  galleryItemVideo: "فيديو",
+  galleryItemFile: "ملف",
+  galleryDelete: "حذف",
+  galleryDeleteConfirm: "متأكد من حذف هذا العنصر؟",
+  galleryUploadFailed: "تعذّر رفع العنصر",
+  galleryVideoTooLarge: "الفيديو أكبر من المسموح ({{max}} MB)",
+  galleryFileTooLarge: "الملف أكبر من المسموح ({{max}} MB)",
+  galleryCaption: "وصف اختياري",
+
+  // Booking cancellation (customer + provider side)
+  cancelBookingTitle: "إلغاء الحجز",
+  cancelBookingPrompt: "اختر سبب الإلغاء (اختياري) — سنرسله للطرف الآخر.",
+  cancelBookingReasonLabel: "السبب",
+  cancelBookingConfirmBtn: "تأكيد الإلغاء",
+  cancelBookingKeep: "تراجع",
+  cancelBookingFailed: "تعذّر إلغاء الحجز",
+  cancelledByCustomer: "أُلغي من العميل",
+  cancelledByProvider: "أُلغي من المزود",
+  cancelledByAdmin: "أُلغي من الإدارة",
+  cancellationReasonLabel: "سبب الإلغاء",
+
+  // Refunds
+  refundStatusNotRequired: "لا يحتاج استرداد",
+  refundStatusPending: "بانتظار الاسترداد",
+  refundStatusCompleted: "تم الاسترداد",
+  refundStatusFailed: "فشل الاسترداد",
+  adminRefunds: "طلبات الاسترداد",
+  adminRefundsDesc: "حجوزات ملغية بدفعات بانتظار المعالجة",
+  noPendingRefunds: "ما فيه استردادات معلّقة",
+  markRefundCompleted: "تأكيد إتمام الاسترداد",
+  markRefundFailed: "وضع الاسترداد كفشل",
+  refundNoteOptional: "ملاحظة داخلية (اختيارية)",
+
+  // Advanced filtering (home)
+  filterTitle: "تصفية",
+  filterApply: "تطبيق",
+  filterClear: "مسح الكل",
+  filterCity: "المدينة",
+  filterAllCities: "كل المدن",
+  filterPriceRange: "السعر",
+  filterMinPrice: "من",
+  filterMaxPrice: "إلى",
+  filterMinRating: "أدنى تقييم",
+  filterAnyRating: "أي تقييم",
+  filterResultsCount: "{{count}} مزود مطابق",
+
+  // Service areas (multi-city)
+  serviceAreasTitle: "مناطق الخدمة",
+  serviceAreasDesc: "اختر المدن التي تخدمها — يمكنك اختيار أكثر من مدينة.",
+  serviceAreasManage: "تعديل مناطق الخدمة",
+  serviceAreasSaved: "تم حفظ مناطق الخدمة",
+  pickAtLeastOneCity: "اختر مدينة واحدة على الأقل",
+
+  // Geolocation
+  useMyLocation: "استخدام موقعي الحالي",
+  locationCaptured: "تم تسجيل الموقع",
+  locationPermissionDenied: "نحتاج إذن الموقع لتحديد مكان نشاطك",
+  locationFetchFailed: "تعذّر تحديد الموقع",
+
+  // Admin reviews moderation
+  adminReviews: "إدارة التقييمات",
+  adminReviewsDesc: "مراجعة وإخفاء التقييمات المخالفة",
+  reviewHidden: "مخفي",
+  hideReview: "إخفاء التقييم",
+  unhideReview: "إظهار التقييم",
+  hideReviewReason: "سبب الإخفاء (اختياري)",
+  hideReviewConfirm: "إخفاء التقييم؟",
+  filterReviewsAll: "الكل",
+  filterReviewsVisible: "ظاهرة",
+  filterReviewsHidden: "مخفية",
+  noReviewsToModerate: "ما فيه تقييمات للمراجعة",
+
+  // Legal documents
+  termsConditionsTitle: "الشروط والأحكام",
+  privacyPolicyTitle: "سياسة الخصوصية",
+  termsAcceptCheckbox: "أوافق على الشروط والأحكام وسياسة الخصوصية",
+  termsLoginNote: "بتسجيلك الدخول أنت توافق على الشروط والأحكام وسياسة الخصوصية",
+  termsSignupNote: "أوافق على الشروط والأحكام وسياسة الخصوصية",
+  termsPleaseAccept: "يرجى الموافقة على الشروط والأحكام للمتابعة",
+  termsViewTerms: "عرض الشروط والأحكام",
+  termsViewPrivacy: "عرض سياسة الخصوصية",
+  termsLastUpdated: "آخر تحديث: {{date}}",
+
+  // Audit — human readable
+  auditByUser: "{{actor}} {{action}}",
+  auditCommissionMsg: "غيّر العمولة من {{from}}% إلى {{to}}%",
+  auditRoleMsg: "غيّر دور المستخدم من {{from}} إلى {{to}}",
+  auditContentMsg: "حدّث محتوى \"{{key}}\"",
+  auditRefundMsg: "حدّث الاسترداد للحجز إلى {{status}}",
+  auditUnknownActor: "أحد المسؤولين",
+
+  // App settings hub (admin)
+  appSettingsTitle: "إعدادات التطبيق",
+  appSettingsDesc: "العمولة، الشروط، الخصوصية، ومحتوى التطبيق",
+  appSettingsCommissionSection: "العمولة",
+  appSettingsLegalSection: "الوثائق القانونية",
+  appSettingsAboutSection: "حول التطبيق",
+  appSettingsSystemSection: "معلومات النظام",
+  appSettingsEditTerms: "تعديل الشروط والأحكام",
+  appSettingsEditPrivacy: "تعديل سياسة الخصوصية",
+  appSettingsEditAbout: "تعديل صفحة \"حول التطبيق\"",
+
+  // Booking detail
+  showBookingStatus: "شوف حالة الحجز",
+
+  // Smart location prompt
+  locationPromptTitle: "نلاقي لك المزودين القريبين",
+  locationPromptBody:
+    "اسمح بالوصول لموقعك ونرشّح لك المزودين في مدينتك تلقائياً. بإمكانك إلغاء التصفية في أي وقت من زر الفلترة.",
+  locationPromptAllow: "سماح",
+  locationPromptDeny: "ليس الآن",
+  locationDetectedCity: "تم اختيار مدينة {{city}} تلقائياً",
 };
 
 export type Strings = typeof ar;

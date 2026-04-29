@@ -150,7 +150,13 @@ export default function ProviderScreen() {
               { paddingTop: (isWeb ? Math.max(insets.top, 30) : insets.top) + 8 },
             ]}
           >
-            <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) router.back();
+                else router.replace("/(tabs)");
+              }}
+              style={styles.iconBtn}
+            >
               <Feather name="chevron-right" size={22} color="#ffffff" />
             </Pressable>
             <Pressable style={styles.iconBtn}>
@@ -194,21 +200,106 @@ export default function ProviderScreen() {
             </Text>
           </Card>
 
+          {provider.lat != null && provider.lng != null ? (
+            <Pressable
+              onPress={() => {
+                const url = `https://www.google.com/maps?q=${provider.lat},${provider.lng}`;
+                if (Platform.OS === "web") window.open?.(url, "_blank");
+                else Linking.openURL(url).catch(() => {});
+              }}
+              style={[styles.mapLink, { borderColor: c.border, backgroundColor: c.card }]}
+            >
+              <Feather name="map-pin" size={16} color={c.primary} />
+              <Text style={[styles.mapLinkText, { color: c.primary }]}>
+                {t("openInMaps")}
+              </Text>
+            </Pressable>
+          ) : null}
+
           <View style={{ marginTop: 14 }}>
             <Text
               style={[styles.sectionTitle, { color: c.foreground, marginBottom: 10 }]}
             >
               {t("galleryTitle")}
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 10 }}
-            >
-              {galleryImages.map((g, i) => (
-                <Image key={i} source={g} style={styles.galleryImage} />
-              ))}
-            </ScrollView>
+            {provider.galleryItems.length === 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {galleryImages.map((g, i) => (
+                  <Image key={i} source={g} style={styles.galleryImage} />
+                ))}
+              </ScrollView>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+              >
+                {provider.galleryItems.map((item) => {
+                  const open = () => {
+                    if (Platform.OS === "web") window.open?.(item.url, "_blank");
+                    else Linking.openURL(item.url).catch(() => {});
+                  };
+                  if (item.kind === "image") {
+                    return (
+                      <Pressable key={item.id} onPress={open}>
+                        <Image
+                          source={{ uri: item.url }}
+                          style={styles.galleryImage}
+                        />
+                      </Pressable>
+                    );
+                  }
+                  if (item.kind === "video") {
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={open}
+                        style={styles.galleryVideo}
+                      >
+                        {item.thumbnailUrl ? (
+                          <Image
+                            source={{ uri: item.thumbnailUrl }}
+                            style={styles.galleryImage}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.galleryFallback,
+                              { backgroundColor: c.muted },
+                            ]}
+                          >
+                            <Feather name="video" size={28} color={c.primary} />
+                          </View>
+                        )}
+                        <View style={styles.playBadge}>
+                          <Feather name="play" size={20} color="#ffffff" />
+                        </View>
+                      </Pressable>
+                    );
+                  }
+                  // file
+                  return (
+                    <Pressable
+                      key={item.id}
+                      onPress={open}
+                      style={[
+                        styles.galleryFile,
+                        { borderColor: c.border, backgroundColor: c.card },
+                      ]}
+                    >
+                      <Feather name="file-text" size={28} color={c.primary} />
+                      <Text style={[styles.galleryFileText, { color: c.foreground }]}>
+                        {t("galleryItemFile")}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
           </View>
 
           <View style={{ marginTop: 18 }}>
@@ -429,6 +520,60 @@ const styles = StyleSheet.create({
     width: 200,
     height: 130,
     borderRadius: 14,
+  },
+  galleryVideo: {
+    width: 200,
+    height: 130,
+    borderRadius: 14,
+    overflow: "hidden",
+    position: "relative",
+  },
+  galleryFallback: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playBadge: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 40,
+    height: 40,
+    marginTop: -20,
+    marginLeft: -20,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryFile: {
+    width: 130,
+    height: 130,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  galleryFileText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
+  mapLink: {
+    marginTop: 12,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  mapLinkText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
   },
   serviceCard: {
     borderWidth: 2,

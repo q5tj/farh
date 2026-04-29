@@ -351,7 +351,10 @@ export default function AvailabilityScreen() {
         <View>
           <Button
             label={t("back")}
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/provider-zone");
+            }}
             variant="ghost"
           />
         </View>
