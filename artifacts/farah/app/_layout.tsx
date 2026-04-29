@@ -59,14 +59,16 @@ function AuthGate() {
     const inAuth = segments[0] === "(auth)";
     const onProfileSetup =
       segments[0] === "(auth)" && segments[1] === "profile-setup";
+    // Public routes that don't require a session — terms, privacy, etc.
+    const isPublic = segments[0] === "legal";
 
     if (!session) {
-      if (!inAuth) router.replace("/(auth)/login");
+      if (!inAuth && !isPublic) router.replace("/(auth)/login");
       return;
     }
     if (!profile) return;
     if (!profile.profileCompleted) {
-      if (!onProfileSetup) router.replace("/(auth)/profile-setup");
+      if (!onProfileSetup && !isPublic) router.replace("/(auth)/profile-setup");
       return;
     }
     // Profile is complete: bounce out of (auth) UNLESS user opened
@@ -88,6 +90,7 @@ function AuthGate() {
       <Stack.Screen name="support" />
       <Stack.Screen name="about" />
       <Stack.Screen name="favorites" />
+      <Stack.Screen name="legal/[key]" />
     </Stack>
   );
 }
