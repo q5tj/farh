@@ -343,30 +343,6 @@ export default function ProfileScreen() {
               chevron={chevron}
               onPress={() => router.push("/about")}
             />
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
-            <Row
-              icon="file-text"
-              label={t("termsConditionsTitle")}
-              chevron={chevron}
-              onPress={() =>
-                router.push({
-                  pathname: "/legal/[key]",
-                  params: { key: "terms_conditions" },
-                })
-              }
-            />
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
-            <Row
-              icon="shield"
-              label={t("privacyPolicyTitle")}
-              chevron={chevron}
-              onPress={() =>
-                router.push({
-                  pathname: "/legal/[key]",
-                  params: { key: "privacy_policy" },
-                })
-              }
-            />
           </Card>
 
           <Card style={{ marginTop: 14 }} padded={false}>

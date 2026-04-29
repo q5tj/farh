@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card } from "@/components/ui/Card";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import {
   adminFetchDashboardStats,
@@ -39,7 +37,6 @@ export default function AdminHome() {
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const isWeb = Platform.OS === "web";
-  const { commissionRate } = useApp();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pendingVerifications, setPendingVerifications] = useState(0);
@@ -65,8 +62,6 @@ export default function AdminHome() {
   useEffect(() => {
     load();
   }, []);
-
-  const ourCut = stats ? stats.totalRevenue * (commissionRate / 100) : 0;
 
   const tiles: ActionTile[] = [
     {
@@ -137,6 +132,13 @@ export default function AdminHome() {
       color: "#dc2626",
     },
     {
+      icon: "dollar-sign",
+      title: t("adminFinancials"),
+      desc: t("adminFinancialsDesc"),
+      route: "/admin/financials",
+      color: "#16a34a",
+    },
+    {
       icon: "settings",
       title: t("appSettingsTitle"),
       desc: t("appSettingsDesc"),
@@ -169,26 +171,6 @@ export default function AdminHome() {
           />
         }
       >
-        <LinearGradient
-          colors={["#7b2cbf", "#5a189a"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <Text style={styles.heroLabel}>{t("platformCommissionTotal")}</Text>
-          <Text style={styles.heroValue}>
-            {Math.round(ourCut).toLocaleString()} ر.س
-          </Text>
-          <View style={styles.heroFooter}>
-            <Feather name="trending-up" size={14} color="#ffffff" />
-            <Text style={styles.heroFooterText}>
-              {t("fromRevenue", {
-                revenue: (stats?.totalRevenue ?? 0).toLocaleString(),
-              })}
-            </Text>
-          </View>
-        </LinearGradient>
-
         {loading ? (
           <View style={{ paddingTop: 24, alignItems: "center" }}>
             <ActivityIndicator color={c.primary} />
@@ -341,40 +323,12 @@ function SummaryRow({
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    margin: 16,
-    padding: 22,
-    borderRadius: 20,
-  },
-  heroLabel: {
-    color: "rgba(255,255,255,0.85)",
-    fontFamily: "Cairo_500Medium",
-    fontSize: 13,
-    textAlign: "right",
-  },
-  heroValue: {
-    color: "#ffffff",
-    fontFamily: "Cairo_700Bold",
-    fontSize: 32,
-    marginTop: 6,
-    textAlign: "right",
-  },
-  heroFooter: {
-    marginTop: 14,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 6,
-  },
-  heroFooterText: {
-    color: "rgba(255,255,255,0.85)",
-    fontFamily: "Cairo_400Regular",
-    fontSize: 12,
-  },
   kpisRow: {
     flexDirection: "row-reverse",
     flexWrap: "wrap",
     gap: 10,
     paddingHorizontal: 16,
+    paddingTop: 16,
     marginBottom: 20,
   },
   kpi: {

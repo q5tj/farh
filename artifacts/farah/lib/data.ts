@@ -117,6 +117,10 @@ interface BookingRow {
   payment_method: string | null;
   payment_id: string | null;
   commission_rate: number | string | null;
+  commission_status: CommissionStatus | null;
+  commission_amount: number | string | null;
+  commission_paid_at: string | null;
+  commission_payment_note: string | null;
   cancelled_at: string | null;
   cancelled_by: string | null;
   cancellation_reason: string | null;
@@ -170,6 +174,8 @@ export type RefundStatus =
   | "pending"
   | "completed"
   | "failed";
+
+export type CommissionStatus = "owed" | "paid" | "waived";
 
 export type MediaKind = "image" | "video" | "file";
 
@@ -271,6 +277,10 @@ export interface Booking {
   createdAt: number; // ms
   rating: number | null;
   reviewText: string | null;
+  commissionStatus: CommissionStatus;
+  commissionAmount: number;
+  commissionPaidAt: string | null;
+  commissionPaymentNote: string | null;
 }
 
 export interface AppNotification {
@@ -443,6 +453,11 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     rating: review?.rating ?? null,
     reviewText: review?.comment ?? null,
+    commissionStatus: row.commission_status ?? "owed",
+    commissionAmount:
+      row.commission_amount != null ? Number(row.commission_amount) : 0,
+    commissionPaidAt: row.commission_paid_at,
+    commissionPaymentNote: row.commission_payment_note,
   };
 }
 
@@ -801,7 +816,8 @@ const BOOKING_SELECT = `
   id, user_id, provider_id, service_id, service_title, price,
   start_at, end_at, city, address, notes, status,
   payment_status, payment_method, payment_id,
-  commission_rate,
+  commission_rate, commission_status, commission_amount,
+  commission_paid_at, commission_payment_note,
   cancelled_at, cancelled_by, cancellation_reason, refund_status,
   created_at,
   user:users!bookings_user_id_fkey ( full_name, phone, email ),
@@ -1877,4 +1893,200 @@ export async function adminFetchDashboardStats(): Promise<DashboardStats> {
     totalRevenue,
     openTickets: ticketsRes.count ?? 0,
   };
+}
+
+
+// ============================================================
+// PER-BOOKING COMMISSION ACCOUNTING
+// ============================================================
+
+export interface ProviderFinancialSummary {
+  totalCompleted: number;
+  totalRevenue: number;
+  totalOwed: number;
+  totalPaid: number;
+  totalWaived: number;
+  balance: number;
+}
+
+export interface ProviderWithFinancials {
+  provider: Provider;
+  totalRevenue: number;
+  totalOwed: number;
+  totalPaid: number;
+  totalWaived: number;
+  balance: number;
+  completedCount: number;
+}
+
+interface SummaryRow {
+  total_completed: number | string | null;
+  total_revenue: number | string | null;
+  total_commission_owed: number | string | null;
+  total_commission_paid: number | string | null;
+  total_commission_waived: number | string | null;
+  balance: number | string | null;
+}
+
+function emptySummary(): ProviderFinancialSummary {
+  return {
+    totalCompleted: 0,
+    totalRevenue: 0,
+    totalOwed: 0,
+    totalPaid: 0,
+    totalWaived: 0,
+    balance: 0,
+  };
+}
+
+function aggregateBookings(bookings: Booking[]): ProviderFinancialSummary {
+  let totalCompleted = 0;
+  let totalRevenue = 0;
+  let totalOwed = 0;
+  let totalPaid = 0;
+  let totalWaived = 0;
+  for (const b of bookings) {
+    if (b.status === "completed") {
+      totalCompleted += 1;
+      totalRevenue += b.price;
+    }
+    if (b.commissionStatus === "owed") totalOwed += b.commissionAmount;
+    else if (b.commissionStatus === "paid") totalPaid += b.commissionAmount;
+    else if (b.commissionStatus === "waived")
+      totalWaived += b.commissionAmount;
+  }
+  return {
+    totalCompleted,
+    totalRevenue,
+    totalOwed,
+    totalPaid,
+    totalWaived,
+    balance: totalOwed,
+  };
+}
+
+/** Admin overview: providers + their balance, sorted by balance desc. */
+export async function adminFetchProvidersWithFinancials(
+  lang: AppLang,
+): Promise<ProviderWithFinancials[]> {
+  const c = client();
+  // Fetch providers (any status) and all bookings in parallel; aggregating
+  // client-side keeps the SQL simple and avoids a per-provider RPC fan-out.
+  const [providersRes, bookingsRes] = await Promise.all([
+    c.from("providers").select(PROVIDER_SELECT),
+    c
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .order("created_at", { ascending: false }),
+  ]);
+  if (providersRes.error) throw providersRes.error;
+  if (bookingsRes.error) throw bookingsRes.error;
+
+  const providers = ((providersRes.data ?? []) as unknown as ProviderRow[]).map(
+    (r) =>
+      mapProvider(
+        { ...r, services: (r.services ?? []).filter((s) => s.is_active !== false) },
+        lang,
+      ),
+  );
+  const bookings = ((bookingsRes.data ?? []) as unknown as BookingRow[]).map(
+    (r) => mapBooking(r, lang),
+  );
+
+  // Group bookings by provider to compute aggregates.
+  const byProvider = new Map<string, Booking[]>();
+  for (const b of bookings) {
+    const arr = byProvider.get(b.providerId);
+    if (arr) arr.push(b);
+    else byProvider.set(b.providerId, [b]);
+  }
+
+  const rows = providers.map((provider) => {
+    const list = byProvider.get(provider.id) ?? [];
+    const summary = aggregateBookings(list);
+    return {
+      provider,
+      totalRevenue: summary.totalRevenue,
+      totalOwed: summary.totalOwed,
+      totalPaid: summary.totalPaid,
+      totalWaived: summary.totalWaived,
+      balance: summary.balance,
+      completedCount: summary.totalCompleted,
+    };
+  });
+
+  rows.sort((a, b) => b.balance - a.balance);
+  return rows;
+}
+
+export interface ProviderStatement {
+  bookings: Booking[];
+  summary: ProviderFinancialSummary;
+}
+
+async function fetchProviderStatementInternal(
+  providerId: string,
+  lang: AppLang,
+): Promise<ProviderStatement> {
+  const c = client();
+  // Pull all completed bookings (the statement focuses on settled work) +
+  // ask the DB for authoritative aggregates so a slow client doesn't drift.
+  const [bookingsRes, summaryRes] = await Promise.all([
+    c
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .eq("provider_id", providerId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false }),
+    c.rpc("provider_financial_summary", { p_provider_id: providerId }),
+  ]);
+  if (bookingsRes.error) throw bookingsRes.error;
+  if (summaryRes.error) throw summaryRes.error;
+
+  const bookings = ((bookingsRes.data ?? []) as unknown as BookingRow[]).map(
+    (r) => mapBooking(r, lang),
+  );
+
+  const rawRows = (summaryRes.data ?? []) as SummaryRow[];
+  const raw = rawRows[0];
+  const summary: ProviderFinancialSummary = raw
+    ? {
+        totalCompleted: Number(raw.total_completed ?? 0),
+        totalRevenue: Number(raw.total_revenue ?? 0),
+        totalOwed: Number(raw.total_commission_owed ?? 0),
+        totalPaid: Number(raw.total_commission_paid ?? 0),
+        totalWaived: Number(raw.total_commission_waived ?? 0),
+        balance: Number(raw.balance ?? 0),
+      }
+    : emptySummary();
+
+  return { bookings, summary };
+}
+
+export async function adminFetchProviderStatement(
+  providerId: string,
+  lang: AppLang,
+): Promise<ProviderStatement> {
+  return fetchProviderStatementInternal(providerId, lang);
+}
+
+/** Provider-self read-only view of own statement (RLS lets them through). */
+export async function fetchOwnProviderStatement(
+  providerId: string,
+  lang: AppLang,
+): Promise<ProviderStatement> {
+  return fetchProviderStatementInternal(providerId, lang);
+}
+
+export async function adminSetCommissionStatus(
+  bookingId: string,
+  status: CommissionStatus,
+  note?: string,
+): Promise<void> {
+  const { error } = await client().rpc("admin_set_commission_status", {
+    p_booking_id: bookingId,
+    p_status: status,
+    p_note: note?.trim() ? note.trim() : null,
+  });
+  if (error) throw error;
 }

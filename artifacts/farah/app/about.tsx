@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,8 +36,18 @@ export default function AboutScreen() {
     { key: "about_how", title: t("aboutHow"), icon: "compass" },
   ];
 
+  const LEGAL_SECTIONS: {
+    key: string;
+    title: string;
+    icon: keyof typeof Feather.glyphMap;
+  }[] = [
+    { key: "terms_conditions", title: t("termsConditionsTitle"), icon: "file-text" },
+    { key: "privacy_policy", title: t("privacyPolicyTitle"), icon: "shield" },
+  ];
+
   const [content, setContent] = useState<AppContentEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -93,39 +104,103 @@ export default function AboutScreen() {
               <ActivityIndicator color={c.primary} />
             </View>
           ) : (
-            SECTIONS.map((s) => {
-              const value = getValue(s.key);
-              if (!value) return null;
-              return (
-                <Card key={s.key}>
-                  <View style={styles.row}>
-                    <View
-                      style={[
-                        styles.iconBox,
-                        { backgroundColor: c.primaryBg },
+            <>
+              {SECTIONS.map((s) => {
+                const value = getValue(s.key);
+                if (!value) return null;
+                return (
+                  <Card key={s.key}>
+                    <View style={styles.row}>
+                      <View
+                        style={[
+                          styles.iconBox,
+                          { backgroundColor: c.primaryBg },
+                        ]}
+                      >
+                        <Feather name={s.icon} size={20} color={c.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.sectionTitle, { color: c.foreground }]}
+                        >
+                          {s.title}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sectionBody,
+                            { color: c.mutedForeground },
+                          ]}
+                        >
+                          {value}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })}
+
+              {LEGAL_SECTIONS.map((s) => {
+                const value = getValue(s.key);
+                if (!value) return null;
+                const expanded = expandedKey === s.key;
+                const preview = value.split("\n").find((l) => l.trim()) ?? "";
+                return (
+                  <Card key={s.key}>
+                    <Pressable
+                      onPress={() =>
+                        setExpandedKey(expanded ? null : s.key)
+                      }
+                      style={({ pressed }) => [
+                        styles.legalHeader,
+                        { opacity: pressed ? 0.7 : 1 },
                       ]}
                     >
-                      <Feather name={s.icon} size={20} color={c.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.sectionTitle, { color: c.foreground }]}
+                      <View
+                        style={[
+                          styles.iconBox,
+                          { backgroundColor: c.primaryBg },
+                        ]}
                       >
-                        {s.title}
-                      </Text>
+                        <Feather name={s.icon} size={20} color={c.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.sectionTitle, { color: c.foreground }]}
+                        >
+                          {s.title}
+                        </Text>
+                        {!expanded ? (
+                          <Text
+                            style={[
+                              styles.legalPreview,
+                              { color: c.mutedForeground },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {preview}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Feather
+                        name={expanded ? "chevron-up" : "chevron-down"}
+                        size={20}
+                        color={c.mutedForeground}
+                      />
+                    </Pressable>
+                    {expanded ? (
                       <Text
                         style={[
                           styles.sectionBody,
-                          { color: c.mutedForeground },
+                          { color: c.mutedForeground, marginTop: 12 },
                         ]}
                       >
                         {value}
                       </Text>
-                    </View>
-                  </View>
-                </Card>
-              );
-            })
+                    ) : null}
+                  </Card>
+                );
+              })}
+            </>
           )}
 
           <Text style={[styles.footerText, { color: c.mutedForeground }]}>
@@ -175,6 +250,17 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     gap: 12,
     alignItems: "flex-start",
+  },
+  legalHeader: {
+    flexDirection: "row-reverse",
+    gap: 12,
+    alignItems: "center",
+  },
+  legalPreview: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "right",
   },
   iconBox: {
     width: 44,

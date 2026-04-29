@@ -682,6 +682,32 @@ export const ar = {
   // Booking detail
   showBookingStatus: "شوف حالة الحجز",
 
+  // Per-booking commission accounting
+  adminFinancials: "كشف الحسابات",
+  adminFinancialsDesc: "متابعة الإيرادات والعمولات لكل مزود",
+  providerFinancials: "كشف حسابي",
+  providerFinancialsDesc: "إيراداتك والعمولات المستحقة والمدفوعة",
+  commissionStatusLabel: "حالة العمولة",
+  commissionOwed: "مستحقة",
+  commissionPaid: "مدفوعة",
+  commissionWaived: "مُسقطة",
+  markCommissionPaid: "تعليم كمدفوعة",
+  markCommissionWaived: "إسقاط العمولة",
+  markCommissionOwed: "إعادة كمستحقة",
+  totalOwed: "المستحقة",
+  totalPaid: "المدفوعة",
+  totalWaived: "المُسقطة",
+  balance: "الرصيد",
+  commissionAmount: "مبلغ العمولة",
+  paymentNote: "ملاحظة الدفع (اختيارية)",
+  sendStatementEmail: "إرسال كشف الحساب بالبريد",
+  emailSubjectStatement: "كشف حساب — {{provider}}",
+  emailBodyIntro: "السلام عليكم، تجدون أدناه تفاصيل العمولات المستحقة:",
+  emailBodyOutro: "نشكر تعاونكم. — فرحتكم",
+  statementForProvider: "كشف حساب {{provider}}",
+  noOutstandingBalance: "لا يوجد رصيد مستحق",
+  noFinancialDataYet: "لا توجد بيانات مالية بعد",
+
   // Smart location prompt
   locationPromptTitle: "نلاقي لك المزودين القريبين",
   locationPromptBody:

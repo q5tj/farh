@@ -195,6 +195,14 @@ export default function ProviderHome() {
             desc={t("serviceAreasDesc")}
             onPress={() => router.push("/provider-zone/service-areas")}
           />
+          <ActionCard
+            icon="file-text"
+            title={t("providerFinancials")}
+            desc={t("providerFinancialsDesc")}
+            onPress={() =>
+              router.push("/provider-zone/financials" as never)
+            }
+          />
         </View>
 
         <Text

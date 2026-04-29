@@ -688,6 +688,32 @@ export const en: Strings = {
   // Booking detail
   showBookingStatus: "Show booking status",
 
+  // Per-booking commission accounting
+  adminFinancials: "Provider statements",
+  adminFinancialsDesc: "Track revenue and commissions per provider",
+  providerFinancials: "My statement",
+  providerFinancialsDesc: "Your revenue and commission balance",
+  commissionStatusLabel: "Commission status",
+  commissionOwed: "Owed",
+  commissionPaid: "Paid",
+  commissionWaived: "Waived",
+  markCommissionPaid: "Mark paid",
+  markCommissionWaived: "Waive commission",
+  markCommissionOwed: "Reset to owed",
+  totalOwed: "Owed",
+  totalPaid: "Paid",
+  totalWaived: "Waived",
+  balance: "Balance",
+  commissionAmount: "Commission amount",
+  paymentNote: "Payment note (optional)",
+  sendStatementEmail: "Email this statement",
+  emailSubjectStatement: "Statement — {{provider}}",
+  emailBodyIntro: "Hello, please find below the outstanding commission details:",
+  emailBodyOutro: "Thank you. — Farhatukum",
+  statementForProvider: "Statement for {{provider}}",
+  noOutstandingBalance: "No outstanding balance",
+  noFinancialDataYet: "No financial data yet",
+
   // Smart location prompt
   locationPromptTitle: "Find providers near you",
   locationPromptBody:
