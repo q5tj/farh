@@ -9,6 +9,7 @@
     "dev:tunnel": "pnpm exec expo start --tunnel --port 8081",
     "dev:web": "pnpm exec expo start --web --port 8081",
     "build": "node scripts/build.js",
+    "build:web": "pnpm exec expo export --platform web --output-dir dist",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
