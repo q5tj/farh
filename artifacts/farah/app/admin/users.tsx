@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -19,7 +20,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useColors } from "@/hooks/useColors";
+import { downloadCsv } from "@/lib/csv-export";
 import {
+  adminDemoteProvider,
   adminFetchAllUsers,
   adminSetUserRole,
   type AdminUserRow,
@@ -49,6 +52,37 @@ export default function UsersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyUser, setBusyUser] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const exportTo = (scope: "all" | "customer" | "provider") => {
+    setExportOpen(false);
+    const subset =
+      scope === "all" ? users : users.filter((u) => u.role === scope);
+    const filename =
+      scope === "all"
+        ? "users-all.csv"
+        : scope === "customer"
+          ? "users-customers.csv"
+          : "users-providers.csv";
+    downloadCsv(filename, subset, [
+      { key: "id", header: t("exportColumnId") },
+      { key: "fullName", header: t("exportColumnFullName") },
+      { key: "email", header: t("exportColumnEmail") },
+      { key: "phone", header: t("exportColumnPhone") },
+      {
+        key: "role",
+        header: t("exportColumnRole"),
+        format: (v) => ROLE_LABEL[v as keyof typeof ROLE_LABEL] ?? String(v),
+      },
+      { key: "city", header: t("exportColumnCity") },
+      {
+        key: "createdAt",
+        header: t("exportColumnCreatedAt"),
+        format: (v) =>
+          v ? new Date(String(v)).toISOString().slice(0, 10) : "",
+      },
+    ]);
+  };
 
   const load = async () => {
     try {
@@ -101,7 +135,13 @@ export default function UsersScreen() {
     const run = async () => {
       setBusyUser(user.id);
       try {
-        await adminSetUserRole(user.id, next);
+        if (next === "customer") {
+          // Provider → customer: full cleanup via RPC (deletes services,
+          // gallery, reviews, service areas, storage objects, etc.).
+          await adminDemoteProvider(user.id);
+        } else {
+          await adminSetUserRole(user.id, next);
+        }
         await load();
       } catch (e) {
         const msg = (e as Error).message ?? t("updateRoleFailed");
@@ -137,7 +177,19 @@ export default function UsersScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title={t("manageUsers")} subtitle={t("usersCount", { count: users.length })} />
+      <ScreenHeader
+        title={t("manageUsers")}
+        subtitle={t("usersCount", { count: users.length })}
+        right={
+          <Pressable
+            onPress={() => setExportOpen(true)}
+            style={[styles.exportBtn, { backgroundColor: c.primary }]}
+          >
+            <Feather name="download" size={14} color="#ffffff" />
+            <Text style={styles.exportBtnText}>{t("exportCsv")}</Text>
+          </Pressable>
+        }
+      />
 
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <Input
@@ -196,7 +248,83 @@ export default function UsersScreen() {
           ))}
         </ScrollView>
       )}
+
+      <Modal
+        visible={exportOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExportOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setExportOpen(false)}
+        >
+          <Pressable
+            style={[styles.modalSheet, { backgroundColor: c.background }]}
+            onPress={(e) => e.stopPropagation?.()}
+          >
+            <Text style={[styles.modalTitle, { color: c.foreground }]}>
+              {t("exportPickScope")}
+            </Text>
+            <ScopeRow
+              icon="users"
+              label={t("exportAll")}
+              count={counts.all}
+              onPress={() => exportTo("all")}
+            />
+            <ScopeRow
+              icon="user"
+              label={t("exportCustomers")}
+              count={counts.customer}
+              onPress={() => exportTo("customer")}
+            />
+            <ScopeRow
+              icon="briefcase"
+              label={t("exportProviders")}
+              count={counts.provider}
+              onPress={() => exportTo("provider")}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
+  );
+}
+
+function ScopeRow({
+  icon,
+  label,
+  count,
+  onPress,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  count: number;
+  onPress: () => void;
+}) {
+  const c = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.scopeRow,
+        {
+          backgroundColor: pressed ? c.muted : "transparent",
+          borderColor: c.border,
+        },
+      ]}
+    >
+      <View style={[styles.scopeIcon, { backgroundColor: c.primaryBg }]}>
+        <Feather name={icon} size={18} color={c.primary} />
+      </View>
+      <Text style={[styles.scopeLabel, { color: c.foreground }]}>{label}</Text>
+      <View style={[styles.scopeBadge, { backgroundColor: c.muted }]}>
+        <Text style={[styles.scopeBadgeText, { color: c.mutedForeground }]}>
+          {count}
+        </Text>
+      </View>
+      <Feather name="chevron-left" size={18} color={c.mutedForeground} />
+    </Pressable>
   );
 }
 
@@ -235,6 +363,14 @@ function UserCard({
           <Text style={[styles.name, { color: c.foreground }]}>
             {user.fullName?.trim() || user.email || t("noName")}
           </Text>
+          {user.email ? (
+            <Text
+              style={[styles.email, { color: c.mutedForeground }]}
+              numberOfLines={1}
+            >
+              {user.email}
+            </Text>
+          ) : null}
           <View style={styles.metaRow}>
             {user.phone ? (
               <Text style={[styles.meta, { color: c.mutedForeground }]}>
@@ -243,9 +379,11 @@ function UserCard({
             ) : null}
             {user.city ? (
               <>
-                <View
-                  style={[styles.dot, { backgroundColor: c.mutedForeground }]}
-                />
+                {user.phone ? (
+                  <View
+                    style={[styles.dot, { backgroundColor: c.mutedForeground }]}
+                  />
+                ) : null}
                 <Text style={[styles.meta, { color: c.mutedForeground }]}>
                   {user.city}
                 </Text>
@@ -370,4 +508,75 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   roleBtnText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  email: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "right",
+  },
+  exportBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+  },
+  exportBtnText: {
+    color: "#ffffff",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(26,11,46,0.55)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    gap: 8,
+  },
+  modalTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  scopeRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  scopeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scopeLabel: {
+    flex: 1,
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  scopeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 100,
+    minWidth: 32,
+    alignItems: "center",
+  },
+  scopeBadgeText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
 });

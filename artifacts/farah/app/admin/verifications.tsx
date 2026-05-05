@@ -27,6 +27,7 @@ import {
   adminApproveProvider,
   adminFetchProvidersByStatus,
   adminRejectProvider,
+  adminRequestProviderUpdate,
   type Provider,
   type VerificationStatus,
 } from "@/lib/data";
@@ -45,8 +46,12 @@ export default function AdminVerificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  // Decision modal: either a final reject OR a request-for-update.
+  const [decisionTarget, setDecisionTarget] = useState<{
+    providerId: string;
+    mode: "reject" | "needs_update";
+  } | null>(null);
+  const [decisionReason, setDecisionReason] = useState("");
 
   const load = async () => {
     try {
@@ -66,15 +71,22 @@ export default function AdminVerificationsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, lang]);
 
-  const tabs: { id: VerificationStatus; labelKey: "pendingTab" | "approvedTab" | "rejectedTab" }[] =
-    useMemo(
-      () => [
-        { id: "pending", labelKey: "pendingTab" },
-        { id: "approved", labelKey: "approvedTab" },
-        { id: "rejected", labelKey: "rejectedTab" },
-      ],
-      [],
-    );
+  const tabs: {
+    id: VerificationStatus;
+    labelKey:
+      | "pendingTab"
+      | "approvedTab"
+      | "rejectedTab"
+      | "needsUpdateTab";
+  }[] = useMemo(
+    () => [
+      { id: "pending", labelKey: "pendingTab" },
+      { id: "needs_update", labelKey: "needsUpdateTab" },
+      { id: "approved", labelKey: "approvedTab" },
+      { id: "rejected", labelKey: "rejectedTab" },
+    ],
+    [],
+  );
 
   const onApprove = async (provider: Provider) => {
     setBusyId(provider.id);
@@ -96,19 +108,36 @@ export default function AdminVerificationsScreen() {
     }
   };
 
-  const openRejectModal = (provider: Provider) => {
-    setRejectReason("");
-    setRejectingId(provider.id);
+  const openDecisionModal = (
+    provider: Provider,
+    mode: "reject" | "needs_update",
+  ) => {
+    setDecisionReason("");
+    setDecisionTarget({ providerId: provider.id, mode });
   };
 
-  const submitReject = async () => {
-    if (!rejectingId) return;
-    const id = rejectingId;
-    setBusyId(id);
+  const submitDecision = async () => {
+    if (!decisionTarget) return;
+    const { providerId, mode } = decisionTarget;
+    const reason = decisionReason.trim();
+    if (mode === "needs_update" && !reason) {
+      const msg = t("requestUpdateReasonRequired");
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.alert(msg);
+      } else {
+        Alert.alert(t("error"), msg);
+      }
+      return;
+    }
+    setBusyId(providerId);
     try {
-      await adminRejectProvider(id, rejectReason.trim());
-      setRejectingId(null);
-      setRejectReason("");
+      if (mode === "reject") {
+        await adminRejectProvider(providerId, reason);
+      } else {
+        await adminRequestProviderUpdate(providerId, reason);
+      }
+      setDecisionTarget(null);
+      setDecisionReason("");
       await load();
     } catch (e) {
       const msg = (e as Error).message ?? t("verificationActionFailed");
@@ -191,7 +220,8 @@ export default function AdminVerificationsScreen() {
               provider={p}
               busy={busyId === p.id}
               onApprove={() => onApprove(p)}
-              onReject={() => openRejectModal(p)}
+              onRequestUpdate={() => openDecisionModal(p, "needs_update")}
+              onReject={() => openDecisionModal(p, "reject")}
               showActions={tab === "pending"}
             />
           ))}
@@ -199,10 +229,10 @@ export default function AdminVerificationsScreen() {
       )}
 
       <Modal
-        visible={rejectingId !== null}
+        visible={decisionTarget !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => !busyId && setRejectingId(null)}
+        onRequestClose={() => !busyId && setDecisionTarget(null)}
       >
         <View style={styles.modalBackdrop}>
           <KeyboardAwareScrollView
@@ -216,25 +246,50 @@ export default function AdminVerificationsScreen() {
               ]}
             >
               <Text style={[styles.modalTitle, { color: c.foreground }]}>
-                {t("confirmReject")}
+                {decisionTarget?.mode === "needs_update"
+                  ? t("requestUpdateConfirmTitle")
+                  : t("finalRejectConfirmTitle")}
+              </Text>
+              <Text
+                style={[styles.modalHint, { color: c.mutedForeground }]}
+              >
+                {decisionTarget?.mode === "needs_update"
+                  ? t("requestUpdateHint")
+                  : t("finalRejectHint")}
               </Text>
               <Text style={[styles.label, { color: c.foreground }]}>
-                {t("rejectReasonLabel")}
+                {decisionTarget?.mode === "needs_update"
+                  ? t("requestUpdateReasonLabel")
+                  : t("rejectReasonLabel")}
               </Text>
               <Input
-                placeholder={t("rejectReasonPlaceholder")}
-                value={rejectReason}
-                onChangeText={setRejectReason}
+                placeholder={
+                  decisionTarget?.mode === "needs_update"
+                    ? t("requestUpdateReasonPlaceholder")
+                    : t("rejectReasonPlaceholder")
+                }
+                value={decisionReason}
+                onChangeText={setDecisionReason}
                 multiline
                 numberOfLines={4}
                 style={{ height: 100, textAlignVertical: "top" }}
                 maxLength={500}
               />
-              <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  gap: 10,
+                  marginTop: 18,
+                }}
+              >
                 <View style={{ flex: 1 }}>
                   <Button
-                    label={t("reject")}
-                    onPress={submitReject}
+                    label={
+                      decisionTarget?.mode === "needs_update"
+                        ? t("requestUpdate")
+                        : t("finalReject")
+                    }
+                    onPress={submitDecision}
                     loading={busyId !== null}
                     variant="primary"
                   />
@@ -243,7 +298,7 @@ export default function AdminVerificationsScreen() {
                   <Button
                     label={t("cancel")}
                     variant="ghost"
-                    onPress={() => !busyId && setRejectingId(null)}
+                    onPress={() => !busyId && setDecisionTarget(null)}
                   />
                 </View>
               </View>
@@ -259,12 +314,14 @@ function ProviderRow({
   provider,
   busy,
   onApprove,
+  onRequestUpdate,
   onReject,
   showActions,
 }: {
   provider: Provider;
   busy: boolean;
   onApprove: () => void;
+  onRequestUpdate: () => void;
   onReject: () => void;
   showActions: boolean;
 }) {
@@ -274,6 +331,7 @@ function ProviderRow({
     pending: { bg: "#fef3c7", fg: "#a16207" },
     approved: { bg: "#dcfce7", fg: "#166534" },
     rejected: { bg: "#fee2e2", fg: "#991b1b" },
+    needs_update: { bg: "#dbeafe", fg: "#1d4ed8" },
   };
   const sc = statusColors[provider.verificationStatus];
 
@@ -309,7 +367,9 @@ function ProviderRow({
                 ? "approvedTab"
                 : provider.verificationStatus === "rejected"
                   ? "rejectedTab"
-                  : "pendingTab",
+                  : provider.verificationStatus === "needs_update"
+                    ? "needsUpdateTab"
+                    : "pendingTab",
             )}
           </Text>
         </View>
@@ -336,23 +396,25 @@ function ProviderRow({
       <DocsBlock provider={provider} />
 
       {showActions ? (
-        <View style={styles.actions}>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={t("approve")}
-              onPress={onApprove}
-              loading={busy}
-              icon={<Feather name="check" size={16} color="#ffffff" />}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={t("reject")}
-              onPress={onReject}
-              variant="ghost"
-              icon={<Feather name="x" size={16} color={c.destructive} />}
-            />
-          </View>
+        <View style={{ marginTop: 14, gap: 10 }}>
+          <Button
+            label={t("approve")}
+            onPress={onApprove}
+            loading={busy}
+            icon={<Feather name="check" size={16} color="#ffffff" />}
+          />
+          <Button
+            label={t("requestUpdate")}
+            onPress={onRequestUpdate}
+            variant="secondary"
+            icon={<Feather name="edit-3" size={16} color={c.primary} />}
+          />
+          <Button
+            label={t("finalReject")}
+            onPress={onReject}
+            variant="ghost"
+            icon={<Feather name="x" size={16} color={c.destructive} />}
+          />
         </View>
       ) : null}
     </Card>
@@ -639,6 +701,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  modalHint: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    lineHeight: 19,
     textAlign: "right",
     marginBottom: 14,
   },

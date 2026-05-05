@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -61,8 +61,10 @@ export default function SignupScreen() {
     setSubmitting(true);
     try {
       await signup(trimmed, password);
-      // signup() establishes a session via Supabase's auto-confirm; the
-      // AuthGate will redirect to (tabs) once the session lands.
+      // signup() now force-syncs session+profile in AuthContext, so by
+      // the time we reach this line the session is guaranteed live.
+      // Route explicitly so AuthGate doesn't have to detect the change.
+      router.replace("/(auth)/profile-setup");
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       if (msg.toLowerCase().includes("already registered")) {

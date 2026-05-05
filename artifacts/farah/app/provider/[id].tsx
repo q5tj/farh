@@ -23,7 +23,12 @@ import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchProviderById, type Provider } from "@/lib/data";
+import {
+  fetchProviderById,
+  fetchProviderReviews,
+  type Provider,
+  type ProviderReview,
+} from "@/lib/data";
 import { useT } from "@/lib/i18n";
 
 export default function ProviderScreen() {
@@ -38,7 +43,7 @@ export default function ProviderScreen() {
   const providerId = String(id);
   const { profile } = useAuth();
   const lang = profile?.language ?? "ar";
-  const { getProvider, getCategoryById, bookings } = useApp();
+  const { getProvider, getCategoryById } = useApp();
 
   // Try cached first; if not loaded yet (deep link), fetch directly.
   const cached = getProvider(providerId);
@@ -69,12 +74,26 @@ export default function ProviderScreen() {
   }, [providerId, lang, cached]);
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ProviderReview[]>([]);
 
   useEffect(() => {
     if (provider && !selectedServiceId && provider.services.length > 0) {
       setSelectedServiceId(provider.services[0].id);
     }
   }, [provider, selectedServiceId]);
+
+  // Fetch ALL reviews for the provider (not just the viewer's bookings).
+  useEffect(() => {
+    let alive = true;
+    fetchProviderReviews(providerId)
+      .then((rs) => {
+        if (alive) setReviews(rs);
+      })
+      .catch((e) => console.warn("[provider] fetch reviews failed", e));
+    return () => {
+      alive = false;
+    };
+  }, [providerId]);
 
   if (loading) {
     return (
@@ -117,10 +136,6 @@ export default function ProviderScreen() {
     provider.gallery.length > 0
       ? provider.gallery.map((url) => ({ uri: url }))
       : [fallbackCover];
-
-  const reviews = bookings.filter(
-    (b) => b.providerId === provider.id && b.rating != null,
-  );
 
   const goBook = () => {
     if (!selectedServiceId) return;
@@ -315,9 +330,10 @@ export default function ProviderScreen() {
                 </Text>
               </Card>
             ) : (
-              <View style={{ gap: 10 }}>
+              <View style={{ gap: 12 }}>
                 {provider.services.map((s) => {
                   const active = selectedServiceId === s.id;
+                  const img = s.images && s.images[0];
                   return (
                     <Pressable
                       key={s.id}
@@ -331,41 +347,68 @@ export default function ProviderScreen() {
                         },
                       ]}
                     >
-                      <View style={styles.serviceRow}>
-                        <View
-                          style={[
-                            styles.radio,
-                            {
-                              borderColor: active ? c.primary : c.border,
-                              backgroundColor: active ? c.primary : "transparent",
-                            },
-                          ]}
-                        >
-                          {active ? (
-                            <Feather name="check" size={12} color="#ffffff" />
-                          ) : null}
-                        </View>
-                        <View style={{ flex: 1 }}>
+                      {img ? (
+                        <Image
+                          source={{ uri: img }}
+                          style={styles.serviceImage}
+                        />
+                      ) : null}
+                      <View style={styles.serviceBody}>
+                        <View style={styles.serviceHeader}>
+                          <View
+                            style={[
+                              styles.radio,
+                              {
+                                borderColor: active ? c.primary : c.border,
+                                backgroundColor: active
+                                  ? c.primary
+                                  : "transparent",
+                              },
+                            ]}
+                          >
+                            {active ? (
+                              <Feather name="check" size={12} color="#ffffff" />
+                            ) : null}
+                          </View>
                           <Text
                             style={[
                               styles.serviceTitle,
-                              { color: c.foreground },
+                              { color: c.foreground, flex: 1 },
                             ]}
                           >
                             {s.title}
                           </Text>
+                          <Text style={[styles.servicePrice, { color: c.primary }]}>
+                            {s.price.toLocaleString()} {t("sar")}
+                          </Text>
+                        </View>
+                        {s.description ? (
                           <Text
                             style={[
-                              styles.serviceDur,
+                              styles.serviceDescription,
                               { color: c.mutedForeground },
                             ]}
                           >
-                            {s.duration || "—"}
+                            {s.description}
                           </Text>
-                        </View>
-                        <Text style={[styles.servicePrice, { color: c.primary }]}>
-                          {s.price.toLocaleString()} {t("sar")}
-                        </Text>
+                        ) : null}
+                        {s.duration ? (
+                          <View style={styles.serviceMetaRow}>
+                            <Feather
+                              name="clock"
+                              size={12}
+                              color={c.mutedForeground}
+                            />
+                            <Text
+                              style={[
+                                styles.serviceDur,
+                                { color: c.mutedForeground },
+                              ]}
+                            >
+                              {s.duration}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </Pressable>
                   );
@@ -388,22 +431,22 @@ export default function ProviderScreen() {
               </Card>
             ) : (
               <View style={{ gap: 10 }}>
-                {reviews.slice(0, 5).map((r) => (
+                {reviews.slice(0, 10).map((r) => (
                   <Card key={r.id}>
                     <View style={styles.reviewHead}>
-                      <Stars value={r.rating ?? 0} size={13} />
+                      <Stars value={r.rating} size={14} />
                       <Text style={[styles.reviewer, { color: c.foreground }]}>
-                        {r.userName}
+                        {r.reviewerName ?? t("anonymousUser")}
                       </Text>
                     </View>
-                    {r.reviewText ? (
+                    {r.comment ? (
                       <Text
                         style={[
                           styles.reviewText,
                           { color: c.mutedForeground, marginTop: 6 },
                         ]}
                       >
-                        {r.reviewText}
+                        {r.comment}
                       </Text>
                     ) : null}
                   </Card>
@@ -577,7 +620,19 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     borderWidth: 2,
+    overflow: "hidden",
+  },
+  serviceImage: {
+    width: "100%",
+    height: 180,
+  },
+  serviceBody: {
     padding: 14,
+  },
+  serviceHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
   },
   serviceRow: {
     flexDirection: "row-reverse",
@@ -594,18 +649,30 @@ const styles = StyleSheet.create({
   },
   serviceTitle: {
     fontFamily: "Cairo_600SemiBold",
-    fontSize: 14,
+    fontSize: 15,
     textAlign: "right",
+  },
+  serviceDescription: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: "right",
+    lineHeight: 21,
+  },
+  serviceMetaRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
   },
   serviceDur: {
     fontFamily: "Cairo_400Regular",
     fontSize: 12,
-    marginTop: 3,
     textAlign: "right",
   },
   servicePrice: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 14,
+    fontSize: 15,
   },
   noReviews: {
     fontFamily: "Cairo_400Regular",

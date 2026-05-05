@@ -269,6 +269,7 @@ export const en: Strings = {
   // Provider details
   noServicesByProvider: "This provider hasn't added services yet.",
   noReviewsYet: "No reviews yet. Be the first to rate after the service.",
+  anonymousUser: "Customer",
 
   // Provider zone
   netEarningsNote: "* Net earnings after {{rate}}% commission",
@@ -297,6 +298,29 @@ export const en: Strings = {
   enterServiceNameAr: "Please enter the service name in Arabic",
   enterServiceNameEn: "Please enter the service name in English",
   enterPrice: "Please enter the price",
+  serviceImageLabel: "Service image",
+  serviceImageHint: "Tap to pick an image (optional)",
+  pickServiceImage: "Pick image",
+  replaceServiceImage: "Replace image",
+  serviceImageUploading: "Uploading... {{percent}}%",
+  noServiceDescription: "No description",
+
+  // Bulk import / export of services
+  exportServicesCsv: "Export Excel",
+  importServicesCsv: "Import Excel",
+  downloadServicesTemplate: "Download blank template",
+  importServicesTitle: "Import services from Excel",
+  importServicesDesc: "Review the rows then add them all at once",
+  importEmptyFile: "File is empty or has no data rows",
+  importParseFailed: "Couldn't read the file. Make sure it's a valid CSV.",
+  importNoValidRows: "No valid rows to import",
+  importRowLabel: "Row {{n}}",
+  importValidCount: "{{count}} rows ready to add",
+  importInvalidCount: "{{count}} rows have errors — they'll be skipped",
+  importConfirm: "Add {{count}} services",
+  importDoneTitle: "Done",
+  importDoneSummary: "Added {{inserted}} services. Failed: {{failed}}.",
+  importPickFile: "Pick CSV file",
 
   // Support (customer)
   supportNewTicket: "New ticket",
@@ -385,12 +409,25 @@ export const en: Strings = {
   usersAllTab: "All ({{count}})",
   usersCustomersTab: "Customers ({{count}})",
   usersProvidersTab: "Providers ({{count}})",
+  exportCsv: "Export Excel",
+  exportPickScope: "Pick what to export",
+  exportAll: "All users",
+  exportCustomers: "Customers only",
+  exportProviders: "Providers only",
+  exportColumnId: "ID",
+  exportColumnFullName: "Full name",
+  exportColumnEmail: "Email",
+  exportColumnPhone: "Phone",
+  exportColumnRole: "Role",
+  exportColumnCity: "City",
+  exportColumnCreatedAt: "Created at",
   noMatchingUsers: "No matching users",
   noName: "No name",
   promoteToProvider: "Promote to provider",
   demoteToCustomer: "Demote to customer",
   promoteConfirm: "Do you want to promote {{name}} to provider?",
-  demoteConfirm: "Do you want to demote {{name}} to customer?",
+  demoteConfirm:
+    "Demoting {{name}} to customer will permanently delete: provider profile, all services, gallery (photos and videos), reviews, service areas, documents, and logo. Past customer bookings remain preserved. Continue?",
   cantChangeAdmin: "Cannot change admin role from the UI. Edit directly in Supabase.",
   notAllowed: "Not allowed",
   updateRoleFailed: "Could not update role",
@@ -492,14 +529,49 @@ export const en: Strings = {
   verificationRejected: "Provider rejected",
   approve: "Approve",
   reject: "Reject",
-  rejectReasonLabel: "Rejection reason (optional)",
+  rejectReasonLabel: "Rejection reason",
   rejectReasonPlaceholder: "Sent to the provider as a notification...",
   confirmApprove: "Confirm approval",
   confirmReject: "Confirm rejection",
   pendingTab: "Pending",
   approvedTab: "Approved",
   rejectedTab: "Rejected",
+  needsUpdateTab: "Needs update",
   verificationActionFailed: "Action failed",
+
+  // Two-tier rejection (final vs needs-update)
+  finalReject: "Final reject",
+  finalRejectDesc: "Activity not suitable for the platform",
+  finalRejectConfirmTitle: "Reject application permanently",
+  finalRejectHint:
+    "Use this when the activity isn't suitable or isn't allowed. The provider can't edit or resubmit — they'll need to create a new account.",
+  requestUpdate: "Request data update",
+  requestUpdateDesc: "Data or documents need correction",
+  requestUpdateConfirmTitle: "Request data update",
+  requestUpdateHint:
+    "Use this when there's an error in the submitted data (expired CR, unclear photos, wrong tax ID). The provider will see the reason and can correct + resubmit.",
+  requestUpdateReasonLabel: "What needs correcting?",
+  requestUpdateReasonPlaceholder:
+    "e.g. Commercial registration is expired, please upload a current copy...",
+  requestUpdateReasonRequired:
+    "Reason is required so the provider knows what to fix",
+
+  // Provider needs-update screen + resubmit
+  needsUpdateTitle: "Your application needs an update",
+  needsUpdateDesc:
+    "The admin reviewed your application and asked for corrections. Update the required data and resubmit for review.",
+  needsUpdateReasonLabel: "Admin notes",
+  editAndResubmit: "Edit data and resubmit",
+  resubmitForReview: "Resubmit for review",
+  resubmitConfirm: "Resubmit your data for review?",
+  resubmitDone: "Your application was resubmitted. The admin will review it shortly.",
+  resubmitFailed: "Resubmit failed",
+  updateInfoTitle: "Update store data",
+  updateInfoDesc:
+    "Update the required information and tap \"Resubmit for review\". The admin will receive your application again.",
+  finalRejectedTitle: "Your application was finally rejected",
+  finalRejectedDesc:
+    "Unfortunately your activity wasn't approved. To try again, please create a new account.",
 
   // Admin audit log
   adminAuditLog: "Audit log",
@@ -713,6 +785,28 @@ export const en: Strings = {
   statementForProvider: "Statement for {{provider}}",
   noOutstandingBalance: "No outstanding balance",
   noFinancialDataYet: "No financial data yet",
+
+  // Provider store-data editor (in profile-setup)
+  storeDataSection: "Store profile",
+  storeDataDesc: "Public details that appear on your store card to customers",
+  storeNameLabel: "Store name",
+  storeNameExample: "e.g. Royal Palace Weddings",
+  storeLogoLabel: "Store logo",
+  storeDescriptionLabel: "Short bio",
+  storeDescriptionPlaceholder: "A short summary shown to customers...",
+  storeDataSaved: "Store profile saved",
+  storeDataSaveFailed: "Couldn't save store profile",
+  saveStoreData: "Save store profile",
+
+  // Provider store-info screen (provider-zone)
+  storeInfoTitle: "Store profile",
+  storeInfoDesc: "Edit your store name, logo, cover image and bio",
+  storeCoverLabel: "Cover image",
+  storeCoverHint: "Shown at the top of your store page (optional)",
+  pickCoverImage: "Pick cover image",
+  replaceCoverImage: "Replace cover",
+  manageStoreInfo: "Store profile",
+  manageStoreInfoDesc: "Store name, logo, cover, description",
 
   // Smart location prompt
   locationPromptTitle: "Find providers near you",

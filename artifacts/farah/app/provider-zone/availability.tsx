@@ -156,8 +156,9 @@ export default function AvailabilityScreen() {
   // Stack من / إلى vertically on narrow phones; side-by-side on wider screens.
   const stacked = width < 480;
   const { profile } = useAuth();
-  const { getProvider, refresh } = useApp();
-  const provider = profile?.providerId ? getProvider(profile.providerId) : null;
+  const { ownProvider, refresh } = useApp();
+  // Use the provider's OWN row (bypasses customer-facing approval filter).
+  const provider = profile?.providerId ? ownProvider : null;
 
   const DAY_LABELS: Record<Weekday, string> = {
     sun: t("daySunday"),

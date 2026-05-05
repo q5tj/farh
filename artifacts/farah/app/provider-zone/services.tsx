@@ -1,7 +1,11 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,19 +22,89 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { ProviderService, useApp } from "@/contexts/AppContext";
+import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { downloadCsv, type CsvColumn } from "@/lib/csv-export";
+import { parseCsvRows, pickField } from "@/lib/csv-import";
+import {
+  deleteService as deleteServiceDb,
+  fetchProviderByOwner,
+  type Provider,
+  type ProviderService,
+  upsertService as upsertServiceDb,
+} from "@/lib/data";
 import { useT } from "@/lib/i18n";
+import { uploadImage } from "@/lib/image-upload";
+
+interface ImportRow {
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
+  price: number;
+  duration: string;
+  durationMinutes: number;
+  imageUrl: string;
+  errors: string[];
+  rowNumber: number;
+}
+
+const TITLE_AR_ALIASES = ["titleAr", "اسم الخدمة (عربي)", "اسم الخدمة", "الاسم"];
+const TITLE_EN_ALIASES = ["titleEn", "Service name (English)", "Name (English)", "name_en"];
+const DESC_AR_ALIASES = ["descriptionAr", "الوصف (عربي)", "الوصف", "وصف"];
+const DESC_EN_ALIASES = ["descriptionEn", "Description (English)", "description_en"];
+const PRICE_ALIASES = ["price", "السعر"];
+const DURATION_ALIASES = ["duration", "المدة"];
+const DURATION_MIN_ALIASES = ["durationMinutes", "المدة بالدقائق", "minutes"];
+const IMAGE_URL_ALIASES = ["imageUrl", "image_url", "رابط الصورة", "صورة"];
 
 export default function ServicesScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const { profile } = useAuth();
-  const { getProvider, upsertProviderService, removeProviderService } = useApp();
+  const lang = profile?.language ?? "ar";
+  const userDbId = profile?.id ?? null;
   const providerId = profile?.providerId ?? null;
-  const provider = providerId ? getProvider(providerId) : undefined;
+
+  // Own state: fetch the provider's own row directly (bypasses the
+  // customer-facing approval filter on useApp().providers, and avoids any
+  // staleness from the AppContext catalog cache). Re-fetches on focus and
+  // after every mutation.
+  const [provider, setProvider] = useState<Provider | null>(null);
+  const [loadingProvider, setLoadingProvider] = useState(true);
+  // Trigger a catalog refresh in AppContext too, so the customer-facing
+  // catalog stays in sync (other screens benefit).
+  const { refresh: refreshAppCatalog } = useApp();
+
+  const reloadProvider = useCallback(async () => {
+    if (!userDbId) {
+      setProvider(null);
+      setLoadingProvider(false);
+      return;
+    }
+    try {
+      const p = await fetchProviderByOwner(userDbId, lang);
+      setProvider(p);
+    } catch (e) {
+      console.warn("[services] reloadProvider failed", e);
+    } finally {
+      setLoadingProvider(false);
+    }
+  }, [userDbId, lang]);
+
+  useEffect(() => {
+    reloadProvider();
+  }, [reloadProvider]);
+
+  // Re-fetch every time the screen comes back into focus (e.g. after the
+  // user navigates away and returns).
+  useFocusEffect(
+    useCallback(() => {
+      reloadProvider();
+    }, [reloadProvider]),
+  );
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProviderService | null>(null);
@@ -41,8 +115,22 @@ export default function ServicesScreen() {
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("60");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imagePct, setImagePct] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { session } = useAuth();
+  const authUserId = session?.user.id ?? null;
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<ImportRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importDone, setImportDone] = useState<{
+    inserted: number;
+    failed: number;
+  } | null>(null);
 
   const reset = () => {
     setTitleAr("");
@@ -52,6 +140,7 @@ export default function ServicesScreen() {
     setPrice("");
     setDuration("");
     setDurationMinutes("60");
+    setImageUrl(null);
     setError("");
     setEditing(null);
   };
@@ -65,13 +154,51 @@ export default function ServicesScreen() {
     setEditing(s);
     setTitleAr(s.titleAr);
     setTitleEn(s.titleEn ?? "");
-    setDescriptionAr("");
-    setDescriptionEn("");
+    setDescriptionAr(s.descriptionAr ?? "");
+    setDescriptionEn(s.descriptionEn ?? "");
     setPrice(String(s.price));
     setDuration(s.duration);
     setDurationMinutes(String(s.durationMinutes));
+    setImageUrl(s.images?.[0] ?? null);
     setError("");
     setOpen(true);
+  };
+
+  const onPickImage = async () => {
+    setError("");
+    if (!authUserId) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setError(t("imagePermissionDenied"));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 1,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setImageUploading(true);
+    setImagePct(0);
+    const job = uploadImage({
+      uri: result.assets[0].uri,
+      bucket: "provider-media",
+      authUserId,
+      fileName: `service-${Date.now()}`,
+      withPublicUrl: true,
+      compress: { maxWidth: 1200, quality: 0.78 },
+      onProgress: (p) => setImagePct(Math.round(p * 100)),
+    });
+    try {
+      const { publicUrl } = await job.promise;
+      setImageUrl(publicUrl);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      setError(msg || t("uploadFailed"));
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const save = async () => {
@@ -92,8 +219,9 @@ export default function ServicesScreen() {
     const minutes = Math.max(15, Math.min(1440, Number(durationMinutes) || 60));
     setSaving(true);
     try {
-      await upsertProviderService(providerId, {
+      await upsertServiceDb({
         id: editing?.id,
+        providerId,
         titleAr: titleAr.trim(),
         titleEn: titleEn.trim(),
         descriptionAr: descriptionAr.trim() || undefined,
@@ -101,17 +229,202 @@ export default function ServicesScreen() {
         price: Number(price.replace(/[^0-9]/g, "")) || 0,
         duration: duration.trim() || "غير محدد",
         durationMinutes: minutes,
+        images: imageUrl ? [imageUrl] : [],
       });
       setOpen(false);
       reset();
+      // Re-fetch own data + nudge the customer-facing catalog.
+      await reloadProvider();
+      refreshAppCatalog().catch(() => {});
     } finally {
       setSaving(false);
     }
   };
 
-  const remove = (s: ProviderService) => {
+  const onExportServices = () => {
+    if (!provider || provider.services.length === 0) return;
+    const cols: CsvColumn<ProviderService>[] = [
+      { key: "titleAr", header: "اسم الخدمة (عربي)" },
+      { key: "titleEn", header: "Service name (English)" },
+      { key: "descriptionAr", header: "الوصف (عربي)" },
+      { key: "descriptionEn", header: "Description (English)" },
+      { key: "price", header: "السعر" },
+      { key: "duration", header: "المدة" },
+      { key: "durationMinutes", header: "المدة بالدقائق" },
+      {
+        key: "images",
+        header: "رابط الصورة",
+        format: (v) => (Array.isArray(v) && v[0] ? String(v[0]) : ""),
+      },
+    ];
+    downloadCsv(`services-${provider.name || "store"}.csv`, provider.services, cols);
+  };
+
+  const onDownloadTemplate = () => {
+    const sample: ProviderService[] = [
+      {
+        id: "",
+        providerId: "",
+        title: "",
+        titleAr: "تصوير زفاف باقة فضية",
+        titleEn: "Silver wedding photography package",
+        description: "",
+        descriptionAr: "تصوير الحفل بالكامل + معالجة الصور",
+        descriptionEn: "Full ceremony coverage + post-processing",
+        price: 3000,
+        duration: "4 ساعات",
+        durationMinutes: 240,
+        images: [""],
+      },
+    ];
+    const cols: CsvColumn<ProviderService>[] = [
+      { key: "titleAr", header: "اسم الخدمة (عربي)" },
+      { key: "titleEn", header: "Service name (English)" },
+      { key: "descriptionAr", header: "الوصف (عربي)" },
+      { key: "descriptionEn", header: "Description (English)" },
+      { key: "price", header: "السعر" },
+      { key: "duration", header: "المدة" },
+      { key: "durationMinutes", header: "المدة بالدقائق" },
+      {
+        key: "images",
+        header: "رابط الصورة",
+        format: (v) => (Array.isArray(v) && v[0] ? String(v[0]) : ""),
+      },
+    ];
+    downloadCsv("services-template.csv", sample, cols);
+  };
+
+  const validateRow = (
+    row: Record<string, string>,
+    rowNumber: number,
+  ): ImportRow => {
+    const errors: string[] = [];
+    const titleAr = pickField(row, TITLE_AR_ALIASES);
+    const titleEn = pickField(row, TITLE_EN_ALIASES);
+    const descAr = pickField(row, DESC_AR_ALIASES);
+    const descEn = pickField(row, DESC_EN_ALIASES);
+    const priceStr = pickField(row, PRICE_ALIASES);
+    const duration = pickField(row, DURATION_ALIASES) || "غير محدد";
+    const minStr = pickField(row, DURATION_MIN_ALIASES);
+    const imageUrl = pickField(row, IMAGE_URL_ALIASES);
+
+    if (!titleAr) errors.push(t("enterServiceNameAr"));
+    if (!titleEn) errors.push(t("enterServiceNameEn"));
+    const priceNum = Number((priceStr || "").replace(/[^0-9.]/g, ""));
+    if (!priceStr || !Number.isFinite(priceNum) || priceNum <= 0) {
+      errors.push(t("enterPrice"));
+    }
+    let minutes = Number(minStr) || 60;
+    if (!Number.isFinite(minutes) || minutes < 15) minutes = 60;
+    if (minutes > 1440) minutes = 1440;
+
+    return {
+      titleAr,
+      titleEn,
+      descriptionAr: descAr,
+      descriptionEn: descEn,
+      price: priceNum || 0,
+      duration,
+      durationMinutes: minutes,
+      imageUrl,
+      errors,
+      rowNumber,
+    };
+  };
+
+  const onPickImportFile = async () => {
+    setImportError("");
+    setImportDone(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ["text/csv", "text/comma-separated-values", "application/csv", "*/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      let text = "";
+      if (Platform.OS === "web") {
+        const file = (asset as unknown as { file?: File }).file;
+        if (file) {
+          text = await file.text();
+        } else {
+          const resp = await fetch(asset.uri);
+          text = await resp.text();
+        }
+      } else {
+        const resp = await fetch(asset.uri);
+        text = await resp.text();
+      }
+      const { rows } = parseCsvRows(text);
+      if (rows.length === 0) {
+        setImportError(t("importEmptyFile"));
+        setImportRows([]);
+        setImportOpen(true);
+        return;
+      }
+      const parsed = rows.map((r, idx) => validateRow(r, idx + 2)); // +2: header is line 1
+      setImportRows(parsed);
+      setImportOpen(true);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      setImportError(msg || t("importParseFailed"));
+      setImportOpen(true);
+    }
+  };
+
+  const confirmImport = async () => {
     if (!providerId) return;
-    removeProviderService(providerId, s.id);
+    const valid = importRows.filter((r) => r.errors.length === 0);
+    if (valid.length === 0) {
+      setImportError(t("importNoValidRows"));
+      return;
+    }
+    setImporting(true);
+    setImportError("");
+    let inserted = 0;
+    let failed = 0;
+    for (const r of valid) {
+      try {
+        await upsertServiceDb({
+          providerId,
+          titleAr: r.titleAr,
+          titleEn: r.titleEn,
+          descriptionAr: r.descriptionAr || undefined,
+          descriptionEn: r.descriptionEn || undefined,
+          price: r.price,
+          duration: r.duration,
+          durationMinutes: r.durationMinutes,
+          images: r.imageUrl ? [r.imageUrl] : [],
+        });
+        inserted += 1;
+      } catch (e) {
+        console.warn("[services] import row failed", r, e);
+        failed += 1;
+      }
+    }
+    setImporting(false);
+    setImportDone({ inserted, failed });
+    await reloadProvider();
+    refreshAppCatalog().catch(() => {});
+  };
+
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportRows([]);
+    setImportError("");
+    setImportDone(null);
+  };
+
+  const remove = async (s: ProviderService) => {
+    if (!providerId) return;
+    try {
+      await deleteServiceDb(s.id);
+      await reloadProvider();
+      refreshAppCatalog().catch(() => {});
+    } catch (e) {
+      console.warn("[services] delete failed", e);
+    }
   };
 
   return (
@@ -123,15 +436,43 @@ export default function ServicesScreen() {
           else router.replace("/provider-zone");
         }}
         right={
-          <Pressable
-            onPress={openNew}
-            style={[styles.addBtn, { backgroundColor: c.primary }]}
-          >
-            <Feather name="plus" size={18} color="#ffffff" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={onPickImportFile}
+              style={[styles.iconBtn, { backgroundColor: c.primaryBg }]}
+              hitSlop={8}
+            >
+              <Feather name="upload" size={16} color={c.primary} />
+            </Pressable>
+            <Pressable
+              onPress={onExportServices}
+              disabled={!provider || provider.services.length === 0}
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: c.primaryBg,
+                  opacity:
+                    !provider || provider.services.length === 0 ? 0.4 : 1,
+                },
+              ]}
+              hitSlop={8}
+            >
+              <Feather name="download" size={16} color={c.primary} />
+            </Pressable>
+            <Pressable
+              onPress={openNew}
+              style={[styles.addBtn, { backgroundColor: c.primary }]}
+            >
+              <Feather name="plus" size={18} color="#ffffff" />
+            </Pressable>
+          </View>
         }
       />
-      {!provider || provider.services.length === 0 ? (
+      {loadingProvider ? (
+        <View style={{ paddingTop: 60, alignItems: "center" }}>
+          <ActivityIndicator color={c.primary} />
+        </View>
+      ) : !provider || provider.services.length === 0 ? (
         <EmptyState
           icon="package"
           title={t("noServicesAddedYet")}
@@ -149,10 +490,40 @@ export default function ServicesScreen() {
           {provider.services.map((s) => (
             <Card key={s.id}>
               <View style={styles.row}>
+                {s.images && s.images[0] ? (
+                  <Image
+                    source={{ uri: s.images[0] }}
+                    style={[
+                      styles.cardThumb,
+                      { backgroundColor: c.muted },
+                    ]}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.cardThumb,
+                      styles.cardThumbPlaceholder,
+                      { backgroundColor: c.muted, borderColor: c.border },
+                    ]}
+                  >
+                    <Feather name="image" size={22} color={c.mutedForeground} />
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.title, { color: c.foreground }]}>
                     {s.title}
                   </Text>
+                  {s.description ? (
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.descSnippet,
+                        { color: c.mutedForeground },
+                      ]}
+                    >
+                      {s.description}
+                    </Text>
+                  ) : null}
                   <Text style={[styles.duration, { color: c.mutedForeground }]}>
                     {s.duration}
                   </Text>
@@ -207,10 +578,75 @@ export default function ServicesScreen() {
                 {editing ? t("editService") : t("addService")}
               </Text>
               <ScrollView
-                style={{ maxHeight: 480 }}
+                style={{ maxHeight: 540 }}
                 contentContainerStyle={{ gap: 12, paddingTop: 14 }}
                 keyboardShouldPersistTaps="handled"
               >
+                <View>
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: c.foreground },
+                    ]}
+                  >
+                    {t("serviceImageLabel")}
+                  </Text>
+                  <Pressable
+                    onPress={onPickImage}
+                    disabled={imageUploading}
+                    style={[
+                      styles.imagePicker,
+                      {
+                        borderColor: imageUrl ? c.primary : c.border,
+                        backgroundColor: c.muted,
+                      },
+                    ]}
+                  >
+                    {imageUrl ? (
+                      <Image
+                        source={{ uri: imageUrl }}
+                        style={styles.imageThumb}
+                      />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <Feather name="image" size={28} color={c.primary} />
+                        <Text
+                          style={[
+                            styles.imageHintText,
+                            { color: c.mutedForeground },
+                          ]}
+                        >
+                          {t("serviceImageHint")}
+                        </Text>
+                      </View>
+                    )}
+                    {imageUploading ? (
+                      <View style={styles.uploadOverlay}>
+                        <ActivityIndicator color="#ffffff" />
+                        <Text style={styles.uploadOverlayText}>
+                          {t("serviceImageUploading", { percent: imagePct })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+                  {imageUrl && !imageUploading ? (
+                    <Pressable
+                      onPress={() => setImageUrl(null)}
+                      style={styles.removeImageRow}
+                      hitSlop={8}
+                    >
+                      <Feather name="trash-2" size={14} color={c.destructive} />
+                      <Text
+                        style={[
+                          styles.removeImageText,
+                          { color: c.destructive },
+                        ]}
+                      >
+                        {t("removeImage")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 <Input
                   label={t("serviceNameArLabel")}
                   value={titleAr}
@@ -230,8 +666,8 @@ export default function ServicesScreen() {
                   onChangeText={setDescriptionAr}
                   placeholder={t("serviceDescArPlaceholder")}
                   multiline
-                  numberOfLines={3}
-                  style={{ height: 70, textAlignVertical: "top" }}
+                  numberOfLines={5}
+                  style={{ height: 110, textAlignVertical: "top" }}
                 />
                 <Input
                   label={t("serviceDescEnLabel")}
@@ -239,8 +675,8 @@ export default function ServicesScreen() {
                   onChangeText={setDescriptionEn}
                   placeholder={t("serviceDescEnPlaceholder")}
                   multiline
-                  numberOfLines={3}
-                  style={{ height: 70, textAlignVertical: "top" }}
+                  numberOfLines={4}
+                  style={{ height: 90, textAlignVertical: "top" }}
                 />
                 <Input
                   label={t("servicePriceField")}
@@ -291,6 +727,217 @@ export default function ServicesScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <Modal
+        visible={importOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={importing ? undefined : closeImport}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: c.background,
+                borderRadius: c.radius,
+                width: "100%",
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: c.foreground }]}>
+              {t("importServicesTitle")}
+            </Text>
+            <Text
+              style={[
+                styles.importDesc,
+                { color: c.mutedForeground },
+              ]}
+            >
+              {t("importServicesDesc")}
+            </Text>
+
+            <Pressable
+              onPress={onDownloadTemplate}
+              style={styles.templateRow}
+              hitSlop={6}
+            >
+              <Feather name="download" size={14} color={c.primary} />
+              <Text style={[styles.templateText, { color: c.primary }]}>
+                {t("downloadServicesTemplate")}
+              </Text>
+            </Pressable>
+
+            {importDone ? (
+              <View style={{ marginTop: 14, gap: 6 }}>
+                <Text
+                  style={[
+                    styles.importDoneTitle,
+                    { color: c.foreground },
+                  ]}
+                >
+                  {t("importDoneTitle")}
+                </Text>
+                <Text
+                  style={[
+                    styles.importDoneDesc,
+                    { color: c.mutedForeground },
+                  ]}
+                >
+                  {t("importDoneSummary", {
+                    inserted: importDone.inserted,
+                    failed: importDone.failed,
+                  })}
+                </Text>
+              </View>
+            ) : importRows.length > 0 ? (
+              <ScrollView
+                style={{ maxHeight: 320, marginTop: 14 }}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {importRows.map((r) => {
+                  const ok = r.errors.length === 0;
+                  return (
+                    <View
+                      key={r.rowNumber}
+                      style={[
+                        styles.importRow,
+                        {
+                          backgroundColor: ok ? c.primaryBg : "#fee2e2",
+                          borderColor: ok ? c.primary : c.destructive,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <Feather
+                          name={ok ? "check-circle" : "alert-circle"}
+                          size={14}
+                          color={ok ? c.primary : c.destructive}
+                        />
+                        <Text
+                          style={[
+                            styles.importRowLabel,
+                            { color: c.foreground },
+                          ]}
+                        >
+                          {t("importRowLabel", { n: r.rowNumber })} —{" "}
+                          {r.titleAr || r.titleEn || "—"}
+                        </Text>
+                        {ok ? (
+                          <Text
+                            style={[
+                              styles.importRowPrice,
+                              { color: c.primary },
+                            ]}
+                          >
+                            {r.price.toLocaleString()} ر.س
+                          </Text>
+                        ) : null}
+                      </View>
+                      {!ok ? (
+                        <Text
+                          style={[
+                            styles.importRowError,
+                            { color: c.destructive },
+                          ]}
+                        >
+                          {r.errors.join(" · ")}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            {importRows.length > 0 && !importDone ? (
+              <View style={styles.importSummary}>
+                <Text style={{ color: c.mutedForeground, fontSize: 12 }}>
+                  {t("importValidCount", {
+                    count: importRows.filter((r) => r.errors.length === 0).length,
+                  })}
+                </Text>
+                {importRows.some((r) => r.errors.length > 0) ? (
+                  <Text style={{ color: c.destructive, fontSize: 12 }}>
+                    {t("importInvalidCount", {
+                      count: importRows.filter((r) => r.errors.length > 0).length,
+                    })}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {importError ? (
+              <Text
+                style={{
+                  color: c.destructive,
+                  fontFamily: "Cairo_500Medium",
+                  fontSize: 12,
+                  textAlign: "right",
+                  marginTop: 10,
+                }}
+              >
+                {importError}
+              </Text>
+            ) : null}
+
+            <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
+              {importDone ? (
+                <View style={{ flex: 1 }}>
+                  <Button label={t("done")} onPress={closeImport} />
+                </View>
+              ) : importRows.length === 0 ? (
+                <>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t("importPickFile")}
+                      onPress={onPickImportFile}
+                      icon={<Feather name="upload" size={16} color="#ffffff" />}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t("cancel")}
+                      variant="ghost"
+                      onPress={closeImport}
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t("importConfirm", {
+                        count: importRows.filter((r) => r.errors.length === 0)
+                          .length,
+                      })}
+                      onPress={confirmImport}
+                      loading={importing}
+                      disabled={
+                        importRows.filter((r) => r.errors.length === 0).length === 0
+                      }
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      label={t("cancel")}
+                      variant="ghost"
+                      onPress={closeImport}
+                      disabled={importing}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -303,11 +950,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  row: { flexDirection: "row-reverse", alignItems: "center" },
+  headerActions: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  row: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
+  cardThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  cardThumbPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   title: {
     fontFamily: "Cairo_700Bold",
     fontSize: 14,
     textAlign: "right",
+  },
+  descSnippet: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    marginTop: 4,
+    lineHeight: 18,
   },
   duration: {
     fontFamily: "Cairo_400Regular",
@@ -316,6 +993,51 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   price: { fontFamily: "Cairo_700Bold", fontSize: 14 },
+  fieldLabel: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    textAlign: "right",
+    marginBottom: 8,
+  },
+  imagePicker: {
+    width: "100%",
+    height: 160,
+    borderRadius: 14,
+    borderWidth: 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageThumb: { width: "100%", height: "100%" },
+  imagePlaceholder: { alignItems: "center", justifyContent: "center", gap: 6 },
+  imageHintText: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  uploadOverlayText: {
+    color: "#ffffff",
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
+  removeImageRow: {
+    marginTop: 8,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-end",
+  },
+  removeImageText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
   actions: {
     flexDirection: "row-reverse",
     gap: 10,
@@ -341,5 +1063,62 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 18,
     textAlign: "right",
+  },
+  importDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 19,
+    marginTop: 6,
+  },
+  templateRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-end",
+    marginTop: 10,
+  },
+  templateText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+  },
+  importRow: {
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  importRowLabel: {
+    flex: 1,
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    textAlign: "right",
+  },
+  importRowPrice: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+  },
+  importRowError: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 11,
+    textAlign: "right",
+    marginRight: 22,
+  },
+  importSummary: {
+    marginTop: 10,
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  importDoneTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+    textAlign: "right",
+  },
+  importDoneDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 13,
+    textAlign: "right",
+    lineHeight: 21,
   },
 });

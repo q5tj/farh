@@ -269,6 +269,7 @@ export const ar = {
   // Provider details
   noServicesByProvider: "لم يضف هذا المزود خدمات بعد.",
   noReviewsYet: "لا توجد تقييمات بعد. كن أول من يقيّم بعد إنهاء الخدمة.",
+  anonymousUser: "عميل",
 
   // Provider zone
   netEarningsNote: "* صافي الأرباح بعد خصم العمولة ({{rate}}%)",
@@ -297,6 +298,29 @@ export const ar = {
   enterServiceNameAr: "الرجاء إدخال اسم الخدمة بالعربية",
   enterServiceNameEn: "الرجاء إدخال اسم الخدمة بالإنجليزية",
   enterPrice: "الرجاء إدخال السعر",
+  serviceImageLabel: "صورة المنتج",
+  serviceImageHint: "اضغط لاختيار صورة (اختياري)",
+  pickServiceImage: "اختيار صورة",
+  replaceServiceImage: "تغيير الصورة",
+  serviceImageUploading: "جاري الرفع... {{percent}}%",
+  noServiceDescription: "لا يوجد وصف",
+
+  // Bulk import / export of services
+  exportServicesCsv: "تصدير Excel",
+  importServicesCsv: "استيراد Excel",
+  downloadServicesTemplate: "تنزيل قالب فارغ",
+  importServicesTitle: "استيراد الخدمات من Excel",
+  importServicesDesc: "نراجع الصفوف ثم نضيفها كلها مرة وحدة",
+  importEmptyFile: "الملف فارغ أو ما فيه صفوف بيانات",
+  importParseFailed: "تعذّر قراءة الملف. تأكد إنه CSV صالح.",
+  importNoValidRows: "ما فيه أي صف صالح للاستيراد",
+  importRowLabel: "الصف {{n}}",
+  importValidCount: "{{count}} صف جاهز للإضافة",
+  importInvalidCount: "{{count}} صف فيه خطأ — راح يتم تخطّيه",
+  importConfirm: "إضافة {{count}} خدمة",
+  importDoneTitle: "تمت الإضافة",
+  importDoneSummary: "تمت إضافة {{inserted}} خدمة. فشل {{failed}}.",
+  importPickFile: "اختر ملف CSV",
 
   // Support (customer)
   supportNewTicket: "تذكرة جديدة",
@@ -385,12 +409,25 @@ export const ar = {
   usersAllTab: "الكل ({{count}})",
   usersCustomersTab: "العملاء ({{count}})",
   usersProvidersTab: "المزودون ({{count}})",
+  exportCsv: "تصدير Excel",
+  exportPickScope: "اختر ما تريد تصديره",
+  exportAll: "كل المستخدمين",
+  exportCustomers: "العملاء فقط",
+  exportProviders: "المزودون فقط",
+  exportColumnId: "المعرّف",
+  exportColumnFullName: "الاسم",
+  exportColumnEmail: "البريد الإلكتروني",
+  exportColumnPhone: "رقم الجوال",
+  exportColumnRole: "الدور",
+  exportColumnCity: "المدينة",
+  exportColumnCreatedAt: "تاريخ التسجيل",
   noMatchingUsers: "لا يوجد مستخدمون مطابقون",
   noName: "بدون اسم",
   promoteToProvider: "ترقية إلى مزود خدمة",
   demoteToCustomer: "إرجاع إلى عميل",
   promoteConfirm: "هل تريد ترقية {{name}} إلى مزود خدمة؟",
-  demoteConfirm: "هل تريد إرجاع {{name}} إلى عميل؟",
+  demoteConfirm:
+    "إرجاع {{name}} إلى عميل سيحذف نهائياً: ملف المزود، جميع الخدمات، الصور والفيديوهات في المعرض، التقييمات، مناطق الخدمة، وكل المستندات والشعار. الحجوزات السابقة للعملاء تبقى محفوظة. هل تريد المتابعة؟",
   cantChangeAdmin: "لا يمكن تغيير دور الأدمن من الواجهة. عدّله مباشرة من Supabase.",
   notAllowed: "غير مسموح",
   updateRoleFailed: "تعذّر تحديث الدور",
@@ -492,14 +529,48 @@ export const ar = {
   verificationRejected: "تم رفض الطلب",
   approve: "اعتماد",
   reject: "رفض",
-  rejectReasonLabel: "سبب الرفض (اختياري)",
+  rejectReasonLabel: "سبب الرفض",
   rejectReasonPlaceholder: "سيُرسل للمزود في الإشعارات...",
   confirmApprove: "تأكيد الاعتماد",
   confirmReject: "تأكيد الرفض",
   pendingTab: "بانتظار",
   approvedTab: "معتمد",
   rejectedTab: "مرفوض",
+  needsUpdateTab: "يحتاج تحديث",
   verificationActionFailed: "تعذّر تنفيذ العملية",
+
+  // Two-tier rejection (final vs needs-update)
+  finalReject: "رفض نهائي",
+  finalRejectDesc: "النشاط لا يناسب التطبيق",
+  finalRejectConfirmTitle: "رفض الطلب نهائياً",
+  finalRejectHint:
+    "اختر هذا الخيار عندما يكون النشاط غير مناسب أو غير مسموح. لن يتمكن المزود من التعديل أو إعادة الإرسال — يحتاج لإنشاء حساب جديد.",
+  requestUpdate: "مطلوب تحديث بيانات",
+  requestUpdateDesc: "البيانات أو المستندات تحتاج تصحيح",
+  requestUpdateConfirmTitle: "طلب تحديث بيانات",
+  requestUpdateHint:
+    "اختر هذا الخيار لو فيه خطأ في البيانات (سجل تجاري منتهٍ، صور غير واضحة، رقم ضريبي غير صحيح). المزود سيستلم سبب الرفض ويقدر يصحح ويعيد الإرسال للمراجعة.",
+  requestUpdateReasonLabel: "ما المطلوب تصحيحه؟",
+  requestUpdateReasonPlaceholder:
+    "مثال: السجل التجاري منتهي الصلاحية، يرجى رفع نسخة محدّثة...",
+  requestUpdateReasonRequired: "السبب مطلوب لتوضيح المطلوب من المزود",
+
+  // Provider needs-update screen + resubmit
+  needsUpdateTitle: "مطلوب تحديث بيانات حسابك",
+  needsUpdateDesc:
+    "راجَع الأدمن طلبك ولاحظ أنه يحتاج تصحيح. حدّث البيانات المطلوبة وأعد الإرسال للمراجعة.",
+  needsUpdateReasonLabel: "ملاحظات الأدمن",
+  editAndResubmit: "تعديل البيانات وإعادة الإرسال",
+  resubmitForReview: "إعادة الإرسال للمراجعة",
+  resubmitConfirm: "هل تريد إعادة إرسال البيانات للمراجعة؟",
+  resubmitDone: "تم إعادة إرسال طلبك. سيراجعه الأدمن قريباً.",
+  resubmitFailed: "تعذّر إعادة الإرسال",
+  updateInfoTitle: "تحديث بيانات المتجر",
+  updateInfoDesc:
+    "حدّث المعلومات المطلوبة ثم اضغط \"إعادة الإرسال للمراجعة\". الأدمن سيستلم طلبك من جديد.",
+  finalRejectedTitle: "تم رفض طلبك نهائياً",
+  finalRejectedDesc:
+    "للأسف لم يتم اعتماد نشاطك. لإعادة المحاولة، يلزم إنشاء حساب جديد.",
 
   // Admin audit log
   adminAuditLog: "سجل العمليات",
@@ -707,6 +778,28 @@ export const ar = {
   statementForProvider: "كشف حساب {{provider}}",
   noOutstandingBalance: "لا يوجد رصيد مستحق",
   noFinancialDataYet: "لا توجد بيانات مالية بعد",
+
+  // Provider store-data editor (in profile-setup)
+  storeDataSection: "بيانات المتجر",
+  storeDataDesc: "البيانات اللي تظهر للعملاء على بطاقة متجرك",
+  storeNameLabel: "اسم المتجر",
+  storeNameExample: "مثال: قصر الأميرة للأفراح",
+  storeLogoLabel: "شعار المتجر",
+  storeDescriptionLabel: "نبذة قصيرة عن المتجر",
+  storeDescriptionPlaceholder: "اكتب وصفاً مختصراً يظهر للعملاء...",
+  storeDataSaved: "تم حفظ بيانات المتجر",
+  storeDataSaveFailed: "تعذّر حفظ بيانات المتجر",
+  saveStoreData: "حفظ بيانات المتجر",
+
+  // Provider store-info screen (provider-zone)
+  storeInfoTitle: "بيانات المتجر",
+  storeInfoDesc: "عدّل اسم المتجر والشعار والصورة الرئيسية والوصف",
+  storeCoverLabel: "صورة الغلاف",
+  storeCoverHint: "تظهر في أعلى صفحة متجرك (اختياري)",
+  pickCoverImage: "اختيار صورة الغلاف",
+  replaceCoverImage: "تغيير الغلاف",
+  manageStoreInfo: "بيانات المتجر",
+  manageStoreInfoDesc: "اسم المتجر، الشعار، الغلاف، الوصف",
 
   // Smart location prompt
   locationPromptTitle: "نلاقي لك المزودين القريبين",

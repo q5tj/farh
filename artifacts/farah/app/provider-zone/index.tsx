@@ -166,6 +166,12 @@ export default function ProviderHome() {
 
         <View style={{ gap: 10 }}>
           <ActionCard
+            icon="briefcase"
+            title={t("manageStoreInfo")}
+            desc={t("manageStoreInfoDesc")}
+            onPress={() => router.push("/provider-zone/store-info" as never)}
+          />
+          <ActionCard
             icon="package"
             title={t("myServices")}
             desc={t("myServicesDesc")}
@@ -176,24 +182,6 @@ export default function ProviderHome() {
             title={t("incomingRequests")}
             desc={t("pendingRequestsDesc", { count: pending.length })}
             onPress={() => router.push("/provider-zone/requests")}
-          />
-          <ActionCard
-            icon="clock"
-            title={t("workingHoursTitle")}
-            desc={t("workingHoursDesc")}
-            onPress={() => router.push("/provider-zone/availability")}
-          />
-          <ActionCard
-            icon="image"
-            title={t("galleryManageTitle")}
-            desc={t("galleryManageDesc")}
-            onPress={() => router.push("/provider-zone/gallery")}
-          />
-          <ActionCard
-            icon="map-pin"
-            title={t("serviceAreasTitle")}
-            desc={t("serviceAreasDesc")}
-            onPress={() => router.push("/provider-zone/service-areas")}
           />
           <ActionCard
             icon="file-text"

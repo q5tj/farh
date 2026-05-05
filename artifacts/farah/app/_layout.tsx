@@ -9,11 +9,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
-import { Platform, StatusBar } from "react-native";
+import { StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { BootSplash } from "@/components/BootSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { AppProvider } from "@/contexts/AppContext";
@@ -34,6 +35,22 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   const [appliedLang, setAppliedLang] = useState<string | null>(null);
+  // Hold the BootSplash on screen briefly even after `loading` flips so the
+  // animation doesn't pop out abruptly. 350ms is just long enough for the
+  // logo pulse to complete a half cycle, then we cross-fade to the app.
+  // Hard cap at 5s as a safety net: if AuthContext.loading never resolves
+  // (e.g. supabase.auth.getSession() hangs on a flaky network), we still
+  // unblock the UI instead of leaving the user stuck on the splash.
+  const [bootDone, setBootDone] = useState(false);
+  useEffect(() => {
+    const tHard = setTimeout(() => setBootDone(true), 5000);
+    if (loading) return () => clearTimeout(tHard);
+    const tSoft = setTimeout(() => setBootDone(true), 350);
+    return () => {
+      clearTimeout(tHard);
+      clearTimeout(tSoft);
+    };
+  }, [loading]);
 
   // Push tap → deep link to the relevant screen.
   useEffect(() => {
@@ -77,32 +94,46 @@ function AuthGate() {
   }, [session, profile, loading, segments, router]);
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="category/[id]" />
-      <Stack.Screen name="provider/[id]" />
-      <Stack.Screen name="booking-form" options={{ presentation: "modal" }} />
-      <Stack.Screen name="booking/[id]" />
-      <Stack.Screen name="rate/[id]" options={{ presentation: "modal" }} />
-      <Stack.Screen name="provider-zone" />
-      <Stack.Screen name="admin" />
-      <Stack.Screen name="support" />
-      <Stack.Screen name="about" />
-      <Stack.Screen name="favorites" />
-      <Stack.Screen name="legal/[key]" />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="category/[id]" />
+        <Stack.Screen name="provider/[id]" />
+        <Stack.Screen name="booking-form" options={{ presentation: "modal" }} />
+        <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="rate/[id]" options={{ presentation: "modal" }} />
+        <Stack.Screen name="provider-zone" />
+        <Stack.Screen name="admin" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="about" />
+        <Stack.Screen name="favorites" />
+        <Stack.Screen name="legal/[key]" />
+      </Stack>
+      {!bootDone ? <BootSplash /> : null}
+    </>
   );
 }
 
 function RootShell({ children }: { children: React.ReactNode }) {
-  // We rely on document.dir (web) or I18nManager (native) for direction.
-  // The wrapper uses { direction: "inherit" } on web so it picks up the
-  // current document direction, and a no-op on native.
-  const style = Platform.OS === "web"
-    ? { flex: 1, direction: "inherit" as const }
-    : { flex: 1 };
-  return <GestureHandlerRootView style={style}>{children}</GestureHandlerRootView>;
+  // Force `direction: 'ltr'` at the root on every platform.
+  //
+  // Why: the app expresses RTL layout manually via
+  // `flexDirection: 'row-reverse'` and `textAlign: 'right'`. If the
+  // platform's layout direction is RTL (Android with forceRTL applied,
+  // or web with `document.dir='rtl'`), the engine *auto-flips* logical
+  // flex directions — turning every `row-reverse` back into `row` and
+  // mirroring the entire UI. iOS (where forceRTL didn't take effect)
+  // looked right but Android/Web were the inverse.
+  //
+  // Pinning the root to LTR disables that auto-flip. Arabic glyphs still
+  // render right-to-left because Unicode bidi is independent of the
+  // CSS/Yoga `direction` property.
+  return (
+    <GestureHandlerRootView style={{ flex: 1, direction: "ltr" }}>
+      {children}
+    </GestureHandlerRootView>
+  );
 }
 
 export default function RootLayout() {
@@ -113,13 +144,32 @@ export default function RootLayout() {
     Cairo_700Bold,
   });
 
+  // Watchdog: if Cairo fonts take > 4s to download (slow / blocked
+  // network — common for first-launch on cellular), proceed anyway. The
+  // app falls back to the system font for that session, which is far
+  // better than a permanent white screen with the native splash stuck.
+  // Without this, iOS first-launch on a flaky network hangs forever.
+  const [fontsTimedOut, setFontsTimedOut] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) return;
+    const t = setTimeout(() => setFontsTimedOut(true), 4000);
+    return () => clearTimeout(t);
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  const ready = fontsLoaded || fontError || fontsTimedOut;
+
+  useEffect(() => {
+    if (ready) {
+      // Hide the OS-level splash so our React-driven BootSplash takes over.
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [ready]);
+
+  // While we're waiting for fonts (and not yet timed out), render nothing
+  // so the OS splash stays up. Showing a JS splash here is risky on iOS
+  // first-launch — the LinearGradient / Reanimated init can flake before
+  // native modules are warm, leading to a white screen.
+  if (!ready) return null;
 
   return (
     <SafeAreaProvider>

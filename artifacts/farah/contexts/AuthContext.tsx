@@ -15,7 +15,11 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 export type UserRole = "customer" | "provider" | "admin";
 export type Gender = "male" | "female";
 export type LangCode = "ar" | "en";
-export type ProviderVerificationStatus = "pending" | "approved" | "rejected";
+export type ProviderVerificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "needs_update";
 
 export interface UserProfile {
   id: string;
@@ -235,32 +239,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signup = useCallback(async (email: string, password: string) => {
-    const client = ensureClient();
-    const trimmed = email.trim().toLowerCase();
-    const { data, error } = await client.auth.signUp({
-      email: trimmed,
-      password,
-    });
-    if (error) throw error;
-    // Supabase returns a session immediately when "Confirm email" is OFF in
-    // the dashboard (Auth → Providers → Email). If it's ON, no session is
-    // returned and signInWithPassword fails with "Email not confirmed". In
-    // that case raise a clear error so the user knows the dashboard setting
-    // needs to change.
-    if (!data.session) {
-      const { error: loginErr } = await client.auth.signInWithPassword({
+  const signup = useCallback(
+    async (email: string, password: string) => {
+      const client = ensureClient();
+      const trimmed = email.trim().toLowerCase();
+      const { data, error } = await client.auth.signUp({
         email: trimmed,
         password,
       });
-      if (loginErr) {
-        throw new Error(
-          "تأكيد الإيميل ما زال مفعّلاً في Supabase. " +
-            "أوقفه من Authentication → Providers → Email → Confirm email.",
+      if (error) {
+        // Supabase rolls back the user when its SMTP is enabled but failing
+        // ("Error sending confirmation email"). The fix is at the project
+        // level — disable "Confirm email" in the dashboard. Surface a clear
+        // actionable message instead of the raw error.
+        const msg = error.message ?? "";
+        if (/confirmation email|sending|smtp/i.test(msg)) {
+          throw new Error(
+            "تأكيد الإيميل مفعّل في Supabase وفشل إرسال الرسالة. " +
+              "افتح Supabase Dashboard → Authentication → Providers → Email " +
+              "وأوقف خيار \"Confirm email\"، ثم أعد المحاولة.",
+          );
+        }
+        throw error;
+      }
+      // Supabase returns a session immediately when "Confirm email" is OFF in
+      // the dashboard (Auth → Providers → Email). If it's ON, no session is
+      // returned and signInWithPassword fails with "Email not confirmed".
+      let nextSession = data.session;
+      if (!nextSession) {
+        const { data: signInData, error: loginErr } =
+          await client.auth.signInWithPassword({ email: trimmed, password });
+        if (loginErr) {
+          throw new Error(
+            "تأكيد الإيميل ما زال مفعّلاً في Supabase. " +
+              "أوقفه من Authentication → Providers → Email → Confirm email.",
+          );
+        }
+        nextSession = signInData.session;
+      }
+      // Force-sync context state so the caller (signup screen) can rely on
+      // session+profile being populated by the time signup() resolves —
+      // without racing onAuthStateChange.
+      if (nextSession) {
+        if (mountedRef.current) setSession(nextSession);
+        await loadProfile(
+          nextSession.user.id,
+          nextSession.user.email ?? null,
         );
       }
-    }
-  }, []);
+    },
+    [loadProfile],
+  );
 
   const signOut = useCallback(async () => {
     // Best-effort: deactivate this device's push token before clearing the

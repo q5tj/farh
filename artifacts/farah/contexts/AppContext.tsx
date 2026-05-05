@@ -28,6 +28,7 @@ import {
   fetchNotifications,
   fetchProviderBookings,
   fetchProviderById,
+  fetchProviderByOwner,
   fetchProviders,
   fetchUserBookings,
   fetchUserFavorites,
@@ -45,6 +46,11 @@ interface AppContextValue {
   // catalog (read-only, from DB)
   categories: Category[];
   providers: Provider[];
+  /** The current user's own provider row — bypasses the customer-facing
+   *  filter (which excludes pending/inactive providers), so the provider
+   *  always sees their own services/gallery/working-hours regardless of
+   *  verification status. Null for non-providers. */
+  ownProvider: Provider | null;
   // user data (scoped to current auth user)
   bookings: Booking[]; // bookings the user made AS a customer
   providerBookings: Booking[]; // bookings received AS a provider (only if user has a provider record)
@@ -113,6 +119,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [ownProvider, setOwnProvider] = useState<Provider | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [providerBookings, setProviderBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -182,6 +189,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProviders(provs);
   }, [lang]);
 
+  const loadOwnProvider = useCallback(async () => {
+    if (!userDbId) {
+      setOwnProvider(null);
+      return;
+    }
+    try {
+      const own = await fetchProviderByOwner(userDbId, lang);
+      if (mountedRef.current) setOwnProvider(own);
+    } catch (err) {
+      console.warn("[app] failed to load own provider", err);
+    }
+  }, [userDbId, lang]);
+
   const loadAll = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setLoading(false);
@@ -190,6 +210,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await Promise.all([
         loadCatalog(),
+        loadOwnProvider(),
         loadBookings(),
         loadProviderBookings(),
         loadNotifications(),
@@ -205,7 +226,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [loadCatalog, loadBookings, loadProviderBookings, loadNotifications, loadFavorites]);
+  }, [loadCatalog, loadOwnProvider, loadBookings, loadProviderBookings, loadNotifications, loadFavorites]);
 
   // initial load + reload when language or profile-scope changes
   useEffect(() => {
@@ -308,6 +329,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [userDbId, loadNotifications, refreshProfile]);
 
   // Catalog (providers/services): refresh when any provider or service changes.
+  // Also refresh the current user's ownProvider record (which bypasses the
+  // customer-facing approval filter) so newly-added services show up
+  // immediately for the provider, even before admin approval.
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
     const client = supabase;
@@ -316,6 +340,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         loadCatalog().catch(() => {});
+        loadOwnProvider().catch(() => {});
       }, 400);
     };
 
@@ -337,7 +362,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (timer) clearTimeout(timer);
       client.removeChannel(channel).catch(() => {});
     };
-  }, [loadCatalog]);
+  }, [loadCatalog, loadOwnProvider]);
 
   // ----------------------------------------------------------
   // Mutations
@@ -436,18 +461,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         duration: service.duration,
         durationMinutes: service.durationMinutes,
       });
-      // Realtime on `services` will refresh the catalog.
-      await loadCatalog();
+      // Refresh the customer-facing catalog AND the provider's own record
+      // (provider's own view bypasses the approval/active filters).
+      await Promise.all([loadCatalog(), loadOwnProvider()]);
     },
-    [loadCatalog],
+    [loadCatalog, loadOwnProvider],
   );
 
   const removeProviderService = useCallback(
     async (_providerIdArg: string, serviceId: string) => {
       await deleteServiceDb(serviceId);
-      await loadCatalog();
+      await Promise.all([loadCatalog(), loadOwnProvider()]);
     },
-    [loadCatalog],
+    [loadCatalog, loadOwnProvider],
   );
 
   // ---- Favorites ----
@@ -545,6 +571,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       categories,
       providers,
+      ownProvider,
       bookings,
       providerBookings,
       notifications,
@@ -574,6 +601,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [
       categories,
       providers,
+      ownProvider,
       bookings,
       providerBookings,
       notifications,

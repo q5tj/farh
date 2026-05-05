@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   Modal,
@@ -113,6 +113,18 @@ export default function ProfileSetupScreen() {
     uploadJobRef.current?.cancel();
   };
 
+  // Capture whether this is a first-time completion vs an edit. AuthGate
+  // doesn't auto-redirect from profile-setup (so editors aren't bounced
+  // away mid-edit), so we navigate manually after first-time completion.
+  const wasIncompleteRef = useRef(!profile?.profileCompleted);
+
+  const goHomeIfFirstTime = () => {
+    if (wasIncompleteRef.current) {
+      wasIncompleteRef.current = false;
+      router.replace("/(tabs)");
+    }
+  };
+
   const onSubmit = async () => {
     setError("");
     const name = fullName.trim();
@@ -148,13 +160,19 @@ export default function ProfileSetupScreen() {
       });
       // Show the push permission prompt (skipped on web, simulators, and
       // Expo Go since `expo-notifications` no longer supports remote push there).
+      let promptShown = false;
       if (isPushSupported) {
         const status = await getPushPermissionStatus();
         if (status === "undetermined") {
           setPushPromptOpen(true);
+          promptShown = true;
         }
       }
-      // AuthGate redirects to (tabs) once profile_completed flips true
+      // If no push prompt is showing, navigate immediately. Otherwise the
+      // navigation happens after the user dismisses/accepts the prompt.
+      if (!promptShown) {
+        goHomeIfFirstTime();
+      }
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       setError(msg || t("profileSaveFailed"));
@@ -166,6 +184,7 @@ export default function ProfileSetupScreen() {
   const onAcceptPush = async () => {
     if (!profile?.id) {
       setPushPromptOpen(false);
+      goHomeIfFirstTime();
       return;
     }
     setPushBusy(true);
@@ -177,6 +196,7 @@ export default function ProfileSetupScreen() {
     } finally {
       setPushBusy(false);
       setPushPromptOpen(false);
+      goHomeIfFirstTime();
     }
   };
 
@@ -412,7 +432,11 @@ export default function ProfileSetupScreen() {
               />
               <Button
                 label="لاحقاً"
-                onPress={() => !pushBusy && setPushPromptOpen(false)}
+                onPress={() => {
+                  if (pushBusy) return;
+                  setPushPromptOpen(false);
+                  goHomeIfFirstTime();
+                }}
                 variant="ghost"
               />
             </View>

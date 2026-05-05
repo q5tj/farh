@@ -179,7 +179,11 @@ export type CommissionStatus = "owed" | "paid" | "waived";
 
 export type MediaKind = "image" | "video" | "file";
 
-export type VerificationStatus = "pending" | "approved" | "rejected";
+export type VerificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "needs_update";
 
 export interface Category {
   id: string; // UUID
@@ -199,9 +203,14 @@ export interface ProviderService {
   title: string; // localized
   titleAr: string;
   titleEn: string | null;
+  description: string; // localized
+  descriptionAr: string;
+  descriptionEn: string | null;
   price: number;
   duration: string;
   durationMinutes: number;
+  /** First entry rendered on the marketplace card; rest available as gallery. */
+  images: string[];
 }
 
 export interface Provider {
@@ -327,9 +336,18 @@ function mapService(row: ServiceRow, lang: AppLang): ProviderService {
     title: pickLocalized(row.title_ar, row.title_en, row.title, lang),
     titleAr: row.title_ar ?? row.title,
     titleEn: row.title_en,
+    description: pickLocalized(
+      row.description_ar,
+      row.description_en,
+      row.description ?? "",
+      lang,
+    ),
+    descriptionAr: row.description_ar ?? row.description ?? "",
+    descriptionEn: row.description_en,
     price: Number(row.price),
     duration: row.duration ?? "",
     durationMinutes: Number(row.duration_minutes ?? 60),
+    images: row.images ?? [],
   };
 }
 
@@ -749,6 +767,8 @@ export interface UpsertServiceInput {
   price: number;
   duration?: string;
   durationMinutes: number;
+  /** Optional product images (first one is the marketplace card thumbnail). */
+  images?: string[];
 }
 
 export async function upsertService(
@@ -757,7 +777,7 @@ export async function upsertService(
   const c = client();
   // `title` (the legacy column) keeps the Arabic text for backward compatibility
   // with any code that reads it directly. New code reads title_ar / title_en.
-  const payload = {
+  const payload: Record<string, unknown> = {
     title: input.titleAr,
     title_ar: input.titleAr,
     title_en: input.titleEn,
@@ -768,6 +788,9 @@ export async function upsertService(
     duration: input.duration ?? null,
     duration_minutes: input.durationMinutes,
   };
+  if (input.images !== undefined) {
+    payload.images = input.images;
+  }
 
   if (input.id) {
     const { data, error } = await c
@@ -800,6 +823,39 @@ export async function updateProviderWorkingHours(
   const { error } = await client()
     .from("providers")
     .update({ working_hours: hours })
+    .eq("id", providerId);
+  if (error) throw error;
+}
+
+/** Patch the provider's own profile fields (RLS allows the owning user). */
+export async function updateOwnProvider(
+  providerId: string,
+  patch: {
+    name?: string;
+    description?: string;
+    logoUrl?: string | null;
+    coverUrl?: string | null;
+    phone?: string;
+  },
+): Promise<void> {
+  const next: Record<string, unknown> = {};
+  if (patch.name !== undefined) {
+    next.name = patch.name;
+    // Mirror Arabic name into the bilingual column to stay consistent
+    // with how `become_provider` seeds the row.
+    next.name_ar = patch.name;
+  }
+  if (patch.description !== undefined) {
+    next.description = patch.description;
+    next.description_ar = patch.description;
+  }
+  if (patch.logoUrl !== undefined) next.logo_url = patch.logoUrl;
+  if (patch.coverUrl !== undefined) next.cover_url = patch.coverUrl;
+  if (patch.phone !== undefined) next.phone = patch.phone;
+  if (Object.keys(next).length === 0) return;
+  const { error } = await client()
+    .from("providers")
+    .update(next)
     .eq("id", providerId);
   if (error) throw error;
 }
@@ -952,6 +1008,13 @@ export async function updateBookingStatus(
 // ============================================================
 // REVIEWS
 // ============================================================
+/**
+ * Insert a review for a completed booking, OR update the existing one
+ * if the user is editing a previous rating. Uses upsert with
+ * onConflict on `booking_id` (the table has a unique constraint there)
+ * to avoid the SQLSTATE 23505 we used to get when a customer rated
+ * the same booking twice.
+ */
 export async function createReview(input: {
   bookingId: string;
   userId: string;
@@ -959,14 +1022,60 @@ export async function createReview(input: {
   rating: number;
   comment: string;
 }): Promise<void> {
-  const { error } = await client().from("reviews").insert({
-    booking_id: input.bookingId,
-    user_id: input.userId,
-    provider_id: input.providerId,
-    rating: input.rating,
-    comment: input.comment || null,
-  });
+  const { error } = await client()
+    .from("reviews")
+    .upsert(
+      {
+        booking_id: input.bookingId,
+        user_id: input.userId,
+        provider_id: input.providerId,
+        rating: input.rating,
+        comment: input.comment || null,
+      },
+      { onConflict: "booking_id" },
+    );
   if (error) throw error;
+}
+
+export interface ProviderReview {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  reviewerName: string | null;
+}
+
+/**
+ * All reviews for a provider — visible to anyone (RLS policy
+ * `reviews_read_all` from migration v2). Hidden reviews
+ * (`is_hidden = true`, set by admin moderation) are excluded.
+ *
+ * Why this exists: the provider detail page used to derive reviews from
+ * the *current user's* bookings list, which only ever showed reviews
+ * written by the viewer. This RPC-free query returns every customer's
+ * review for the provider so visitors see real social proof.
+ */
+export async function fetchProviderReviews(
+  providerId: string,
+  limit = 50,
+): Promise<ProviderReview[]> {
+  const { data, error } = await client()
+    .from("reviews")
+    .select(
+      "id, rating, comment, created_at, is_hidden, user:users!reviews_user_id_fkey ( full_name )",
+    )
+    .eq("provider_id", providerId)
+    .eq("is_hidden", false)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as unknown as ReviewRow[]).map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.created_at,
+    reviewerName: r.user?.full_name ?? null,
+  }));
 }
 
 // ============================================================
@@ -1324,6 +1433,33 @@ export async function adminSetUserRole(
   if (error) throw error;
 }
 
+/**
+ * Demote a provider back to a customer with full cleanup. Deletes the
+ * providers row (cascades to services/gallery/reviews/service_areas/
+ * favorites; bookings.provider_id is SET NULL), wipes storage objects,
+ * and flips users.role to 'customer'. See migration v13.
+ */
+export async function adminDemoteProvider(userId: string): Promise<{
+  authUserId: string;
+  deletedProviderId: string | null;
+  storageObjectsDeleted: number;
+}> {
+  const { data, error } = await client().rpc("admin_demote_provider", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  const payload = data as {
+    auth_user_id: string;
+    deleted_provider_id: string | null;
+    storage_objects_deleted: number;
+  };
+  return {
+    authUserId: payload.auth_user_id,
+    deletedProviderId: payload.deleted_provider_id,
+    storageObjectsDeleted: payload.storage_objects_deleted,
+  };
+}
+
 export async function adminFetchAllBookings(
   filters?: { status?: BookingStatus },
   lang: AppLang = "ar",
@@ -1456,6 +1592,34 @@ export async function adminRejectProvider(
       verification_rejection_reason: trimmed || null,
     })
     .eq("id", providerId);
+  if (error) throw error;
+}
+
+/** Admin requests the provider to fix data and resubmit. Status flips to
+ *  'needs_update' with a mandatory reason. The provider can then edit
+ *  their info and call providerResubmitForReview to send back to pending.
+ */
+export async function adminRequestProviderUpdate(
+  providerId: string,
+  reason: string,
+): Promise<void> {
+  const trimmed = (reason ?? "").trim();
+  if (!trimmed) {
+    throw new Error("سبب طلب التحديث مطلوب");
+  }
+  const { error } = await client().rpc("admin_request_provider_update", {
+    p_provider_id: providerId,
+    p_reason: trimmed,
+  });
+  if (error) throw error;
+}
+
+/** Provider resubmits their (now updated) info for review. Flips
+ *  needs_update → pending. Throws if the current user has no
+ *  needs_update provider row.
+ */
+export async function providerResubmitForReview(): Promise<void> {
+  const { error } = await client().rpc("provider_resubmit_for_review");
   if (error) throw error;
 }
 

@@ -243,8 +243,11 @@ export default function HomeScreen() {
               ))}
             </View>
           </View>
-        ) : !isFiltering ? (
+        ) : (
           <FadeIntoView>
+            {/* Featured categories — always visible, even when filtering by
+                city, so customers don't lose the page chrome and can browse
+                by category alongside their filter. */}
             <Section title={t("featured")} icon="grid" pullUp>
               <View style={styles.catsGrid}>
                 {featured.map((cat) => (
@@ -253,48 +256,54 @@ export default function HomeScreen() {
               </View>
             </Section>
 
-            <View style={[styles.banner, { backgroundColor: c.primaryBg }]}>
-              <Image
-                source={require("../../assets/images/hero-hall.png")}
-                style={styles.bannerImage}
-              />
-              <LinearGradient
-                colors={["rgba(123,44,191,0)", "rgba(90,24,154,0.85)"]}
-                style={styles.bannerOverlay}
-              />
-              <View style={styles.bannerContent}>
-                <Text style={styles.bannerTitle}>قاعات وقصور فاخرة</Text>
-                <Text style={styles.bannerDesc}>اكتشف أرقى أماكن إقامة الحفلات</Text>
-                <Pressable
-                  onPress={() => router.push("/category/halls")}
-                  style={styles.bannerBtn}
-                >
-                  <Text style={styles.bannerBtnText}>تصفح القاعات</Text>
-                  <Feather name="arrow-left" size={14} color="#7b2cbf" />
-                </Pressable>
-              </View>
-            </View>
-
-            {topRated.length > 0 ? (
+            {!isFiltering ? (
               <>
-                <SectionHeader
-                  title={t("topRated")}
-                  icon="star"
-                  color={c.foreground}
-                />
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.hScroll}
-                >
-                  {topRated.map((p) => (
-                    <ProviderCard
-                      key={p.id}
-                      provider={p}
-                      variant="horizontal"
+                <View style={[styles.banner, { backgroundColor: c.primaryBg }]}>
+                  <Image
+                    source={require("../../assets/images/hero-hall.png")}
+                    style={styles.bannerImage}
+                  />
+                  <LinearGradient
+                    colors={["rgba(123,44,191,0)", "rgba(90,24,154,0.85)"]}
+                    style={styles.bannerOverlay}
+                  />
+                  <View style={styles.bannerContent}>
+                    <Text style={styles.bannerTitle}>قاعات وقصور فاخرة</Text>
+                    <Text style={styles.bannerDesc}>
+                      اكتشف أرقى أماكن إقامة الحفلات
+                    </Text>
+                    <Pressable
+                      onPress={() => router.push("/category/halls")}
+                      style={styles.bannerBtn}
+                    >
+                      <Text style={styles.bannerBtnText}>تصفح القاعات</Text>
+                      <Feather name="arrow-left" size={14} color="#7b2cbf" />
+                    </Pressable>
+                  </View>
+                </View>
+
+                {topRated.length > 0 ? (
+                  <>
+                    <SectionHeader
+                      title={t("topRated")}
+                      icon="star"
+                      color={c.foreground}
                     />
-                  ))}
-                </ScrollView>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.hScroll}
+                    >
+                      {topRated.map((p) => (
+                        <ProviderCard
+                          key={p.id}
+                          provider={p}
+                          variant="horizontal"
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                ) : null}
               </>
             ) : null}
 
@@ -306,9 +315,27 @@ export default function HomeScreen() {
               </View>
             </Section>
 
-            {topPicks.length > 0 ? (
+            {isFiltering ? (
+              <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
+                <Text style={[styles.searchTitle, { color: c.foreground }]}>
+                  {t("filterResultsCount", { count: filtered.length })}
+                </Text>
+                {filtered.map((p) => (
+                  <ProviderCard key={p.id} provider={p} />
+                ))}
+                {filtered.length === 0 ? (
+                  <Text style={[styles.noResults, { color: c.mutedForeground }]}>
+                    لم يتم العثور على نتائج
+                  </Text>
+                ) : null}
+              </View>
+            ) : topPicks.length > 0 ? (
               <>
-                <SectionHeader title="مختار لك" icon="award" color={c.foreground} />
+                <SectionHeader
+                  title="مختار لك"
+                  icon="award"
+                  color={c.foreground}
+                />
                 <View style={{ paddingHorizontal: 16, gap: 14 }}>
                   {topPicks.map((p) => (
                     <ProviderCard key={p.id} provider={p} />
@@ -317,28 +344,15 @@ export default function HomeScreen() {
               </>
             ) : null}
 
-            {providers.length === 0 ? (
+            {!isFiltering && providers.length === 0 ? (
               <View style={styles.emptyHint}>
                 <Text style={[styles.emptyHintText, { color: c.mutedForeground }]}>
-                  لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح قائمة "حسابي" واختر "كن مزود خدمة".
+                  لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح قائمة "حسابي"
+                  واختر "كن مزود خدمة".
                 </Text>
               </View>
             ) : null}
           </FadeIntoView>
-        ) : (
-          <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
-            <Text style={[styles.searchTitle, { color: c.foreground }]}>
-              {t("filterResultsCount", { count: filtered.length })}
-            </Text>
-            {filtered.map((p) => (
-              <ProviderCard key={p.id} provider={p} />
-            ))}
-            {filtered.length === 0 ? (
-              <Text style={[styles.noResults, { color: c.mutedForeground }]}>
-                لم يتم العثور على نتائج
-              </Text>
-            ) : null}
-          </View>
         )}
       </ScrollView>
 

@@ -42,6 +42,7 @@ export default function ProviderPending() {
   const status = profile?.providerVerificationStatus ?? "pending";
   const reason = profile?.providerRejectionReason ?? null;
   const isRejected = status === "rejected";
+  const isNeedsUpdate = status === "needs_update";
 
   // Auto-flip to the dashboard the moment the admin approves. The profile is
   // refreshed by AppContext when a verification_status notification arrives.
@@ -62,13 +63,14 @@ export default function ProviderPending() {
 
   const pulse = useSharedValue(1);
   useEffect(() => {
-    if (isRejected) return;
+    // Only pulse for the active "pending" review state.
+    if (isRejected || isNeedsUpdate) return;
     pulse.value = withRepeat(
       withTiming(1.08, { duration: 900, easing: Easing.inOut(Easing.cubic) }),
       -1,
       true,
     );
-  }, [pulse, isRejected]);
+  }, [pulse, isRejected, isNeedsUpdate]);
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
   }));
@@ -95,7 +97,11 @@ export default function ProviderPending() {
       >
         <LinearGradient
           colors={
-            isRejected ? ["#dc2626", "#991b1b"] : ["#7b2cbf", "#5a189a"]
+            isRejected
+              ? ["#dc2626", "#991b1b"]
+              : isNeedsUpdate
+                ? ["#1d4ed8", "#1e3a8a"]
+                : ["#7b2cbf", "#5a189a"]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -117,36 +123,61 @@ export default function ProviderPending() {
 
           <Animated.View style={[styles.iconCircle, pulseStyle]}>
             <Feather
-              name={isRejected ? "x-circle" : "clock"}
+              name={
+                isRejected
+                  ? "x-circle"
+                  : isNeedsUpdate
+                    ? "edit-3"
+                    : "clock"
+              }
               size={44}
               color="#ffffff"
             />
           </Animated.View>
           <Text style={styles.heroTitle}>
             {isRejected
-              ? t("verificationRejectedTitle")
-              : t("verificationPendingTitle")}
+              ? t("finalRejectedTitle")
+              : isNeedsUpdate
+                ? t("needsUpdateTitle")
+                : t("verificationPendingTitle")}
           </Text>
           <Text style={styles.heroDesc}>
             {isRejected
-              ? t("verificationRejectedDesc")
-              : t("verificationPendingDesc")}
+              ? t("finalRejectedDesc")
+              : isNeedsUpdate
+                ? t("needsUpdateDesc")
+                : t("verificationPendingDesc")}
           </Text>
         </LinearGradient>
 
         <View style={styles.body}>
-          {isRejected && reason ? (
+          {(isRejected || isNeedsUpdate) && reason ? (
             <Card>
               <View style={styles.reasonHead}>
-                <Feather name="alert-circle" size={18} color={c.destructive} />
+                <Feather
+                  name="alert-circle"
+                  size={18}
+                  color={isNeedsUpdate ? "#1d4ed8" : c.destructive}
+                />
                 <Text style={[styles.reasonTitle, { color: c.foreground }]}>
-                  {t("rejectReasonLabel")}
+                  {isNeedsUpdate
+                    ? t("needsUpdateReasonLabel")
+                    : t("rejectReasonLabel")}
                 </Text>
               </View>
               <Text style={[styles.reasonBody, { color: c.foreground }]}>
                 {reason}
               </Text>
             </Card>
+          ) : null}
+
+          {isNeedsUpdate ? (
+            <Button
+              label={t("editAndResubmit")}
+              onPress={() => router.push("/provider-zone/update-info" as never)}
+              size="lg"
+              icon={<Feather name="edit-3" size={16} color="#ffffff" />}
+            />
           ) : null}
 
           <Button
@@ -160,6 +191,7 @@ export default function ProviderPending() {
             label={t("contactSupport")}
             onPress={() => router.push("/support")}
             size="lg"
+            variant="ghost"
           />
           <Pressable
             onPress={() => router.replace("/(tabs)")}

@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +17,15 @@ interface Props extends TextInputProps {
 
 export function Input({ label, error, rightIcon, style, ...rest }: Props) {
   const c = useColors();
+  // On iOS, applying writingDirection:"rtl" to a numeric/phone-pad input
+  // makes the typed digits invisible (cursor + glyphs land in negative
+  // space). Numeric input is naturally LTR — only force RTL writing
+  // direction for free-form text fields.
+  const isNumericKb =
+    rest.keyboardType === "number-pad" ||
+    rest.keyboardType === "numeric" ||
+    rest.keyboardType === "decimal-pad" ||
+    rest.keyboardType === "phone-pad";
   return (
     <View style={{ width: "100%" }}>
       {label ? (
@@ -40,8 +48,8 @@ export function Input({ label, error, rightIcon, style, ...rest }: Props) {
             styles.input,
             {
               color: c.foreground,
-              textAlign: Platform.OS === "web" ? "right" : undefined,
-              writingDirection: "rtl",
+              textAlign: "right",
+              writingDirection: isNumericKb ? "ltr" : "rtl",
             },
             style,
           ]}

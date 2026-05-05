@@ -62,7 +62,14 @@ export default function BookingsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ maxHeight: 60 }}
+        // Don't constrain height: when one of the filter labels has
+        // glyphs with deep descenders ("قيد المراجعة" — the ج/ع drop
+        // below the baseline) the natural chip height ticks up by a
+        // pixel or two and the previous `maxHeight: 60` clipped the
+        // bottom of the pills. Letting the ScrollView size to its
+        // content (and pinning the chip itself to a known height)
+        // gives a stable result on every platform.
+        style={styles.filterScroll}
         contentContainerStyle={styles.filterRow}
       >
         {FILTERS.map((f) => {
@@ -84,6 +91,8 @@ export default function BookingsScreen() {
                   styles.chipText,
                   { color: active ? "#ffffff" : c.foreground },
                 ]}
+                numberOfLines={1}
+                allowFontScaling={false}
               >
                 {f.label}
               </Text>
@@ -145,17 +154,28 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  filterScroll: {
+    // `flexGrow: 0` keeps the ScrollView from stretching to fill the
+    // remaining vertical space below the header.
+    flexGrow: 0,
+  },
   filterRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
+    alignItems: "center",
   },
   chip: {
+    height: 36,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   chipText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 13,
+    lineHeight: 20,
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
 });
