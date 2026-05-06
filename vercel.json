@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm --filter @workspace/farah build:web",
-  "installCommand": "pnpm install --frozen-lockfile=false"
+  "installCommand": "pnpm install --frozen-lockfile=false",
+  "functions": {
+    "artifacts/farah/dist/index.js": {
+      "includeFiles": "artifacts/farah/dist/**"
+    }
+  }
 }
