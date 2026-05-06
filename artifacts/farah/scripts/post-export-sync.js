@@ -1,28 +1,22 @@
 /**
  * Post-export Vercel adapter.
  *
- * Earlier attempts to point Vercel at the expo export output via
- * vercel.json#outputDirectory or copies under `dist`/`public`/`build`
- * all failed with "No Output Directory named 'dist' found" — meaning
- * Vercel's project-level Output Directory or Root Directory setting
- * is pointing at a path neither we nor the build can predict.
+ * The smoking gun from the latest deploy:
+ *   Error: No entrypoint found in output directory: "artifacts/farah/dist"
  *
- * Solution: switch to Vercel's Build Output API. When
- * `.vercel/output/config.json` exists at the project root after the
- * build, Vercel uses that filesystem layout and **ignores
- * outputDirectory, framework, and the dashboard Output Directory
- * setting entirely**. This is the only path that bypasses the
- * dashboard overrides we can't see or change from CI.
+ * That tells us conclusively the Vercel project has Root Directory
+ * set to `artifacts/farah` in the dashboard. After the build, Vercel
+ * inspects `<rootDirectory>` — not the repo root — for both:
+ *   - the deployment artifact (it found `dist/` and tried to treat it
+ *     as a Node.js function, hence the "No entrypoint" error), and
+ *   - the Build Output API marker (`.vercel/output/config.json`).
  *
- * Layout we emit (per the spec):
- *   .vercel/output/static/        ← every static file
- *   .vercel/output/config.json    ← routes (filesystem-first, SPA fallback)
+ * Fix: emit the Build Output API layout under **both** the repo root
+ * AND `artifacts/farah/`. Whichever one Vercel scans, it'll find the
+ * config.json and switch into Build Output API mode (which bypasses
+ * its Node.js auto-detection entirely).
  *
- * We also still mirror to `dist`, `public`, `build` at the repo root
- * as a belt-and-suspenders fallback for any zero-config path Vercel
- * might still try.
- *
- * Run from `artifacts/farah/` (cwd of the build:web script).
+ * Also keep the dist/public/build mirrors as a last-resort fallback.
  */
 
 const fs = require("fs");
@@ -37,7 +31,7 @@ if (!fs.existsSync(sourceDist)) {
   process.exit(1);
 }
 
-function copy(target) {
+function copyDir(target) {
   if (path.resolve(target) === path.resolve(sourceDist)) return false;
   try {
     if (fs.existsSync(target)) {
@@ -52,34 +46,35 @@ function copy(target) {
   }
 }
 
-// 1. Build Output API: `.vercel/output/static/` + config.json at the
-//    project root. This is the canonical Vercel v3 deploy contract and
-//    overrides any dashboard Output Directory setting.
-const outputApiDir = path.join(repoRoot, ".vercel", "output");
-const outputApiStatic = path.join(outputApiDir, "static");
-fs.mkdirSync(outputApiDir, { recursive: true });
-copy(outputApiStatic);
+function writeBuildOutputApi(baseDir) {
+  const outputApiDir = path.join(baseDir, ".vercel", "output");
+  const outputApiStatic = path.join(outputApiDir, "static");
+  fs.mkdirSync(outputApiDir, { recursive: true });
+  copyDir(outputApiStatic);
 
-const config = {
-  version: 3,
-  routes: [
-    // Serve concrete files from .vercel/output/static when they exist.
-    { handle: "filesystem" },
-    // SPA fallback: any path without an extension goes to the entry HTML.
-    // We use the explicit destination form so the regex isn't ambiguous.
-    { src: "^/(.*)$", dest: "/index.html" },
-  ],
-};
-fs.writeFileSync(
-  path.join(outputApiDir, "config.json"),
-  JSON.stringify(config, null, 2),
-);
-console.log(`[sync] ✓ ${path.join(outputApiDir, "config.json")}`);
-
-// 2. Legacy fallback locations — harmless if Vercel picks Build Output
-//    API, useful if for some reason it doesn't.
-for (const name of ["dist", "public", "build"]) {
-  copy(path.join(repoRoot, name));
+  const config = {
+    version: 3,
+    routes: [
+      { handle: "filesystem" },
+      { src: "^/(.*)$", dest: "/index.html" },
+    ],
+  };
+  const configPath = path.join(outputApiDir, "config.json");
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  console.log(`[sync] ✓ ${configPath}`);
 }
 
-console.log("[sync] Done. Vercel will deploy from .vercel/output/ via Build Output API.");
+// Build Output API at *both* possible roots — repo root (in case
+// Vercel's Root Directory is empty) and artifacts/farah (in case
+// it's set to the package, which the latest deploy log proved it is).
+writeBuildOutputApi(repoRoot);
+writeBuildOutputApi(farahDir);
+
+// Legacy mirrors as a fallback for any zero-config code path.
+for (const baseDir of [repoRoot, farahDir]) {
+  for (const name of ["dist", "public", "build"]) {
+    copyDir(path.join(baseDir, name));
+  }
+}
+
+console.log("[sync] Done. Build Output API + legacy mirrors emitted at both repo root and artifacts/farah.");
