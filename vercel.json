@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm --filter @workspace/farah build:web",
-  "outputDirectory": "artifacts/farah/dist",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile=false",
   "framework": null,
   "rewrites": [
