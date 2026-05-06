@@ -1,18 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
+  "buildCommand": "pnpm --filter @workspace/farah build:web",
+  "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile=false",
-  "builds": [
+  "framework": null,
+  "rewrites": [
     {
-      "src": "artifacts/farah/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "source": "/((?!.*\\.).*)",
+      "destination": "/index.html"
     }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": ".*", "dest": "/index.html" }
   ]
 }
