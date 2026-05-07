@@ -116,6 +116,8 @@ interface BookingRow {
   payment_status: PaymentStatus;
   payment_method: string | null;
   payment_id: string | null;
+  deposit_amount: number | string | null;
+  deposit_paid_at: string | null;
   commission_rate: number | string | null;
   commission_status: CommissionStatus | null;
   commission_amount: number | string | null;
@@ -278,6 +280,8 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: string | null;
+  depositAmount: number | null;
+  depositPaidAt: string | null;
   refundStatus: RefundStatus;
   cancelledAt: string | null;
   cancelledBy: string | null;
@@ -458,6 +462,8 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
     status: row.status,
     paymentStatus: row.payment_status ?? "pending",
     paymentMethod: row.payment_method ?? null,
+    depositAmount: row.deposit_amount != null ? Number(row.deposit_amount) : null,
+    depositPaidAt: row.deposit_paid_at ?? null,
     refundStatus: row.refund_status ?? "not_required",
     cancelledAt: row.cancelled_at,
     cancelledBy: row.cancelled_by,
@@ -872,6 +878,7 @@ const BOOKING_SELECT = `
   id, user_id, provider_id, service_id, service_title, price,
   start_at, end_at, city, address, notes, status,
   payment_status, payment_method, payment_id,
+  deposit_amount, deposit_paid_at,
   commission_rate, commission_status, commission_amount,
   commission_paid_at, commission_payment_note,
   cancelled_at, cancelled_by, cancellation_reason, refund_status,
@@ -1152,6 +1159,83 @@ export async function adminSetCommissionRate(rate: number): Promise<void> {
   const { error } = await client()
     .from("app_settings")
     .upsert({ key: "commission_rate", value: rate }, { onConflict: "key" });
+  if (error) throw error;
+}
+
+/**
+ * Payment-related app settings that the admin can tune from the dashboard.
+ * Values are stored in app_settings.value as JSONB numbers.
+ */
+export interface PaymentSettings {
+  depositPercentage: number;
+  appShareFromDeposit: number;
+  cancellationWindowFullDays: number;
+  cancellationWindowHalfDays: number;
+}
+
+const PAYMENT_SETTING_KEYS = [
+  "deposit_percentage",
+  "app_share_from_deposit",
+  "cancellation_window_full_days",
+  "cancellation_window_half_days",
+] as const;
+
+const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
+  depositPercentage: 25,
+  appShareFromDeposit: 10,
+  cancellationWindowFullDays: 10,
+  cancellationWindowHalfDays: 5,
+};
+
+export async function fetchPaymentSettings(): Promise<PaymentSettings> {
+  const { data, error } = await client()
+    .from("app_settings")
+    .select("key, value")
+    .in("key", PAYMENT_SETTING_KEYS as unknown as string[]);
+  if (error) throw error;
+  const map = new Map<string, number>();
+  for (const row of data ?? []) {
+    const r = row as { key: string; value: unknown };
+    const n = Number(r.value);
+    if (Number.isFinite(n)) map.set(r.key, n);
+  }
+  return {
+    depositPercentage:
+      map.get("deposit_percentage") ?? DEFAULT_PAYMENT_SETTINGS.depositPercentage,
+    appShareFromDeposit:
+      map.get("app_share_from_deposit") ?? DEFAULT_PAYMENT_SETTINGS.appShareFromDeposit,
+    cancellationWindowFullDays:
+      map.get("cancellation_window_full_days") ?? DEFAULT_PAYMENT_SETTINGS.cancellationWindowFullDays,
+    cancellationWindowHalfDays:
+      map.get("cancellation_window_half_days") ?? DEFAULT_PAYMENT_SETTINGS.cancellationWindowHalfDays,
+  };
+}
+
+export async function adminSavePaymentSettings(
+  patch: Partial<PaymentSettings>,
+): Promise<void> {
+  const rows: { key: string; value: number }[] = [];
+  if (patch.depositPercentage !== undefined)
+    rows.push({ key: "deposit_percentage", value: patch.depositPercentage });
+  if (patch.appShareFromDeposit !== undefined)
+    rows.push({
+      key: "app_share_from_deposit",
+      value: patch.appShareFromDeposit,
+    });
+  if (patch.cancellationWindowFullDays !== undefined)
+    rows.push({
+      key: "cancellation_window_full_days",
+      value: patch.cancellationWindowFullDays,
+    });
+  if (patch.cancellationWindowHalfDays !== undefined)
+    rows.push({
+      key: "cancellation_window_half_days",
+      value: patch.cancellationWindowHalfDays,
+    });
+  if (rows.length === 0) return;
+  const { error } = await client()
+    .from("app_settings")
+    .upsert(rows, { onConflict: "key" });
   if (error) throw error;
 }
 

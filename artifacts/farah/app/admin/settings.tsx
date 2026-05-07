@@ -20,9 +20,12 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import {
+  adminSavePaymentSettings,
   adminUpdateAppContent,
   fetchAppContent,
+  fetchPaymentSettings,
   type AppContentEntry,
+  type PaymentSettings,
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
 
@@ -44,6 +47,62 @@ export default function AdminSettings() {
 
   const [entries, setEntries] = useState<Record<string, AppContentEntry>>({});
   const [loadingContent, setLoadingContent] = useState(true);
+
+  // Payment settings (deposit %, app share %, cancellation windows).
+  const [paySettings, setPaySettings] = useState<PaymentSettings | null>(null);
+  const [paySaving, setPaySaving] = useState(false);
+  const [paySavedFlash, setPaySavedFlash] = useState(false);
+  const [depositPctInput, setDepositPctInput] = useState("");
+  const [appShareInput, setAppShareInput] = useState("");
+  const [fullWindowInput, setFullWindowInput] = useState("");
+  const [halfWindowInput, setHalfWindowInput] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    fetchPaymentSettings()
+      .then((s) => {
+        if (!alive) return;
+        setPaySettings(s);
+        setDepositPctInput(String(s.depositPercentage));
+        setAppShareInput(String(s.appShareFromDeposit));
+        setFullWindowInput(String(s.cancellationWindowFullDays));
+        setHalfWindowInput(String(s.cancellationWindowHalfDays));
+      })
+      .catch((e) => console.warn("[admin settings] payment fetch", e));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const savePaymentSettings = async () => {
+    setPaySaving(true);
+    try {
+      const patch: Partial<PaymentSettings> = {
+        depositPercentage: Math.max(0, Math.min(100, Number(depositPctInput) || 0)),
+        appShareFromDeposit: Math.max(0, Math.min(100, Number(appShareInput) || 0)),
+        cancellationWindowFullDays: Math.max(0, Math.min(60, Number(fullWindowInput) || 0)),
+        cancellationWindowHalfDays: Math.max(0, Math.min(60, Number(halfWindowInput) || 0)),
+      };
+      await adminSavePaymentSettings(patch);
+      setPaySettings({
+        depositPercentage: patch.depositPercentage!,
+        appShareFromDeposit: patch.appShareFromDeposit!,
+        cancellationWindowFullDays: patch.cancellationWindowFullDays!,
+        cancellationWindowHalfDays: patch.cancellationWindowHalfDays!,
+      });
+      setPaySavedFlash(true);
+      setTimeout(() => setPaySavedFlash(false), 2000);
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") window.alert(msg);
+      } else {
+        Alert.alert(t("error"), msg);
+      }
+    } finally {
+      setPaySaving(false);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -121,6 +180,72 @@ export default function AdminSettings() {
               variant={savedFlash ? "secondary" : "primary"}
             />
           </View>
+        </Card>
+
+        {/* === Payment policy === */}
+        <Card>
+          <SectionHeader icon="credit-card" title={t("paymentSettingsTitle")} />
+          <Text style={[styles.desc, { color: c.mutedForeground }]}>
+            {t("paymentSettingsDesc")}
+          </Text>
+          {!paySettings ? (
+            <ActivityIndicator color={c.primary} style={{ marginTop: 12 }} />
+          ) : (
+            <View style={{ gap: 12, marginTop: 12 }}>
+              <Input
+                label={t("depositPercentageLabel")}
+                value={depositPctInput}
+                onChangeText={setDepositPctInput}
+                keyboardType="numeric"
+                maxLength={3}
+              />
+              <Text style={[styles.helper, { color: c.mutedForeground }]}>
+                {t("depositPercentageHelp")}
+              </Text>
+
+              <Input
+                label={t("appShareFromDepositLabel")}
+                value={appShareInput}
+                onChangeText={setAppShareInput}
+                keyboardType="numeric"
+                maxLength={3}
+              />
+              <Text style={[styles.helper, { color: c.mutedForeground }]}>
+                {t("appShareFromDepositHelp")}
+              </Text>
+
+              <Input
+                label={t("cancellationFullWindowLabel")}
+                value={fullWindowInput}
+                onChangeText={setFullWindowInput}
+                keyboardType="numeric"
+                maxLength={3}
+              />
+              <Text style={[styles.helper, { color: c.mutedForeground }]}>
+                {t("cancellationFullWindowHelp")}
+              </Text>
+
+              <Input
+                label={t("cancellationHalfWindowLabel")}
+                value={halfWindowInput}
+                onChangeText={setHalfWindowInput}
+                keyboardType="numeric"
+                maxLength={3}
+              />
+              <Text style={[styles.helper, { color: c.mutedForeground }]}>
+                {t("cancellationHalfWindowHelp")}
+              </Text>
+
+              <View style={{ marginTop: 6 }}>
+                <Button
+                  label={paySavedFlash ? t("savedCheck") : t("saveChanges")}
+                  onPress={savePaymentSettings}
+                  loading={paySaving}
+                  variant={paySavedFlash ? "secondary" : "primary"}
+                />
+              </View>
+            </View>
+          )}
         </Card>
 
         {/* === Legal documents === */}
@@ -370,6 +495,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
     lineHeight: 21,
+    textAlign: "right",
+  },
+  helper: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    marginTop: -6,
+    lineHeight: 17,
     textAlign: "right",
   },
   editor: {

@@ -334,7 +334,7 @@ begin
   if v_payment.kind = 'booking_deposit' then
     update public.bookings
       set deposit_paid_at = now(),
-          status = case when status = 'pending' then 'pending'::booking_status else status end
+          payment_status = 'paid'::payment_status
     where id = v_payment.booking_id;
   elsif v_payment.kind = 'provider_commission' then
     update public.bookings

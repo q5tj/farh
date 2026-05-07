@@ -781,6 +781,19 @@ export const ar = {
 
   // Payment / Moyasar
   paymentInitFailed: "تعذّر بدء عملية الدفع",
+  contactProviderLockedAfterPayment: "رقم المزود يظهر بعد دفع العربون.",
+
+  // Admin → payment settings
+  paymentSettingsTitle: "إعدادات الدفع والإلغاء",
+  paymentSettingsDesc: "تحدّد هذي القيم مبلغ العربون، حصة المنصة الفورية منه، وفترات استرداد العربون عند الإلغاء.",
+  depositPercentageLabel: "نسبة العربون من السعر (%)",
+  depositPercentageHelp: "مثال: 25 = العميل يدفع 25% من سعر الخدمة كعربون.",
+  appShareFromDepositLabel: "حصة المنصة من العربون (%)",
+  appShareFromDepositHelp: "مثال: 10 = نأخذ 10% من العربون فوراً، الباقي يحتسب للمزود.",
+  cancellationFullWindowLabel: "أيام الاسترداد الكامل (أكبر من أو يساوي)",
+  cancellationFullWindowHelp: "إذا ألغى العميل قبل هذا العدد من الأيام يسترد كامل العربون (بعد خصم رسوم المنصة).",
+  cancellationHalfWindowLabel: "أيام الاسترداد النصفي (أكبر من أو يساوي)",
+  cancellationHalfWindowHelp: "بين هذا العدد والعدد السابق يسترد 50% من العربون. أقل من هذا = لا استرداد.",
   paymentMissingId: "بيانات الدفع مفقودة",
   paymentVerifying: "جارٍ التحقق من الدفعة...",
   paymentVerifyingDesc: "نتأكد من حالة الدفعة لدى ميسر، لا تغلق الصفحة.",

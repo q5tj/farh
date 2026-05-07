@@ -788,6 +788,19 @@ export const en: Strings = {
 
   // Payment / Moyasar
   paymentInitFailed: "Couldn't start the payment",
+  contactProviderLockedAfterPayment: "Provider's phone unlocks after the deposit is paid.",
+
+  // Admin → payment settings
+  paymentSettingsTitle: "Payment & cancellation",
+  paymentSettingsDesc: "Controls the deposit amount, the platform's instant share of it, and the refund windows when a booking is cancelled.",
+  depositPercentageLabel: "Deposit % of service price",
+  depositPercentageHelp: "e.g. 25 = customer pays 25% of the service price as deposit.",
+  appShareFromDepositLabel: "Platform share of deposit (%)",
+  appShareFromDepositHelp: "e.g. 10 = we keep 10% of the deposit immediately, the rest accrues to the provider.",
+  cancellationFullWindowLabel: "Full refund window (days)",
+  cancellationFullWindowHelp: "If the customer cancels with this many days or more remaining, full deposit is refunded (after platform fee).",
+  cancellationHalfWindowLabel: "Half refund window (days)",
+  cancellationHalfWindowHelp: "Between this count and the previous one, 50% of the deposit is refunded. Less than this = no refund.",
   paymentMissingId: "Payment reference missing",
   paymentVerifying: "Verifying payment…",
   paymentVerifyingDesc: "Confirming the result with Moyasar — please don't close this page.",

@@ -250,13 +250,38 @@ export default function BookingDetailScreen() {
         ) : null}
 
         <View style={{ marginTop: 18, gap: 10 }}>
-          {provider?.phone ? (
+          {provider?.phone && booking.depositPaidAt ? (
             <Button
               label={t("contactProvider")}
               variant="secondary"
               onPress={() => Linking.openURL(`tel:${provider.phone}`)}
               icon={<Feather name="phone" size={16} color={c.primary} />}
             />
+          ) : provider?.phone ? (
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: c.muted,
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Feather name="lock" size={16} color={c.mutedForeground} />
+              <Text
+                style={{
+                  flex: 1,
+                  color: c.mutedForeground,
+                  fontFamily: "Cairo_500Medium",
+                  fontSize: 12,
+                  textAlign: "right",
+                  lineHeight: 19,
+                }}
+              >
+                {t("contactProviderLockedAfterPayment")}
+              </Text>
+            </View>
           ) : null}
           {canRate ? (
             <Button

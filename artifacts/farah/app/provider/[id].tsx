@@ -467,17 +467,11 @@ export default function ProviderScreen() {
           },
         ]}
       >
-        {provider.phone ? (
-          <Pressable
-            onPress={() => Linking.openURL(`tel:${provider.phone}`)}
-            style={[
-              styles.callBtn,
-              { borderColor: c.primary, borderRadius: c.radius },
-            ]}
-          >
-            <Feather name="phone" size={20} color={c.primary} />
-          </Pressable>
-        ) : null}
+        {/* Provider phone is intentionally hidden on this public listing.
+            The customer must book + pay the deposit before they can call;
+            the call button surfaces in /booking/[id] once the deposit
+            is settled. This protects the provider from spam and keeps
+            transactions inside the platform. */}
         <View style={{ flex: 1 }}>
           <Button
             label={t("bookNow")}
