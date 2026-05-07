@@ -779,6 +779,22 @@ export const ar = {
   noOutstandingBalance: "لا يوجد رصيد مستحق",
   noFinancialDataYet: "لا توجد بيانات مالية بعد",
 
+  // Payment / Moyasar
+  paymentInitFailed: "تعذّر بدء عملية الدفع",
+  paymentMissingId: "بيانات الدفع مفقودة",
+  paymentVerifying: "جارٍ التحقق من الدفعة...",
+  paymentVerifyingDesc: "نتأكد من حالة الدفعة لدى ميسر، لا تغلق الصفحة.",
+  paymentVerifyFailed: "فشل التحقق من الدفعة",
+  paymentVerifyFailedTitle: "تعذّر التحقق",
+  paymentSuccessTitle: "تم الدفع بنجاح",
+  paymentSuccessDesc: "تم استلام عربون الحجز. سنخطر مزود الخدمة الآن.",
+  paymentFailedTitle: "لم يكتمل الدفع",
+  paymentFailedDesc: "البطاقة رُفضت أو الدفعة لم تكتمل. تقدر تحاول مرة ثانية من تفاصيل الحجز.",
+  paymentPendingTitle: "الدفعة قيد المعالجة",
+  paymentPendingDesc: "ميسر لم يؤكد الدفعة بعد. عاود التحقق بعد دقيقة.",
+  goToBooking: "الذهاب إلى الحجز",
+  checkAgain: "تحقق مرة أخرى",
+
   // Provider store-data editor (in profile-setup)
   storeDataSection: "بيانات المتجر",
   storeDataDesc: "البيانات اللي تظهر للعملاء على بطاقة متجرك",

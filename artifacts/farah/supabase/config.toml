@@ -1,0 +1,18 @@
+# Supabase project config — only the fields we set explicitly.
+# The dashboard remains the source of truth for everything else.
+
+project_id = "vcgfhnroeirtjhxgbvrb"
+
+# Per-Edge-Function settings. We disable JWT verification at the gateway
+# for `moyasar` because the function reads the user's JWT from the
+# Authorization header itself (via supabase-js with the user's session
+# token) and validates ownership in our SECURITY DEFINER RPCs. Without
+# this, the gateway 401s the browser's preflight before our handler runs.
+[functions.moyasar]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
+
+[functions.expire-bookings]
+verify_jwt = false

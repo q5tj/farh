@@ -37,6 +37,10 @@ import {
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
 import { getCurrentMapUrl, isMapUrl } from "@/lib/location";
+import {
+  createBookingDepositPaymentRow,
+  createMoyasarInvoice,
+} from "@/lib/payments";
 
 function getNextDays(count: number) {
   const arr: { label: string; sub: string; iso: string; date: Date }[] = [];
@@ -242,9 +246,41 @@ export default function BookingFormScreen() {
         notes,
       });
       setConfirmOpen(false);
-      // Show animated success overlay; navigate after dismiss.
-      successTargetRef.current = `/booking/${booking.id}`;
-      setSuccessOpen(true);
+
+      // Kick off the deposit payment flow. We create a pending DB row
+      // (validates ownership + computes deposit), then ask the edge
+      // function for a Moyasar hosted invoice URL, then send the user
+      // there. Moyasar redirects them back to /payment/return where we
+      // verify the result and route into /booking/:id.
+      try {
+        const paymentId = await createBookingDepositPaymentRow(booking.id);
+        const origin =
+          Platform.OS === "web" && typeof window !== "undefined"
+            ? window.location.origin
+            : "https://farh-app.vercel.app"; // TODO: real native deep-link
+        const callbackUrl = `${origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+        const { invoice_url } = await createMoyasarInvoice(
+          paymentId,
+          callbackUrl,
+        );
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.location.href = invoice_url;
+        } else {
+          await Linking.openURL(invoice_url);
+        }
+      } catch (payErr) {
+        console.warn("[booking] deposit payment init failed", payErr);
+        // Booking already exists; surface the failure but still let the
+        // user open the booking detail to retry payment from there.
+        const msg = (payErr as Error)?.message ?? t("paymentInitFailed");
+        if (Platform.OS === "web") {
+          if (typeof window !== "undefined") window.alert(msg);
+        } else {
+          Alert.alert(t("error"), msg);
+        }
+        successTargetRef.current = `/booking/${booking.id}`;
+        setSuccessOpen(true);
+      }
     } catch (e) {
       const err = e as Error;
       const isSlotTaken = err?.message === SLOT_TAKEN_ERROR;

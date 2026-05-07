@@ -77,7 +77,11 @@ function AuthGate() {
     const onProfileSetup =
       segments[0] === "(auth)" && segments[1] === "profile-setup";
     // Public routes that don't require a session — terms, privacy, etc.
-    const isPublic = segments[0] === "legal";
+    // /legal/* and /payment/return are reachable without an auth gate —
+    // the latter handles the Moyasar redirect even if the session isn't
+    // restored yet on cold start.
+    const firstSegment = segments[0] as string | undefined;
+    const isPublic = firstSegment === "legal" || firstSegment === "payment";
 
     if (!session) {
       if (!inAuth && !isPublic) router.replace("/(auth)/login");
@@ -109,6 +113,7 @@ function AuthGate() {
         <Stack.Screen name="about" />
         <Stack.Screen name="favorites" />
         <Stack.Screen name="legal/[key]" />
+        <Stack.Screen name="payment/return" />
       </Stack>
       {!bootDone ? <BootSplash /> : null}
     </>

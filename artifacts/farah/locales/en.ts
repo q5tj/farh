@@ -786,6 +786,22 @@ export const en: Strings = {
   noOutstandingBalance: "No outstanding balance",
   noFinancialDataYet: "No financial data yet",
 
+  // Payment / Moyasar
+  paymentInitFailed: "Couldn't start the payment",
+  paymentMissingId: "Payment reference missing",
+  paymentVerifying: "Verifying payment…",
+  paymentVerifyingDesc: "Confirming the result with Moyasar — please don't close this page.",
+  paymentVerifyFailed: "Couldn't verify the payment",
+  paymentVerifyFailedTitle: "Verification failed",
+  paymentSuccessTitle: "Payment received",
+  paymentSuccessDesc: "The booking deposit was charged successfully. We'll notify the provider now.",
+  paymentFailedTitle: "Payment failed",
+  paymentFailedDesc: "Your card was declined or the payment didn't complete. You can retry from the booking details.",
+  paymentPendingTitle: "Payment pending",
+  paymentPendingDesc: "Moyasar hasn't settled the payment yet. Check back in a minute.",
+  goToBooking: "Open booking",
+  checkAgain: "Check again",
+
   // Provider store-data editor (in profile-setup)
   storeDataSection: "Store profile",
   storeDataDesc: "Public details that appear on your store card to customers",
