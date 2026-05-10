@@ -118,6 +118,9 @@ interface BookingRow {
   payment_id: string | null;
   deposit_amount: number | string | null;
   deposit_paid_at: string | null;
+  final_payment_method: "online" | "cash" | "bank_transfer" | null;
+  final_payment_status: "not_required" | "pending" | "paid" | null;
+  final_payment_at: string | null;
   commission_rate: number | string | null;
   commission_status: CommissionStatus | null;
   commission_amount: number | string | null;
@@ -282,6 +285,9 @@ export interface Booking {
   paymentMethod: string | null;
   depositAmount: number | null;
   depositPaidAt: string | null;
+  finalPaymentMethod: "online" | "cash" | "bank_transfer" | null;
+  finalPaymentStatus: "not_required" | "pending" | "paid";
+  finalPaymentAt: string | null;
   refundStatus: RefundStatus;
   cancelledAt: string | null;
   cancelledBy: string | null;
@@ -464,6 +470,9 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
     paymentMethod: row.payment_method ?? null,
     depositAmount: row.deposit_amount != null ? Number(row.deposit_amount) : null,
     depositPaidAt: row.deposit_paid_at ?? null,
+    finalPaymentMethod: row.final_payment_method ?? null,
+    finalPaymentStatus: row.final_payment_status ?? "not_required",
+    finalPaymentAt: row.final_payment_at ?? null,
     refundStatus: row.refund_status ?? "not_required",
     cancelledAt: row.cancelled_at,
     cancelledBy: row.cancelled_by,
@@ -879,6 +888,7 @@ const BOOKING_SELECT = `
   start_at, end_at, city, address, notes, status,
   payment_status, payment_method, payment_id,
   deposit_amount, deposit_paid_at,
+  final_payment_method, final_payment_status, final_payment_at,
   commission_rate, commission_status, commission_amount,
   commission_paid_at, commission_payment_note,
   cancelled_at, cancelled_by, cancellation_reason, refund_status,

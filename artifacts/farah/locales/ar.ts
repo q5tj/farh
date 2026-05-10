@@ -131,7 +131,7 @@ export const ar = {
 
   // Statuses
   statusPending: "قيد المراجعة",
-  statusAccepted: "مقبول",
+  statusAccepted: "قيد التنفيذ",
   statusRejected: "مرفوض",
   statusCompleted: "مكتمل",
   statusCancelled: "ملغي",
@@ -807,10 +807,48 @@ export const ar = {
   reviewsAffectVisibilityNotice:
     "تقييمات العملاء تؤثر على ترتيب ظهور المزود في نتائج البحث.",
   depositSecuredNotice:
-    "العميل دفع العربون — التطبيق يحتفظ به لحين إنجاز الخدمة وموافقة العميل، ثم يحوّل لك المتبقي بعد خصم العمولة.",
+    "العميل دفع العربون — حصتك من العربون أُضيفت لرصيدك. باقي السعر يُسوّى عند إنهاء الخدمة بالطريقة اللي تختارها.",
   walletHeldNoticeTitle: "كيف تستلم أرباحك؟",
   walletHeldNoticeBody:
-    "العربون يُحفظ لدى المنصة، ويُحوَّل لحسابك بعد إنجاز الخدمة بنجاح. عمولة المنصة تُخصم تلقائياً، والباقي يظهر في كشف حسابك.",
+    "حصتك من العربون تنضاف لرصيدك مباشرة بعد دفع العميل. لمّا تنهي الخدمة تختار طريقة استلام المتبقي (عبر التطبيق / كاش / حوالة)، والعمولة الإجمالية تُخصم تلقائياً.",
+
+  // Completion-method modal (provider closes booking)
+  completeServiceTitle: "إنهاء الخدمة",
+  completeServiceDesc:
+    "اختر كيف استلمت / ستستلم المبلغ المتبقي من العميل. هذا يحدد كيف تُسوّى العمولة.",
+  remainingAmountLabel: "المتبقي على العميل",
+  commissionDueLabel: "عمولة المنصة المتبقية عليك",
+  methodOnlineTitle: "عبر التطبيق",
+  methodOnlineDesc:
+    "نرسل إشعار للعميل ليدفع المتبقي ببطاقته. التطبيق يخصم العمولة تلقائياً ويضيف الباقي لرصيدك.",
+  methodCashTitle: "كاش",
+  methodCashDesc:
+    "العميل يدفع المتبقي كاش مباشرة لك. الحجز يصير مكتمل، ويظهر لك تنبيه بسداد عمولة المنصة المتبقية.",
+  methodBankTitle: "تحويل بنكي",
+  methodBankDesc:
+    "العميل يحوّل المتبقي لحسابك. الحجز يصير مكتمل، ويظهر لك تنبيه بسداد عمولة المنصة.",
+  completeNoteOptional: "ملاحظة داخلية (اختيارية)",
+  completeConfirm: "تأكيد إنهاء الخدمة",
+  completionFailed: "تعذّر إنهاء الخدمة",
+
+  // Customer pays the remaining (online)
+  finalPaymentTitle: "دفع المتبقي",
+  finalPaymentDesc:
+    "المزود أنهى الخدمة. أكمل دفع المبلغ المتبقي لإتمام العملية.",
+  payRemainingNow: "ادفع المتبقي الآن",
+  finalPaymentPaid: "تم استلام كامل المبلغ. شكراً!",
+  finalPaymentPending: "بانتظار دفع المتبقي",
+  notifyCustomerToPay: "تم إرسال إشعار للعميل لدفع المتبقي",
+
+  // Provider wallet
+  walletTitle: "محفظتي",
+  walletAvailable: "الرصيد المتاح للسحب",
+  walletPaidOut: "تم سحبه",
+  walletReleased: "إجمالي المُحرَّر",
+  walletPendingCommission: "عمولة بانتظار السداد",
+  settleCommissionNow: "سدّد العمولة الآن",
+  commissionSettlementWarning:
+    "يوجد عمولة منصة بانتظار السداد ({{amount}} ر.س). سدّدها لتجنب توقف الحساب.",
   platformDisclaimerTitle: "تنبيه",
   platformDisclaimerBody:
     "فرحتكم وسيط بين العميل والمزود فقط. التطبيق غير مسؤول عن جودة تنفيذ الخدمة، لكنه يضمن آلية مالية عادلة (عربون، استرداد، حماية الطرفين).",

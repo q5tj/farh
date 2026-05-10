@@ -23,6 +23,10 @@ import {
   type ProviderFinancialSummary,
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
+import {
+  fetchProviderWalletBreakdown,
+  type ProviderWalletBreakdown,
+} from "@/lib/payments";
 
 export default function ProviderFinancialsScreen() {
   const c = useColors();
@@ -34,15 +38,20 @@ export default function ProviderFinancialsScreen() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [summary, setSummary] = useState<ProviderFinancialSummary | null>(null);
+  const [wallet, setWallet] = useState<ProviderWalletBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
     if (!providerId) return;
     try {
-      const statement = await fetchOwnProviderStatement(providerId, lang);
+      const [statement, walletBreakdown] = await Promise.all([
+        fetchOwnProviderStatement(providerId, lang),
+        fetchProviderWalletBreakdown(providerId).catch(() => null),
+      ]);
       setBookings(statement.bookings);
       setSummary(statement.summary);
+      setWallet(walletBreakdown);
     } catch (e) {
       console.warn("[provider financials] load failed", e);
     } finally {
@@ -121,6 +130,63 @@ export default function ProviderFinancialsScreen() {
               </Text>
             </View>
           </View>
+
+          {wallet ? (
+            <View
+              style={[
+                styles.walletCard,
+                {
+                  backgroundColor: c.card,
+                  borderRadius: c.radius,
+                  borderColor: c.border,
+                },
+              ]}
+            >
+              <Text style={[styles.walletTitle, { color: c.foreground }]}>
+                {t("walletTitle")}
+              </Text>
+              <View style={styles.walletAvailableRow}>
+                <Text
+                  style={[styles.walletAvailLabel, { color: c.mutedForeground }]}
+                >
+                  {t("walletAvailable")}
+                </Text>
+                <Text
+                  style={[styles.walletAvailValue, { color: c.primary }]}
+                >
+                  {wallet.availableSar.toLocaleString()} {t("sar")}
+                </Text>
+              </View>
+              <View style={styles.walletMetaRow}>
+                <Text style={[styles.walletMeta, { color: c.mutedForeground }]}>
+                  {t("walletReleased")}: {wallet.releasedSar.toLocaleString()}{" "}
+                  {t("sar")}
+                </Text>
+                <Text style={[styles.walletMeta, { color: c.mutedForeground }]}>
+                  {t("walletPaidOut")}: {wallet.paidOutSar.toLocaleString()}{" "}
+                  {t("sar")}
+                </Text>
+              </View>
+
+              {wallet.pendingCommissionSar > 0 ? (
+                <View
+                  style={[
+                    styles.commissionWarning,
+                    { backgroundColor: "#fef3c7", borderColor: "#fde68a" },
+                  ]}
+                >
+                  <Feather name="alert-triangle" size={14} color="#a16207" />
+                  <Text
+                    style={[styles.commissionWarnText, { color: "#a16207" }]}
+                  >
+                    {t("commissionSettlementWarning", {
+                      amount: wallet.pendingCommissionSar.toLocaleString(),
+                    })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={styles.statsGrid}>
             <StatCell
@@ -267,6 +333,55 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
     marginTop: 4,
+    textAlign: "right",
+    lineHeight: 18,
+  },
+  walletCard: {
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  walletTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+    marginBottom: 10,
+  },
+  walletAvailableRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  walletAvailLabel: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 12,
+  },
+  walletAvailValue: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 22,
+  },
+  walletMetaRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  walletMeta: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+  },
+  commissionWarning: {
+    marginTop: 12,
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  commissionWarnText: {
+    flex: 1,
+    fontFamily: "Cairo_500Medium",
+    fontSize: 11,
     textAlign: "right",
     lineHeight: 18,
   },

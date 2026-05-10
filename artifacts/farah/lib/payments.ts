@@ -51,6 +51,76 @@ export async function createCommissionPaymentRow(
   return data as string;
 }
 
+/**
+ * Customer creates the pending row for the *final* (remaining) payment
+ * after the provider chose `online` settlement at completion time.
+ */
+export async function createFinalPaymentRow(
+  bookingId: string,
+): Promise<string> {
+  const { data, error } = await client().rpc(
+    "create_final_payment_pending",
+    { p_booking_id: bookingId },
+  );
+  if (error) throw error;
+  return data as string;
+}
+
+export type FinalPaymentMethod = "online" | "cash" | "bank_transfer";
+
+export interface CompletionResult {
+  method: FinalPaymentMethod;
+  remaining: number;
+  commission_due: number;
+  commission_payment_id?: string | null;
+  final_payment_status: "pending" | "paid";
+}
+
+/**
+ * Provider records that the booking is completed and selects how the
+ * remaining amount is settled with the customer. For `online` the
+ * customer is then expected to call createFinalPaymentRow + Moyasar
+ * invoice. For `cash`/`bank_transfer` a `provider_commission` row is
+ * created automatically — the provider must settle it later.
+ */
+export async function recordCompletion(
+  bookingId: string,
+  method: FinalPaymentMethod,
+  note?: string,
+): Promise<CompletionResult> {
+  const { data, error } = await client().rpc("record_completion", {
+    p_booking_id: bookingId,
+    p_method: method,
+    p_note: note?.trim() ? note.trim() : null,
+  });
+  if (error) throw error;
+  return data as CompletionResult;
+}
+
+export interface ProviderWalletBreakdown {
+  releasedSar: number;
+  paidOutSar: number;
+  availableSar: number;
+  pendingCommissionSar: number;
+}
+
+/** Read the provider's wallet snapshot. */
+export async function fetchProviderWalletBreakdown(
+  providerId: string,
+): Promise<ProviderWalletBreakdown> {
+  const { data, error } = await client().rpc("provider_wallet_breakdown", {
+    p_provider_id: providerId,
+  });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return {
+    releasedSar: Number(r.released_sar ?? 0),
+    paidOutSar: Number(r.paid_out_sar ?? 0),
+    availableSar: Number(r.available_sar ?? 0),
+    pendingCommissionSar: Number(r.pending_commission_sar ?? 0),
+  };
+}
+
 // ============================================================
 // Edge function: Moyasar interaction
 // ============================================================
@@ -112,6 +182,10 @@ export type VerifyStatus =
   | "expired"
   | "voided";
 
+export interface PaymentRowKind {
+  kind: "booking_deposit" | "provider_commission" | "final_payment";
+}
+
 /**
  * After the user returns from Moyasar, ask the edge function to query
  * Moyasar and update the DB. Safe to poll — already-paid rows are returned
@@ -163,7 +237,7 @@ export async function refundMoyasarPayment(
 export interface PaymentRow {
   id: string;
   bookingId: string;
-  kind: "booking_deposit" | "provider_commission";
+  kind: "booking_deposit" | "provider_commission" | "final_payment";
   status:
     | "pending"
     | "initiated"
@@ -182,7 +256,7 @@ export interface PaymentRow {
 interface PaymentRowDb {
   id: string;
   booking_id: string;
-  kind: "booking_deposit" | "provider_commission";
+  kind: "booking_deposit" | "provider_commission" | "final_payment";
   status: PaymentRow["status"];
   amount_halalas: number;
   app_share_halalas: number;

@@ -2,31 +2,41 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Linking,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Booking, BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
 import { isMapUrl, parseLocation } from "@/lib/location";
+import {
+  recordCompletion,
+  type FinalPaymentMethod,
+} from "@/lib/payments";
 
 export default function RequestsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useT();
-  const { providerBookings, updateBookingStatus } = useApp();
+  const { providerBookings, updateBookingStatus, refresh } = useApp();
   const [filter, setFilter] = useState<"all" | BookingStatus>("pending");
+  const [completing, setCompleting] = useState<Booking | null>(null);
 
   // Order: rendered LTR; on RTL the eye starts at the right anyway. Avoid
   // `row-reverse` on horizontal scrolls — breaks on native.
@@ -101,20 +111,239 @@ export default function RequestsScreen() {
               key={b.id}
               booking={b}
               onChange={(s) => updateBookingStatus(b.id, s)}
+              onComplete={() => setCompleting(b)}
             />
           ))}
         </ScrollView>
       )}
+
+      <CompleteServiceModal
+        booking={completing}
+        onClose={() => setCompleting(null)}
+        onDone={async () => {
+          setCompleting(null);
+          await refresh();
+        }}
+      />
     </View>
+  );
+}
+
+function CompleteServiceModal({
+  booking,
+  onClose,
+  onDone,
+}: {
+  booking: Booking | null;
+  onClose: () => void;
+  onDone: () => Promise<void> | void;
+}) {
+  const c = useColors();
+  const { t } = useT();
+  const [method, setMethod] = useState<FinalPaymentMethod>("online");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Reset method/note when a new booking is opened.
+  React.useEffect(() => {
+    if (booking) {
+      setMethod("online");
+      setNote("");
+    }
+  }, [booking?.id]);
+
+  if (!booking) return null;
+
+  const remaining = Math.max(
+    0,
+    booking.price - (booking.depositAmount ?? 0),
+  );
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await recordCompletion(booking.id, method, note);
+      await onDone();
+    } catch (e) {
+      const msg = (e as Error)?.message ?? t("completionFailed");
+      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+      else if (typeof window !== "undefined") window.alert(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const options: {
+    id: FinalPaymentMethod;
+    title: string;
+    desc: string;
+    icon: keyof typeof Feather.glyphMap;
+  }[] = [
+    {
+      id: "online",
+      title: t("methodOnlineTitle"),
+      desc: t("methodOnlineDesc"),
+      icon: "credit-card",
+    },
+    {
+      id: "cash",
+      title: t("methodCashTitle"),
+      desc: t("methodCashDesc"),
+      icon: "dollar-sign",
+    },
+    {
+      id: "bank_transfer",
+      title: t("methodBankTitle"),
+      desc: t("methodBankDesc"),
+      icon: "send",
+    },
+  ];
+
+  return (
+    <Modal
+      visible={!!booking}
+      transparent
+      animationType="slide"
+      onRequestClose={() => !busy && onClose()}
+    >
+      <View style={completionStyles.backdrop}>
+        <KeyboardAwareScrollView
+          contentContainerStyle={completionStyles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View
+            style={[
+              completionStyles.card,
+              { backgroundColor: c.background, borderRadius: c.radius },
+            ]}
+          >
+            <Text style={[completionStyles.title, { color: c.foreground }]}>
+              {t("completeServiceTitle")}
+            </Text>
+            <Text style={[completionStyles.desc, { color: c.mutedForeground }]}>
+              {t("completeServiceDesc")}
+            </Text>
+
+            <View
+              style={[
+                completionStyles.summary,
+                { backgroundColor: c.muted, borderColor: c.border },
+              ]}
+            >
+              <View style={completionStyles.summaryRow}>
+                <Text
+                  style={[
+                    completionStyles.summaryLabel,
+                    { color: c.mutedForeground },
+                  ]}
+                >
+                  {t("remainingAmountLabel")}
+                </Text>
+                <Text
+                  style={[
+                    completionStyles.summaryValue,
+                    { color: c.foreground },
+                  ]}
+                >
+                  {remaining.toLocaleString()} {t("sar")}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 10, marginTop: 4 }}>
+              {options.map((opt) => {
+                const active = method === opt.id;
+                return (
+                  <Pressable
+                    key={opt.id}
+                    onPress={() => setMethod(opt.id)}
+                    style={({ pressed }) => [
+                      completionStyles.option,
+                      {
+                        borderColor: active ? c.primary : c.border,
+                        backgroundColor: active ? c.primaryBg : c.background,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={opt.icon}
+                      size={18}
+                      color={active ? c.primary : c.mutedForeground}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          completionStyles.optTitle,
+                          { color: c.foreground },
+                        ]}
+                      >
+                        {opt.title}
+                      </Text>
+                      <Text
+                        style={[
+                          completionStyles.optDesc,
+                          { color: c.mutedForeground },
+                        ]}
+                      >
+                        {opt.desc}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        completionStyles.radio,
+                        {
+                          borderColor: active ? c.primary : c.border,
+                          backgroundColor: active ? c.primary : "transparent",
+                        },
+                      ]}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Input
+              label={t("completeNoteOptional")}
+              value={note}
+              onChangeText={setNote}
+              multiline
+              numberOfLines={3}
+              style={{ height: 80, textAlignVertical: "top", marginTop: 14 }}
+              maxLength={400}
+            />
+
+            <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t("completeConfirm")}
+                  onPress={submit}
+                  loading={busy}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t("cancel")}
+                  variant="ghost"
+                  onPress={() => !busy && onClose()}
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAwareScrollView>
+      </View>
+    </Modal>
   );
 }
 
 function RequestCard({
   booking,
   onChange,
+  onComplete,
 }: {
   booking: Booking;
   onChange: (s: BookingStatus) => void;
+  onComplete: () => void;
 }) {
   const c = useColors();
   const { t } = useT();
@@ -195,7 +424,7 @@ function RequestCard({
           <Button
             label={t("markCompleted")}
             variant="secondary"
-            onPress={() => onChange("completed")}
+            onPress={onComplete}
           />
         </View>
       ) : null}
@@ -340,5 +569,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "right",
     lineHeight: 19,
+  },
+});
+
+const completionStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(26,11,46,0.6)",
+  },
+  container: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 16,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    padding: 20,
+  },
+  title: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 16,
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  desc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  summary: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  summaryRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  summaryLabel: { fontFamily: "Cairo_500Medium", fontSize: 13 },
+  summaryValue: { fontFamily: "Cairo_700Bold", fontSize: 15 },
+  option: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  optTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  optDesc: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "right",
+    lineHeight: 18,
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    marginTop: 2,
   },
 });

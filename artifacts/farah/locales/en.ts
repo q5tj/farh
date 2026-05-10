@@ -131,7 +131,7 @@ export const en: Strings = {
 
   // Statuses
   statusPending: "Pending",
-  statusAccepted: "Accepted",
+  statusAccepted: "In progress",
   statusRejected: "Rejected",
   statusCompleted: "Completed",
   statusCancelled: "Cancelled",
@@ -815,10 +815,48 @@ export const en: Strings = {
   reviewsAffectVisibilityNotice:
     "Customer reviews affect a provider's ranking in search results.",
   depositSecuredNotice:
-    "The customer paid the deposit — Farhatukum holds it until the service is completed and confirmed, then releases your share (price minus commission).",
+    "Customer paid the deposit — your share is already credited to your wallet. The remaining amount is settled when you complete the service using the method you pick.",
   walletHeldNoticeTitle: "How you get paid",
   walletHeldNoticeBody:
-    "The deposit is held by the platform and released to you after the service is successfully completed. The platform commission is deducted automatically and the remainder appears in your statement.",
+    "Your share of the deposit is credited to your wallet as soon as the customer pays. When you complete the service you pick how the remaining amount is settled (online / cash / bank), and the total commission is deducted automatically.",
+
+  // Completion-method modal (provider closes booking)
+  completeServiceTitle: "Complete service",
+  completeServiceDesc:
+    "Pick how you received (or will receive) the remaining amount from the customer. This determines how the commission is settled.",
+  remainingAmountLabel: "Remaining due from customer",
+  commissionDueLabel: "Commission you still owe",
+  methodOnlineTitle: "Pay in app",
+  methodOnlineDesc:
+    "We notify the customer to pay the remainder by card. The platform deducts the commission automatically and credits the rest to your wallet.",
+  methodCashTitle: "Cash",
+  methodCashDesc:
+    "Customer pays the remainder in cash directly. Booking is completed and you'll see a notice to settle the platform commission.",
+  methodBankTitle: "Bank transfer",
+  methodBankDesc:
+    "Customer transfers the remainder to your bank. Booking is completed and you'll see a notice to settle the platform commission.",
+  completeNoteOptional: "Internal note (optional)",
+  completeConfirm: "Confirm completion",
+  completionFailed: "Couldn't complete the service",
+
+  // Customer pays the remaining (online)
+  finalPaymentTitle: "Pay remaining",
+  finalPaymentDesc:
+    "The provider has completed the service. Pay the remaining amount to close the booking.",
+  payRemainingNow: "Pay remaining now",
+  finalPaymentPaid: "Full amount received. Thank you!",
+  finalPaymentPending: "Awaiting remaining payment",
+  notifyCustomerToPay: "Customer notified to pay the remaining amount",
+
+  // Provider wallet
+  walletTitle: "My wallet",
+  walletAvailable: "Available to withdraw",
+  walletPaidOut: "Paid out",
+  walletReleased: "Total released",
+  walletPendingCommission: "Commission pending",
+  settleCommissionNow: "Settle commission now",
+  commissionSettlementWarning:
+    "There is a platform commission awaiting settlement ({{amount}} SAR). Settle it to keep your account active.",
   platformDisclaimerTitle: "Disclaimer",
   platformDisclaimerBody:
     "Farhatukum is an intermediary between the customer and the provider. The platform is not responsible for the quality of the service itself, but guarantees a fair financial mechanism (deposit, refund, two-sided protection).",

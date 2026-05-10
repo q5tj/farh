@@ -39,7 +39,11 @@ import {
   type RefundStatus,
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
-import { computeRefundAmount } from "@/lib/payments";
+import {
+  computeRefundAmount,
+  createFinalPaymentRow,
+  createMoyasarInvoice,
+} from "@/lib/payments";
 
 export default function BookingDetailScreen() {
   const c = useColors();
@@ -138,6 +142,7 @@ export default function BookingDetailScreen() {
 
   const [paySettings, setPaySettings] = useState<PaymentSettings | null>(null);
   const [refundPreview, setRefundPreview] = useState<number | null>(null);
+  const [payingFinal, setPayingFinal] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -178,6 +183,30 @@ export default function BookingDetailScreen() {
     if (diffMs <= 0) return 0;
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }, [booking?.startAt]);
+
+  const startFinalPayment = async () => {
+    if (!booking) return;
+    setPayingFinal(true);
+    try {
+      const paymentId = await createFinalPaymentRow(booking.id);
+      const callbackUrl =
+        Platform.OS === "web" && typeof window !== "undefined"
+          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
+          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+      const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
+      if (Platform.OS === "web") {
+        window.location.href = invoice_url;
+      } else {
+        Linking.openURL(invoice_url).catch(() => {});
+      }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? t("paymentInitFailed");
+      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+      else if (typeof window !== "undefined") window.alert(msg);
+    } finally {
+      setPayingFinal(false);
+    }
+  };
 
   const submitCancel = async () => {
     setCancelling(true);
@@ -356,6 +385,61 @@ export default function BookingDetailScreen() {
                 ) : null}
               </View>
             ) : null}
+          </Card>
+        ) : null}
+
+        {booking.finalPaymentMethod === "online" &&
+        booking.finalPaymentStatus === "pending" ? (
+          <Card
+            style={{ marginTop: 14, borderColor: c.primary, borderWidth: 1 }}
+          >
+            <Text style={[styles.sectionTitle, { color: c.foreground }]}>
+              {t("finalPaymentTitle")}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 12,
+                color: c.mutedForeground,
+                marginTop: 6,
+                lineHeight: 20,
+                textAlign: "right",
+              }}
+            >
+              {t("finalPaymentDesc")}
+            </Text>
+            <View style={[styles.row, { marginTop: 12 }]}>
+              <Text style={[styles.payLabel, { color: c.mutedForeground }]}>
+                {t("remainingAmountLabel")}
+              </Text>
+              <Text style={[styles.payValue, { color: c.primary }]}>
+                {Math.max(
+                  0,
+                  booking.price - (booking.depositAmount ?? 0),
+                ).toLocaleString()}{" "}
+                {t("sar")}
+              </Text>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <Button
+                label={t("payRemainingNow")}
+                onPress={startFinalPayment}
+                loading={payingFinal}
+                icon={<Feather name="credit-card" size={16} color="#ffffff" />}
+              />
+            </View>
+          </Card>
+        ) : null}
+
+        {booking.finalPaymentStatus === "paid" &&
+        booking.finalPaymentMethod === "online" ? (
+          <Card style={{ marginTop: 14 }}>
+            <View style={styles.cancelInfoHead}>
+              <Feather name="check-circle" size={18} color={c.primary} />
+              <Text style={[styles.cancelInfoTitle, { color: c.foreground }]}>
+                {t("finalPaymentPaid")}
+              </Text>
+            </View>
           </Card>
         ) : null}
 
