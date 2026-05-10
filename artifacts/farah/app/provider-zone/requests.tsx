@@ -163,6 +163,20 @@ function RequestCard({
         </Text>
       </View>
 
+      {booking.depositPaidAt ? (
+        <View
+          style={[
+            styles.depositSecured,
+            { backgroundColor: c.muted, borderColor: c.border },
+          ]}
+        >
+          <Feather name="shield" size={14} color={c.primary} />
+          <Text style={[styles.depositText, { color: c.foreground }]}>
+            {t("depositSecuredNotice")}
+          </Text>
+        </View>
+      ) : null}
+
       {booking.status === "pending" ? (
         <View style={styles.actionsRow}>
           <View style={{ flex: 1 }}>
@@ -311,4 +325,20 @@ const styles = StyleSheet.create({
     marginInlineStart: 6,
   },
   mapLinkText: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
+  depositSecured: {
+    marginTop: 12,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  depositText: {
+    flex: 1,
+    fontFamily: "Cairo_500Medium",
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 19,
+  },
 });

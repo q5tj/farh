@@ -103,6 +103,25 @@ export default function ProviderFinancialsScreen() {
             />
           }
         >
+          <View
+            style={[
+              styles.holdNotice,
+              { borderColor: c.border, backgroundColor: c.muted },
+            ]}
+          >
+            <Feather name="info" size={14} color={c.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.holdTitle, { color: c.foreground }]}>
+                {t("walletHeldNoticeTitle")}
+              </Text>
+              <Text
+                style={[styles.holdBody, { color: c.mutedForeground }]}
+              >
+                {t("walletHeldNoticeBody")}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.statsGrid}>
             <StatCell
               label={t("totalRevenue")}
@@ -230,4 +249,25 @@ const styles = StyleSheet.create({
   },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   pillText: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
+  holdNotice: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  holdTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  holdBody: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "right",
+    lineHeight: 18,
+  },
 });

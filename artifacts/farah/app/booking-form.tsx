@@ -27,12 +27,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import {
   AvailableSlot,
+  fetchPaymentSettings,
   fetchProviderBusyIntervals,
   fetchProviderById,
   formatTimeAr,
   generateSlots,
   weekdayKey,
   SLOT_TAKEN_ERROR,
+  type PaymentSettings,
   type Provider,
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
@@ -92,6 +94,41 @@ export default function BookingFormScreen() {
   }, [providerId, lang, cached]);
 
   const service = provider?.services.find((s) => s.id === String(serviceId));
+
+  // Fetch the active payment-policy percentages so we can show the
+  // customer the deposit / app-fee breakdown before they commit.
+  const [paySettings, setPaySettings] = useState<PaymentSettings | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchPaymentSettings()
+      .then((s) => {
+        if (alive) setPaySettings(s);
+      })
+      .catch((e) => console.warn("[booking-form] payment settings", e));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const breakdown = useMemo(() => {
+    if (!service || !paySettings) return null;
+    const price = service.price;
+    const deposit = Math.round((price * paySettings.depositPercentage) / 100);
+    const appShare = Math.round(
+      (deposit * paySettings.appShareFromDeposit) / 100,
+    );
+    const remaining = price - deposit;
+    return {
+      price,
+      deposit,
+      appShare,
+      remaining,
+      depositPct: paySettings.depositPercentage,
+      appSharePct: paySettings.appShareFromDeposit,
+      fullDays: paySettings.cancellationWindowFullDays,
+      halfDays: paySettings.cancellationWindowHalfDays,
+    };
+  }, [service, paySettings]);
 
   const days = useMemo(() => getNextDays(14), []);
   const [selectedDayIso, setSelectedDayIso] = useState(days[1]?.iso ?? "");
@@ -633,6 +670,56 @@ export default function BookingFormScreen() {
                 value={`${service.price.toLocaleString()} ${t("sar")}`}
                 highlight
               />
+              {breakdown ? (
+                <>
+                  <SummaryRow
+                    label={t("depositNow", { percent: breakdown.depositPct })}
+                    value={`${breakdown.deposit.toLocaleString()} ${t("sar")}`}
+                    highlight
+                  />
+                  <SummaryRow
+                    label={t("remainingToProvider")}
+                    value={`${breakdown.remaining.toLocaleString()} ${t("sar")}`}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: "Cairo_400Regular",
+                      fontSize: 11,
+                      color: c.mutedForeground,
+                      lineHeight: 18,
+                      textAlign: "right",
+                      marginTop: 6,
+                    }}
+                  >
+                    {t("platformFeeNotice", { percent: breakdown.appSharePct })}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Cairo_400Regular",
+                      fontSize: 11,
+                      color: c.mutedForeground,
+                      lineHeight: 18,
+                      textAlign: "right",
+                    }}
+                  >
+                    {t("paymentHeldNotice")}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Cairo_400Regular",
+                      fontSize: 11,
+                      color: c.mutedForeground,
+                      lineHeight: 18,
+                      textAlign: "right",
+                    }}
+                  >
+                    {t("cancellationPolicySummary", {
+                      full: breakdown.fullDays,
+                      half: breakdown.halfDays,
+                    })}
+                  </Text>
+                </>
+              ) : null}
             </View>
             <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 18 }}>
               <View style={{ flex: 1 }}>

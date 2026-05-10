@@ -232,3 +232,16 @@ export async function computeDepositAmount(
   if (error) throw error;
   return Number(data ?? 0);
 }
+
+/**
+ * Ask the DB how much would be refunded if a booking were cancelled now.
+ * Uses the same `compute_refund_amount` rule the admin/refund flow uses.
+ * Returns SAR (the RPC already speaks SAR), or 0 if not eligible.
+ */
+export async function computeRefundAmount(bookingId: string): Promise<number> {
+  const { data, error } = await client().rpc("compute_refund_amount", {
+    p_booking_id: bookingId,
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
+}

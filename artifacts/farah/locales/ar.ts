@@ -680,6 +680,8 @@ export const ar = {
   markRefundCompleted: "تأكيد إتمام الاسترداد",
   markRefundFailed: "وضع الاسترداد كفشل",
   refundNoteOptional: "ملاحظة داخلية (اختيارية)",
+  processMoyasarRefund: "تنفيذ الاسترداد عبر ميسر",
+  refundNoPayment: "ما فيه دفعة عربون مرتبطة بهذا الحجز",
 
   // Advanced filtering (home)
   filterTitle: "تصفية",
@@ -782,6 +784,39 @@ export const ar = {
   // Payment / Moyasar
   paymentInitFailed: "تعذّر بدء عملية الدفع",
   contactProviderLockedAfterPayment: "رقم المزود يظهر بعد دفع العربون.",
+
+  // Booking confirm — deposit & cancellation transparency (§9 of T&C)
+  depositNow: "العربون المستحق الآن ({{percent}}%)",
+  remainingToProvider: "المتبقي يُسلَّم للمزود",
+  platformFeeNotice:
+    "تشمل قيمة العربون رسوم منصة فرحتكم بنسبة {{percent}}% (يُحسب من العربون فقط).",
+  paymentHeldNotice:
+    "يُحفظ العربون في حساب المنصة ويُحوّل للمزود بعد إنجاز الخدمة وموافقة العميل، حمايةً لكلا الطرفين.",
+  cancellationPolicySummary:
+    "سياسة الإلغاء: إلغاء قبل {{full}} يوم أو أكثر = استرداد كامل العربون (بعد خصم رسوم المنصة)، بين {{half}} و {{full}} يوم = استرداد 50%، أقل من {{half}} يوم = لا يوجد استرداد.",
+  cancellationPolicyTitle: "سياسة الإلغاء",
+  cancellationFullRefundDesc:
+    "قبل {{full}} يوم أو أكثر من تاريخ المناسبة: استرداد كامل العربون بعد خصم رسوم المنصة.",
+  cancellationHalfRefundDesc:
+    "بين {{half}} و {{full}} يوم من تاريخ المناسبة: استرداد 50% من العربون.",
+  cancellationNoRefundDesc:
+    "أقل من {{half}} يوم من تاريخ المناسبة: لا يوجد استرداد.",
+  cancellationCurrentWindow: "حالياً: متبقي {{days}} يوم على المناسبة",
+  refundEstimateLabel: "المبلغ المتوقع استرداده",
+  refundNotEligible: "لن يتم استرداد العربون لأن الإلغاء قريب من موعد المناسبة.",
+  reviewsAffectVisibilityNotice:
+    "تقييمات العملاء تؤثر على ترتيب ظهور المزود في نتائج البحث.",
+  depositSecuredNotice:
+    "العميل دفع العربون — التطبيق يحتفظ به لحين إنجاز الخدمة وموافقة العميل، ثم يحوّل لك المتبقي بعد خصم العمولة.",
+  walletHeldNoticeTitle: "كيف تستلم أرباحك؟",
+  walletHeldNoticeBody:
+    "العربون يُحفظ لدى المنصة، ويُحوَّل لحسابك بعد إنجاز الخدمة بنجاح. عمولة المنصة تُخصم تلقائياً، والباقي يظهر في كشف حسابك.",
+  platformDisclaimerTitle: "تنبيه",
+  platformDisclaimerBody:
+    "فرحتكم وسيط بين العميل والمزود فقط. التطبيق غير مسؤول عن جودة تنفيذ الخدمة، لكنه يضمن آلية مالية عادلة (عربون، استرداد، حماية الطرفين).",
+  feesAreClearTitle: "الرسوم واضحة قبل الحجز",
+  feesAreClearBody:
+    "تظهر العمولة وحصة المزود قبل تأكيد كل حجز. لا توجد رسوم خفية.",
 
   // Admin → payment settings
   paymentSettingsTitle: "إعدادات الدفع والإلغاء",

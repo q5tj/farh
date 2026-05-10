@@ -28,6 +28,10 @@ import {
   type RefundStatus,
 } from "@/lib/data";
 import { useT } from "@/lib/i18n";
+import {
+  fetchBookingPayments,
+  refundMoyasarPayment,
+} from "@/lib/payments";
 
 export default function AdminRefundsScreen() {
   const c = useColors();
@@ -80,6 +84,35 @@ export default function AdminRefundsScreen() {
     }
   };
 
+  // Trigger an actual Moyasar refund for the booking's deposit payment.
+  // On success, also mark refund_status='completed' so the row leaves the queue.
+  const processRefund = async (booking: Booking) => {
+    setBusy(true);
+    try {
+      const payments = await fetchBookingPayments(booking.id);
+      const deposit = payments.find(
+        (p) => p.kind === "booking_deposit" && p.status === "paid",
+      );
+      if (!deposit) {
+        const msg = t("refundNoPayment");
+        if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+        else if (typeof window !== "undefined") window.alert(msg);
+        return;
+      }
+      await refundMoyasarPayment(deposit.id, {
+        reason: booking.cancellationReason ?? "booking_cancelled",
+      });
+      await adminMarkRefund(booking.id, "completed", "Moyasar auto-refund");
+      await load();
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+      else if (typeof window !== "undefined") window.alert(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader
@@ -115,10 +148,12 @@ export default function AdminRefundsScreen() {
             <RefundRow
               key={b.id}
               booking={b}
+              busy={busy}
               onMark={(status) => {
                 setNote("");
                 setTarget({ booking: b, next: status });
               }}
+              onProcess={() => processRefund(b)}
             />
           ))}
         </ScrollView>
@@ -185,10 +220,14 @@ export default function AdminRefundsScreen() {
 
 function RefundRow({
   booking,
+  busy,
   onMark,
+  onProcess,
 }: {
   booking: Booking;
+  busy: boolean;
   onMark: (next: RefundStatus) => void;
+  onProcess: () => void;
 }) {
   const c = useColors();
   const { t } = useT();
@@ -225,12 +264,21 @@ function RefundRow({
         </Text>
       ) : null}
 
+      <View style={[styles.actions, { marginTop: 12 }]}>
+        <Button
+          label={t("processMoyasarRefund")}
+          onPress={onProcess}
+          loading={busy}
+          icon={<Feather name="rotate-ccw" size={16} color="#ffffff" />}
+        />
+      </View>
       <View style={styles.actions}>
         <View style={{ flex: 1 }}>
           <Button
             label={t("markRefundCompleted")}
             onPress={() => onMark("completed")}
-            icon={<Feather name="check" size={16} color="#ffffff" />}
+            variant="secondary"
+            icon={<Feather name="check" size={16} color={c.primary} />}
           />
         </View>
         <View style={{ flex: 1 }}>

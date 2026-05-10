@@ -684,6 +684,8 @@ export const en: Strings = {
   markRefundCompleted: "Mark refund completed",
   markRefundFailed: "Mark refund failed",
   refundNoteOptional: "Internal note (optional)",
+  processMoyasarRefund: "Process refund via Moyasar",
+  refundNoPayment: "No deposit payment linked to this booking",
 
   // Advanced filtering (home)
   filterTitle: "Filter",
@@ -789,6 +791,40 @@ export const en: Strings = {
   // Payment / Moyasar
   paymentInitFailed: "Couldn't start the payment",
   contactProviderLockedAfterPayment: "Provider's phone unlocks after the deposit is paid.",
+
+  // Booking confirm — deposit & cancellation transparency (§9 of T&C)
+  depositNow: "Deposit due now ({{percent}}%)",
+  remainingToProvider: "Remaining paid to provider",
+  platformFeeNotice:
+    "The deposit includes a {{percent}}% Farhatukum platform fee (calculated from the deposit only).",
+  paymentHeldNotice:
+    "Your deposit is held by the platform and released to the provider after the service is completed and confirmed — protecting both sides.",
+  cancellationPolicySummary:
+    "Cancellation policy: cancel {{full}} days or more before the event = full deposit refund (after platform fee); between {{half}} and {{full}} days = 50% refund; less than {{half}} days = no refund.",
+  cancellationPolicyTitle: "Cancellation policy",
+  cancellationFullRefundDesc:
+    "{{full}} days or more before the event: full deposit refund (after platform fee).",
+  cancellationHalfRefundDesc:
+    "Between {{half}} and {{full}} days before the event: 50% deposit refund.",
+  cancellationNoRefundDesc:
+    "Less than {{half}} days before the event: no refund.",
+  cancellationCurrentWindow: "Currently: {{days}} days remaining until the event",
+  refundEstimateLabel: "Estimated refund amount",
+  refundNotEligible:
+    "No refund will be issued because the cancellation is too close to the event.",
+  reviewsAffectVisibilityNotice:
+    "Customer reviews affect a provider's ranking in search results.",
+  depositSecuredNotice:
+    "The customer paid the deposit — Farhatukum holds it until the service is completed and confirmed, then releases your share (price minus commission).",
+  walletHeldNoticeTitle: "How you get paid",
+  walletHeldNoticeBody:
+    "The deposit is held by the platform and released to you after the service is successfully completed. The platform commission is deducted automatically and the remainder appears in your statement.",
+  platformDisclaimerTitle: "Disclaimer",
+  platformDisclaimerBody:
+    "Farhatukum is an intermediary between the customer and the provider. The platform is not responsible for the quality of the service itself, but guarantees a fair financial mechanism (deposit, refund, two-sided protection).",
+  feesAreClearTitle: "Fees are clear before you book",
+  feesAreClearBody:
+    "The commission and the provider's share appear before confirming each booking. No hidden fees.",
 
   // Admin → payment settings
   paymentSettingsTitle: "Payment & cancellation",

@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,12 +31,15 @@ import { useT } from "@/lib/i18n";
 import {
   cancelBooking as cancelBookingDb,
   fetchBookingById,
+  fetchPaymentSettings,
   fetchProviderById,
   type Booking,
+  type PaymentSettings,
   type Provider,
   type RefundStatus,
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
+import { computeRefundAmount } from "@/lib/payments";
 
 export default function BookingDetailScreen() {
   const c = useColors();
@@ -132,6 +135,49 @@ export default function BookingDetailScreen() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+
+  const [paySettings, setPaySettings] = useState<PaymentSettings | null>(null);
+  const [refundPreview, setRefundPreview] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchPaymentSettings()
+      .then((s) => alive && setPaySettings(s))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Recompute the refund preview when the deposit-paid booking is still
+  // cancellable. Cheap RPC call — invoked once per booking-id load.
+  useEffect(() => {
+    if (!booking) return;
+    if (!booking.depositPaidAt) {
+      setRefundPreview(null);
+      return;
+    }
+    if (booking.status !== "pending" && booking.status !== "accepted") {
+      setRefundPreview(null);
+      return;
+    }
+    let alive = true;
+    computeRefundAmount(booking.id)
+      .then((sar) => alive && setRefundPreview(sar))
+      .catch(() => alive && setRefundPreview(null));
+    return () => {
+      alive = false;
+    };
+  }, [booking?.id, booking?.depositPaidAt, booking?.status]);
+
+  const daysToEvent = useMemo(() => {
+    if (!booking) return null;
+    const start = new Date(booking.startAt).getTime();
+    const now = Date.now();
+    const diffMs = start - now;
+    if (diffMs <= 0) return 0;
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [booking?.startAt]);
 
   const submitCancel = async () => {
     setCancelling(true);
@@ -249,6 +295,70 @@ export default function BookingDetailScreen() {
           </Card>
         ) : null}
 
+        {canCancel && paySettings && booking.depositPaidAt ? (
+          <Card style={{ marginTop: 14 }}>
+            <Text style={[styles.sectionTitle, { color: c.foreground }]}>
+              {t("cancellationPolicyTitle")}
+            </Text>
+            <View style={{ marginTop: 10, gap: 6 }}>
+              <Text style={[styles.policyLine, { color: c.mutedForeground }]}>
+                •{" "}
+                {t("cancellationFullRefundDesc", {
+                  full: paySettings.cancellationWindowFullDays,
+                })}
+              </Text>
+              <Text style={[styles.policyLine, { color: c.mutedForeground }]}>
+                •{" "}
+                {t("cancellationHalfRefundDesc", {
+                  full: paySettings.cancellationWindowFullDays,
+                  half: paySettings.cancellationWindowHalfDays,
+                })}
+              </Text>
+              <Text style={[styles.policyLine, { color: c.mutedForeground }]}>
+                •{" "}
+                {t("cancellationNoRefundDesc", {
+                  half: paySettings.cancellationWindowHalfDays,
+                })}
+              </Text>
+            </View>
+            {daysToEvent != null ? (
+              <View
+                style={{
+                  marginTop: 12,
+                  padding: 10,
+                  borderRadius: 10,
+                  backgroundColor: c.muted,
+                }}
+              >
+                <Text style={[styles.policyHighlight, { color: c.foreground }]}>
+                  {t("cancellationCurrentWindow", { days: daysToEvent })}
+                </Text>
+                {refundPreview != null ? (
+                  <View style={[styles.row, { marginTop: 8 }]}>
+                    <Text
+                      style={[styles.payLabel, { color: c.mutedForeground }]}
+                    >
+                      {t("refundEstimateLabel")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.payValue,
+                        {
+                          color: refundPreview > 0 ? c.primary : c.destructive,
+                        },
+                      ]}
+                    >
+                      {refundPreview > 0
+                        ? `${refundPreview.toLocaleString()} ${t("sar")}`
+                        : t("refundNotEligible")}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
         <View style={{ marginTop: 18, gap: 10 }}>
           {provider?.phone && booking.depositPaidAt ? (
             <Button
@@ -322,6 +432,29 @@ export default function BookingDetailScreen() {
             <RefundBadge status={booking.refundStatus} />
           </Card>
         ) : null}
+
+        <View
+          style={{
+            marginTop: 14,
+            padding: 12,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: c.border,
+            backgroundColor: c.muted,
+          }}
+        >
+          <View style={styles.cancelInfoHead}>
+            <Feather name="info" size={14} color={c.mutedForeground} />
+            <Text
+              style={[styles.disclaimerTitle, { color: c.mutedForeground }]}
+            >
+              {t("platformDisclaimerTitle")}
+            </Text>
+          </View>
+          <Text style={[styles.disclaimerBody, { color: c.mutedForeground }]}>
+            {t("platformDisclaimerBody")}
+          </Text>
+        </View>
       </ScrollView>
 
       <Modal
@@ -349,6 +482,49 @@ export default function BookingDetailScreen() {
               >
                 {t("cancelBookingPrompt")}
               </Text>
+              {booking.depositPaidAt && refundPreview != null ? (
+                <View
+                  style={{
+                    marginBottom: 14,
+                    padding: 12,
+                    borderRadius: 10,
+                    backgroundColor: c.muted,
+                  }}
+                >
+                  <View style={styles.row}>
+                    <Text
+                      style={[styles.payLabel, { color: c.mutedForeground }]}
+                    >
+                      {t("refundEstimateLabel")}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.payValue,
+                        {
+                          color: refundPreview > 0 ? c.primary : c.destructive,
+                        },
+                      ]}
+                    >
+                      {refundPreview > 0
+                        ? `${refundPreview.toLocaleString()} ${t("sar")}`
+                        : t("refundNotEligible")}
+                    </Text>
+                  </View>
+                  {daysToEvent != null ? (
+                    <Text
+                      style={{
+                        fontFamily: "Cairo_400Regular",
+                        fontSize: 11,
+                        color: c.mutedForeground,
+                        textAlign: "right",
+                        marginTop: 6,
+                      }}
+                    >
+                      {t("cancellationCurrentWindow", { days: daysToEvent })}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
               <Input
                 label={t("cancelBookingReasonLabel")}
                 placeholder={t("cancelBookingReasonLabel")}
@@ -585,6 +761,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "right",
     lineHeight: 21,
+  },
+  policyLine: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 20,
+  },
+  policyHighlight: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    textAlign: "right",
+  },
+  disclaimerTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
+    textAlign: "right",
+  },
+  disclaimerBody: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    textAlign: "right",
+    lineHeight: 19,
+    marginTop: 4,
   },
   modalBackdrop: {
     flex: 1,

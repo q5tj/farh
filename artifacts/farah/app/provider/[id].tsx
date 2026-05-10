@@ -453,6 +453,61 @@ export default function ProviderScreen() {
                 ))}
               </View>
             )}
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 11,
+                color: c.mutedForeground,
+                textAlign: "right",
+                marginTop: 10,
+                lineHeight: 18,
+              }}
+            >
+              {t("reviewsAffectVisibilityNotice")}
+            </Text>
+          </View>
+
+          <View
+            style={{
+              marginTop: 18,
+              padding: 12,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: c.border,
+              backgroundColor: c.muted,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 4,
+              }}
+            >
+              <Feather name="info" size={14} color={c.mutedForeground} />
+              <Text
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 12,
+                  color: c.mutedForeground,
+                  textAlign: "right",
+                }}
+              >
+                {t("platformDisclaimerTitle")}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 11,
+                color: c.mutedForeground,
+                textAlign: "right",
+                lineHeight: 19,
+              }}
+            >
+              {t("platformDisclaimerBody")}
+            </Text>
           </View>
         </View>
       </ScrollView>
