@@ -8,10 +8,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useT } from "@/lib/i18n";
 
 export default function CategoryScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   // Param `id` is the category slug (e.g. "halls", "photo").
   const slug = String(id);
@@ -23,16 +25,16 @@ export default function CategoryScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader
-        title={category?.name ?? "تصنيف"}
-        subtitle={`${providers.length} مزود خدمة`}
+        title={category?.name ?? t("categoryFallbackTitle")}
+        subtitle={`${providers.length} ${t("providers")}`}
       />
       {providers.length === 0 ? (
         <EmptyState
           icon="search"
-          title="لا يوجد مزودون لهذا التصنيف بعد"
-          description="نعمل على إضافة المزيد من مزودي الخدمة قريباً"
+          title={t("categoryEmptyTitle")}
+          description={t("categoryEmptyDesc")}
           cta={{
-            label: "العودة",
+            label: t("goBack"),
             onPress: () => {
               if (router.canGoBack()) router.back();
               else router.replace("/(tabs)");

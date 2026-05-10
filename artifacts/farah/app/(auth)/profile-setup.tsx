@@ -417,21 +417,20 @@ export default function ProfileSetupScreen() {
               <Feather name="bell" size={28} color={c.primary} />
             </View>
             <Text style={[styles.modalTitle, { color: c.foreground }]}>
-              تفعيل الإشعارات؟
+              {t("pushPromptTitle")}
             </Text>
             <Text style={[styles.modalDesc, { color: c.mutedForeground }]}>
-              نرسل لك إشعار فور تحديث حالة حجوزاتك أو وصول طلب جديد. يمكنك
-              تعطيلها في أي وقت من "حسابي".
+              {t("pushPromptBody")}
             </Text>
             <View style={{ marginTop: 18, gap: 10 }}>
               <Button
-                label="تفعيل الإشعارات"
+                label={t("pushPromptEnable")}
                 onPress={onAcceptPush}
                 loading={pushBusy}
                 size="lg"
               />
               <Button
-                label="لاحقاً"
+                label={t("pushPromptLater")}
                 onPress={() => {
                   if (pushBusy) return;
                   setPushPromptOpen(false);

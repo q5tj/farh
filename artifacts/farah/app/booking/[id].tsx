@@ -680,11 +680,12 @@ function RefundBadge({ status }: { status: RefundStatus }) {
 
 function PaymentBadge({ status }: { status: "pending" | "paid" | "refunded" | "failed" }) {
   const c = useColors();
+  const { t } = useT();
   const config = {
-    pending: { label: "بانتظار الدفع", bg: "#fef3c7", fg: "#a16207" },
-    paid: { label: "مدفوع", bg: "#dcfce7", fg: "#16a34a" },
-    refunded: { label: "مُسترد", bg: "#dbeafe", fg: "#2563eb" },
-    failed: { label: "فشل الدفع", bg: "#fee2e2", fg: c.destructive },
+    pending: { label: t("paymentStatusPendingShort"), bg: "#fef3c7", fg: "#a16207" },
+    paid: { label: t("paymentStatusPaid"), bg: "#dcfce7", fg: "#16a34a" },
+    refunded: { label: t("paymentStatusRefunded"), bg: "#dbeafe", fg: "#2563eb" },
+    failed: { label: t("paymentStatusFailed"), bg: "#fee2e2", fg: c.destructive },
   }[status];
   return (
     <View

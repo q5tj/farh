@@ -754,6 +754,68 @@ export const ar = {
 
   // Booking detail
   showBookingStatus: "شوف حالة الحجز",
+  paymentStatusPaid: "مدفوع",
+  paymentStatusRefunded: "مُسترد",
+  paymentStatusFailed: "فشل الدفع",
+  paymentStatusPendingShort: "بانتظار الدفع",
+
+  // Date helpers
+  monthJan: "يناير",
+  monthFeb: "فبراير",
+  monthMar: "مارس",
+  monthApr: "أبريل",
+  monthMay: "مايو",
+  monthJun: "يونيو",
+  monthJul: "يوليو",
+  monthAug: "أغسطس",
+  monthSep: "سبتمبر",
+  monthOct: "أكتوبر",
+  monthNov: "نوفمبر",
+  monthDec: "ديسمبر",
+  weekdaySun: "الأحد",
+  weekdayMon: "الاثنين",
+  weekdayTue: "الثلاثاء",
+  weekdayWed: "الأربعاء",
+  weekdayThu: "الخميس",
+  weekdayFri: "الجمعة",
+  weekdaySat: "السبت",
+  timeAgoNow: "الآن",
+  defaultUserInitial: "ض",
+
+  // Push toggle subtitles + alerts
+  pushToggleEnabledDesc: "ستصلك إشعارات الحجوزات",
+  pushToggleDeniedDesc: "مرفوضة من إعدادات الجهاز",
+  pushToggleTapToEnable: "اضغط للتفعيل",
+  pushEnableFailedTitle: "تعذّر تفعيل الإشعارات",
+  pushDeniedSystemTitle: "تم تعطيل الإشعارات",
+  pushDeniedSystemBody:
+    "الصلاحية مرفوضة على مستوى النظام. لتفعيلها افتح إعدادات الجهاز → الإشعارات → فرحتكم.",
+  becomeProviderCta: "كن مزود خدمة",
+
+  // Profile-setup push prompt
+  pushPromptTitle: "تفعيل الإشعارات؟",
+  pushPromptBody:
+    "نرسل لك إشعار فور تحديث حالة حجوزاتك أو وصول طلب جديد. تقدر تعطّلها في أي وقت من \"حسابي\".",
+  pushPromptEnable: "تفعيل الإشعارات",
+  pushPromptLater: "لاحقاً",
+
+  // Home empty states + featured
+  featuredForYou: "مختار لك",
+  homeNoSearchResults: "لم يتم العثور على نتائج",
+  homeEmptyTitle: "لا يوجد مزودون بعد",
+  homeEmptyBody:
+    "لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح \"حسابي\" واختر \"كن مزود خدمة\".",
+
+  // Category screen
+  categoryFallbackTitle: "تصنيف",
+  categoryEmptyTitle: "لا يوجد مزودون لهذا التصنيف بعد",
+  categoryEmptyDesc: "نعمل على إضافة المزيد من مزودي الخدمة قريباً",
+  goBack: "العودة",
+
+  // Provider update-info upload labels
+  uploadDoneReady: "تم الرفع — جاهز",
+  uploadTapToReplace: "اضغط للاستبدال",
+  uploadTapToUpload: "اضغط للرفع",
 
   // Per-booking commission accounting
   adminFinancials: "كشف الحسابات",

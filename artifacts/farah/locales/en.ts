@@ -761,6 +761,68 @@ export const en: Strings = {
 
   // Booking detail
   showBookingStatus: "Show booking status",
+  paymentStatusPaid: "Paid",
+  paymentStatusRefunded: "Refunded",
+  paymentStatusFailed: "Payment failed",
+  paymentStatusPendingShort: "Awaiting payment",
+
+  // Date helpers
+  monthJan: "Jan",
+  monthFeb: "Feb",
+  monthMar: "Mar",
+  monthApr: "Apr",
+  monthMay: "May",
+  monthJun: "Jun",
+  monthJul: "Jul",
+  monthAug: "Aug",
+  monthSep: "Sep",
+  monthOct: "Oct",
+  monthNov: "Nov",
+  monthDec: "Dec",
+  weekdaySun: "Sun",
+  weekdayMon: "Mon",
+  weekdayTue: "Tue",
+  weekdayWed: "Wed",
+  weekdayThu: "Thu",
+  weekdayFri: "Fri",
+  weekdaySat: "Sat",
+  timeAgoNow: "Now",
+  defaultUserInitial: "G",
+
+  // Push toggle subtitles + alerts
+  pushToggleEnabledDesc: "You'll receive booking notifications",
+  pushToggleDeniedDesc: "Blocked in device settings",
+  pushToggleTapToEnable: "Tap to enable",
+  pushEnableFailedTitle: "Couldn't enable notifications",
+  pushDeniedSystemTitle: "Notifications disabled",
+  pushDeniedSystemBody:
+    "Permission is denied at the OS level. To enable, open Device Settings → Notifications → Farhatukum.",
+  becomeProviderCta: "Become a provider",
+
+  // Profile-setup push prompt
+  pushPromptTitle: "Enable notifications?",
+  pushPromptBody:
+    "We'll notify you the moment your booking status changes or a new request arrives. You can disable it anytime from \"Profile\".",
+  pushPromptEnable: "Enable notifications",
+  pushPromptLater: "Later",
+
+  // Home empty states + featured
+  featuredForYou: "Picked for you",
+  homeNoSearchResults: "No matching results",
+  homeEmptyTitle: "No providers yet",
+  homeEmptyBody:
+    "No providers have signed up yet. Be the first — open \"Profile\" and tap \"Become a provider\".",
+
+  // Category screen
+  categoryFallbackTitle: "Category",
+  categoryEmptyTitle: "No providers in this category yet",
+  categoryEmptyDesc: "We're adding more providers soon",
+  goBack: "Back",
+
+  // Provider update-info upload labels
+  uploadDoneReady: "Uploaded — ready",
+  uploadTapToReplace: "Tap to replace",
+  uploadTapToUpload: "Tap to upload",
 
   // Per-booking commission accounting
   adminFinancials: "Provider statements",

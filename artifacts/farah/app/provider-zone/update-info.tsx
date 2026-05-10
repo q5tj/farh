@@ -410,6 +410,7 @@ function DocPicker({
   mutedFg,
   destructive,
 }: DocPickerProps) {
+  const { t } = useT();
   const ready = !!slot.path && !slot.uploading;
   const hasExisting = !!slot.localUri && !slot.path;
   return (
@@ -459,10 +460,10 @@ function DocPicker({
         ) : (
           <Text style={[styles.docHint, { color: mutedFg }]}>
             {ready
-              ? "تم الرفع — جاهز"
+              ? t("uploadDoneReady")
               : hasExisting
-                ? "اضغط للاستبدال"
-                : "اضغط للرفع"}
+                ? t("uploadTapToReplace")
+                : t("uploadTapToUpload")}
           </Text>
         )}
       </View>

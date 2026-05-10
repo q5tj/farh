@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { isEmail, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
@@ -82,6 +83,9 @@ export default function LoginScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
+          <View style={styles.languageToggleAnchor}>
+            <LanguageToggle onSurface="dark" />
+          </View>
           <View style={styles.logoCircle}>
             <Image
               source={require("../../assets/images/icon.png")}
@@ -209,6 +213,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     alignItems: "center",
+    position: "relative",
+  },
+  languageToggleAnchor: {
+    position: "absolute",
+    top: 14,
+    right: 16,
   },
   logoCircle: {
     width: 96,

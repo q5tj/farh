@@ -50,13 +50,14 @@ function PushRow({
   onToggle: (next: boolean) => void;
 }) {
   const c = useColors();
+  const { t } = useT();
   const enabled = status === "granted";
   const subtitle =
     status === "granted"
-      ? "ستصلك إشعارات الحجوزات"
+      ? t("pushToggleEnabledDesc")
       : status === "denied"
-        ? "مرفوضة من إعدادات الجهاز"
-        : "اضغط للتفعيل";
+        ? t("pushToggleDeniedDesc")
+        : t("pushToggleTapToEnable");
   return (
     <View style={styles.row}>
       <View style={[styles.rowIcon, { backgroundColor: c.primaryBg }]}>
@@ -64,7 +65,7 @@ function PushRow({
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowLabel, { color: c.foreground }]}>
-          الإشعارات
+          {t("notifications")}
         </Text>
         <Text
           style={{
@@ -162,15 +163,12 @@ export default function ProfileScreen() {
         if (status === "granted") {
           const result = await registerPushAsync(profile.id);
           if (!result.ok && Platform.OS !== "web") {
-            Alert.alert(
-              "تعذّر تفعيل الإشعارات",
-              result.reason,
-            );
+            Alert.alert(t("pushEnableFailedTitle"), result.reason);
           }
         } else if (status === "denied" && Platform.OS !== "web") {
           Alert.alert(
-            "تم تعطيل الإشعارات",
-            "الصلاحية مرفوضة على مستوى النظام. لتفعيلها افتح إعدادات الجهاز → الإشعارات → فرح.",
+            t("pushDeniedSystemTitle"),
+            t("pushDeniedSystemBody"),
           );
         }
       } else {
@@ -256,7 +254,7 @@ export default function ProfileScreen() {
               />
             ) : (
               <Text style={styles.avatarText}>
-                {displayName.charAt(0) || "ض"}
+                {displayName.charAt(0) || t("defaultUserInitial")}
               </Text>
             )}
           </View>
@@ -293,7 +291,7 @@ export default function ProfileScreen() {
             <Card style={{ marginBottom: 14 }} padded={false}>
               <Row
                 icon="briefcase"
-                label="كن مزود خدمة"
+                label={t("becomeProviderCta")}
                 chevron={chevron}
                 onPress={() => router.push("/provider-zone/onboarding")}
               />

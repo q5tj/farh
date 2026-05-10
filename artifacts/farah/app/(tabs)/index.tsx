@@ -325,14 +325,14 @@ export default function HomeScreen() {
                 ))}
                 {filtered.length === 0 ? (
                   <Text style={[styles.noResults, { color: c.mutedForeground }]}>
-                    لم يتم العثور على نتائج
+                    {t("homeNoSearchResults")}
                   </Text>
                 ) : null}
               </View>
             ) : topPicks.length > 0 ? (
               <>
                 <SectionHeader
-                  title="مختار لك"
+                  title={t("featuredForYou")}
                   icon="award"
                   color={c.foreground}
                 />
@@ -347,8 +347,7 @@ export default function HomeScreen() {
             {!isFiltering && providers.length === 0 ? (
               <View style={styles.emptyHint}>
                 <Text style={[styles.emptyHintText, { color: c.mutedForeground }]}>
-                  لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح قائمة "حسابي"
-                  واختر "كن مزود خدمة".
+                  {t("homeEmptyBody")}
                 </Text>
               </View>
             ) : null}

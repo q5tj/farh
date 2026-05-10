@@ -37,6 +37,7 @@ import {
   type PaymentSettings,
   type Provider,
 } from "@/lib/data";
+import { formatShortDate, formatWeekday } from "@/lib/date-format";
 import { useT } from "@/lib/i18n";
 import { getCurrentMapUrl, isMapUrl } from "@/lib/location";
 import {
@@ -44,18 +45,20 @@ import {
   createMoyasarInvoice,
 } from "@/lib/payments";
 
-function getNextDays(count: number) {
+function getNextDays(
+  count: number,
+  t: (k: import("@/locales/ar").StringKey) => string,
+  lang: string,
+) {
   const arr: { label: string; sub: string; iso: string; date: Date }[] = [];
-  const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-  const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   const today = new Date();
   for (let i = 1; i <= count; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     d.setHours(0, 0, 0, 0);
     arr.push({
-      label: `${d.getDate()} ${months[d.getMonth()]}`,
-      sub: days[d.getDay()],
+      label: formatShortDate(d, t, lang),
+      sub: formatWeekday(d, t),
       iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
       date: d,
     });
@@ -66,7 +69,7 @@ function getNextDays(count: number) {
 export default function BookingFormScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, lang } = useT();
   const { providerId, serviceId } = useLocalSearchParams<{
     providerId: string;
     serviceId: string;
@@ -130,7 +133,7 @@ export default function BookingFormScreen() {
     };
   }, [service, paySettings]);
 
-  const days = useMemo(() => getNextDays(14), []);
+  const days = useMemo(() => getNextDays(14, t, lang), [t, lang]);
   const [selectedDayIso, setSelectedDayIso] = useState(days[1]?.iso ?? "");
   const selectedDay = useMemo(
     () => days.find((d) => d.iso === selectedDayIso) ?? days[0],

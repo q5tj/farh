@@ -25,30 +25,11 @@ import { Booking, BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
 import { isMapUrl, parseLocation } from "@/lib/location";
+import { formatLongDate } from "@/lib/date-format";
 import {
   recordCompletion,
   type FinalPaymentMethod,
 } from "@/lib/payments";
-
-function formatDate(ms: number) {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const months = [
-    "يناير",
-    "فبراير",
-    "مارس",
-    "أبريل",
-    "مايو",
-    "يونيو",
-    "يوليو",
-    "أغسطس",
-    "سبتمبر",
-    "أكتوبر",
-    "نوفمبر",
-    "ديسمبر",
-  ];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
 
 export default function RequestsScreen() {
   const c = useColors();
@@ -389,7 +370,7 @@ function RequestCard({
   onComplete: () => void;
 }) {
   const c = useColors();
-  const { t } = useT();
+  const { t, lang } = useT();
   return (
     <Card>
       <View style={styles.row}>
@@ -412,7 +393,7 @@ function RequestCard({
         <View style={styles.metaItem}>
           <Feather name="inbox" size={12} color={c.mutedForeground} />
           <Text style={[styles.meta, { color: c.mutedForeground }]}>
-            {t("requestDateLabel")}: {formatDate(booking.createdAt)}
+            {t("requestDateLabel")}: {formatLongDate(new Date(booking.createdAt), t, lang)}
           </Text>
         </View>
         <View style={styles.metaItem}>

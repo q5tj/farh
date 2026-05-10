@@ -4,151 +4,165 @@ import {
   Easing,
   Image,
   StyleSheet,
-  Text,
   View,
 } from "react-native";
 
 /**
  * App boot screen — shown while AuthContext bootstraps the session.
  *
- * Important: this component must be safe to render *before* native modules
- * are warmed up. We deliberately avoid:
- *   - Reanimated (depends on worklet plugin + native lib init)
- *   - LinearGradient (native module that occasionally fails to mount on
- *     iOS first-launch, leaving a white screen)
- *   - useColors / contexts (might not exist yet during early boot)
+ * Cairo fonts are guaranteed loaded by the time this renders (see
+ * `app/_layout.tsx`, which gates the entire tree on `useFonts`), so we use
+ * Cairo_700Bold for the wordmark — same font as everywhere else in the
+ * app, no system-font flash on launch.
  *
- * Everything below uses plain React Native primitives (Animated, View,
- * Image, Text) so the splash always renders, even if native modules
- * aren't fully ready.
+ * No native modules (LinearGradient / Reanimated) — we layer plain Views
+ * for the gradient effect so first-launch on iOS doesn't risk a white
+ * screen if a native module is still warming up.
  */
 export function BootSplash() {
   // Logo: gentle pulse (scale + alpha) on a 1.6s loop.
   const pulse = useRef(new Animated.Value(0)).current;
-  // Spinner: continuous rotation.
-  const spin = useRef(new Animated.Value(0)).current;
-  // Caption: fade in after a beat.
-  const caption = useRef(new Animated.Value(0)).current;
+  // Caption + halo fade-in.
+  const fade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
           toValue: 1,
-          duration: 800,
+          duration: 900,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(pulse, {
           toValue: 0,
-          duration: 800,
+          duration: 900,
           easing: Easing.inOut(Easing.cubic),
           useNativeDriver: true,
         }),
       ]),
     );
-    const spinLoop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 1200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    const captionAnim = Animated.timing(caption, {
+    const fadeIn = Animated.timing(fade, {
       toValue: 1,
-      duration: 600,
+      duration: 700,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
     pulseLoop.start();
-    spinLoop.start();
-    captionAnim.start();
+    fadeIn.start();
     return () => {
       pulseLoop.stop();
-      spinLoop.stop();
-      captionAnim.stop();
+      fadeIn.stop();
     };
-  }, [pulse, spin, caption]);
+  }, [pulse, fade]);
 
   const logoScale = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.08],
+    outputRange: [1, 1.06],
   });
-  const logoOpacity = pulse.interpolate({
+  const haloScale = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.92, 1],
+    outputRange: [1, 1.18],
   });
-  const spinDeg = spin.interpolate({
+  const haloOpacity = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
+    outputRange: [0.35, 0.05],
   });
-  const captionTranslateY = caption.interpolate({
+  const captionTranslateY = fade.interpolate({
     inputRange: [0, 1],
-    outputRange: [10, 0],
+    outputRange: [12, 0],
   });
 
   return (
     <View style={styles.root}>
-      {/* Solid layered backgrounds give a "gradient" feel without needing
-          expo-linear-gradient (which is a native module that can flake on
-          iOS first-launch, producing a white screen). */}
-      <View style={[styles.layer, { backgroundColor: "#7b2cbf" }]} />
+      {/* Layered "gradient" without expo-linear-gradient (which is a native
+          module that can occasionally flake at first launch). */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#5a189a" }]} />
       <View
         style={[
-          styles.layer,
-          { backgroundColor: "rgba(60, 9, 108, 0.55)", top: "55%" },
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: "rgba(123,44,191,0.55)", top: -200 },
+        ]}
+      />
+      <View
+        style={[
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: "rgba(60,9,108,0.45)", top: "60%" },
         ]}
       />
 
       <View style={styles.center}>
+        {/* Animated halo — pulses outward behind the logo */}
+        <Animated.View
+          style={[
+            styles.halo,
+            { opacity: haloOpacity, transform: [{ scale: haloScale }] },
+          ]}
+        />
+
         <Animated.View
           style={[
             styles.logoWrap,
-            { transform: [{ scale: logoScale }], opacity: logoOpacity },
+            { transform: [{ scale: logoScale }] },
           ]}
         >
-          <View style={styles.logoHalo}>
-            <View style={styles.logoCircle}>
-              <Image
-                source={require("../assets/images/icon.png")}
-                style={styles.logo}
-              />
-            </View>
+          <View style={styles.logoCircle}>
+            <Image
+              source={require("../assets/images/icon.png")}
+              style={styles.logo}
+            />
           </View>
         </Animated.View>
 
         <Animated.Text
           style={[
             styles.appName,
-            {
-              opacity: caption,
-              transform: [{ translateY: captionTranslateY }],
-            },
+            { opacity: fade, transform: [{ translateY: captionTranslateY }] },
           ]}
         >
           فرحتكم
         </Animated.Text>
-        <Animated.Text
-          style={[
-            styles.tagline,
-            {
-              opacity: caption,
-              transform: [{ translateY: captionTranslateY }],
-            },
-          ]}
-        >
-          فرحتكم تبدأ من هنا
-        </Animated.Text>
 
-        <Animated.View
-          style={[styles.spinner, { transform: [{ rotate: spinDeg }] }]}
-        >
-          <View style={styles.spinnerArc} />
+        {/* Three-dot loader, very subtle — replaces the heavy spinner. */}
+        <Animated.View style={[styles.dotsRow, { opacity: fade }]}>
+          <Dot delay={0} />
+          <Dot delay={150} />
+          <Dot delay={300} />
         </Animated.View>
-        <Text style={styles.loadingLabel}>جارٍ التحميل...</Text>
       </View>
     </View>
+  );
+}
+
+function Dot({ delay }: { delay: number }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(v, {
+          toValue: 0,
+          duration: 450,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [v, delay]);
+  const opacity = v.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+  const scale = v.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.1] });
+  return (
+    <Animated.View
+      style={[styles.dot, { opacity, transform: [{ scale }] }]}
+    />
   );
 }
 
@@ -157,60 +171,46 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#7b2cbf",
+    backgroundColor: "#5a189a",
   },
-  layer: { ...StyleSheet.absoluteFillObject },
   center: { alignItems: "center", paddingHorizontal: 24 },
-  logoWrap: { marginBottom: 18 },
-  logoHalo: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    alignItems: "center",
-    justifyContent: "center",
+  halo: {
+    position: "absolute",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    top: -50,
   },
+  logoWrap: { marginBottom: 22 },
   logoCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.28)",
   },
-  logo: { width: 76, height: 76, borderRadius: 38 },
+  logo: { width: 84, height: 84, borderRadius: 42 },
   appName: {
     color: "#ffffff",
-    fontSize: 30,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontSize: 34,
+    fontFamily: "Cairo_700Bold",
+    letterSpacing: 0.5,
     marginTop: 4,
-  },
-  tagline: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 14,
-    marginTop: 6,
     textAlign: "center",
   },
-  spinner: {
-    width: 38,
-    height: 38,
-    marginTop: 36,
-    alignItems: "center",
-    justifyContent: "center",
+  dotsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 32,
   },
-  spinnerArc: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderTopColor: "#ffffff",
-  },
-  loadingLabel: {
-    color: "rgba(255,255,255,0.78)",
-    fontSize: 12,
-    marginTop: 12,
-    letterSpacing: 0.5,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ffffff",
   },
 });
