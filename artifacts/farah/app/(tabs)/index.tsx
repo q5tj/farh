@@ -268,15 +268,13 @@ export default function HomeScreen() {
                     style={styles.bannerOverlay}
                   />
                   <View style={styles.bannerContent}>
-                    <Text style={styles.bannerTitle}>قاعات وقصور فاخرة</Text>
-                    <Text style={styles.bannerDesc}>
-                      اكتشف أرقى أماكن إقامة الحفلات
-                    </Text>
+                    <Text style={styles.bannerTitle}>{t("heroBannerTitle")}</Text>
+                    <Text style={styles.bannerDesc}>{t("heroBannerDesc")}</Text>
                     <Pressable
                       onPress={() => router.push("/category/halls")}
                       style={styles.bannerBtn}
                     >
-                      <Text style={styles.bannerBtnText}>تصفح القاعات</Text>
+                      <Text style={styles.bannerBtnText}>{t("heroBannerCta")}</Text>
                       <Feather name="arrow-left" size={14} color="#7b2cbf" />
                     </Pressable>
                   </View>
@@ -759,7 +757,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   section: { paddingTop: 22 },
-  sectionPullUp: { marginTop: -50 },
+  sectionPullUp: { marginTop: -28 },
   sectionHeader: {
     paddingHorizontal: 16,
     marginBottom: 14,

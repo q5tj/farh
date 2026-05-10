@@ -47,7 +47,9 @@ export default function StoreInfoScreen() {
 
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [nameEn, setNameEn] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionEn, setDescriptionEn] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -80,7 +82,9 @@ export default function StoreInfoScreen() {
       .then((p) => {
         if (!alive || !p) return;
         setName(p.nameAr || p.name || "");
+        setNameEn(p.nameEn || "");
         setDescription(p.description ?? "");
+        setDescriptionEn(p.descriptionEn ?? "");
         setLogoUrl(p.logoUrl);
         setCoverUrl(p.coverUrl);
       })
@@ -186,7 +190,9 @@ export default function StoreInfoScreen() {
     try {
       await updateOwnProvider(providerId, {
         name: name.trim(),
+        nameEn: nameEn.trim(),
         description: description.trim() || undefined,
+        descriptionEn: descriptionEn.trim(),
         logoUrl,
         coverUrl,
       });
@@ -338,20 +344,41 @@ export default function StoreInfoScreen() {
 
           <View style={{ marginTop: 16 }}>
             <Input
-              label={t("storeNameLabel")}
+              label={t("businessNameAr")}
               placeholder={t("storeNameExample")}
               value={name}
               onChangeText={setName}
               maxLength={80}
             />
           </View>
+          <View style={{ marginTop: 12 }}>
+            <Input
+              label={t("businessNameEn")}
+              placeholder={t("businessNameEnExample")}
+              value={nameEn}
+              onChangeText={setNameEn}
+              maxLength={80}
+            />
+          </View>
 
           <View style={{ marginTop: 12 }}>
             <Input
-              label={t("storeDescriptionLabel")}
+              label={t("shortBioAr")}
               placeholder={t("storeDescriptionPlaceholder")}
               value={description}
               onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              style={{ height: 110, textAlignVertical: "top" }}
+              maxLength={500}
+            />
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <Input
+              label={t("shortBioEn")}
+              placeholder={t("shortBioEnPlaceholder")}
+              value={descriptionEn}
+              onChangeText={setDescriptionEn}
               multiline
               numberOfLines={4}
               style={{ height: 110, textAlignVertical: "top" }}

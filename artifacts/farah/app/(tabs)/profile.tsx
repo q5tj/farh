@@ -221,7 +221,11 @@ export default function ProfileScreen() {
 
   const displayName = profile?.fullName?.trim() || profile?.email || "";
   const profileIncomplete = !profile?.profileCompleted;
-  const langBadge = profile?.language === "en" ? t("english") : t("arabic");
+  // Use the live i18n language for the badge and the picker indicators
+  // so toggling stays in sync immediately, even before AuthContext
+  // refetches the profile from the DB.
+  const activeLang = useT().lang;
+  const langBadge = activeLang === "en" ? t("english") : t("arabic");
   const chevron: keyof typeof Feather.glyphMap = isRtl
     ? "chevron-left"
     : "chevron-right";
@@ -388,17 +392,16 @@ export default function ProfileScreen() {
               style={[
                 styles.langOption,
                 {
-                  borderColor:
-                    profile?.language === "ar" ? c.primary : c.border,
+                  borderColor: activeLang === "ar" ? c.primary : c.border,
                   backgroundColor:
-                    profile?.language === "ar" ? c.primaryBg : "transparent",
+                    activeLang === "ar" ? c.primaryBg : "transparent",
                 },
               ]}
             >
               <Text style={[styles.langOptionText, { color: c.foreground }]}>
                 العربية
               </Text>
-              {profile?.language === "ar" ? (
+              {activeLang === "ar" ? (
                 <Feather name="check" size={18} color={c.primary} />
               ) : null}
             </Pressable>
@@ -407,17 +410,16 @@ export default function ProfileScreen() {
               style={[
                 styles.langOption,
                 {
-                  borderColor:
-                    profile?.language === "en" ? c.primary : c.border,
+                  borderColor: activeLang === "en" ? c.primary : c.border,
                   backgroundColor:
-                    profile?.language === "en" ? c.primaryBg : "transparent",
+                    activeLang === "en" ? c.primaryBg : "transparent",
                 },
               ]}
             >
               <Text style={[styles.langOptionText, { color: c.foreground }]}>
                 English
               </Text>
-              {profile?.language === "en" ? (
+              {activeLang === "en" ? (
                 <Feather name="check" size={18} color={c.primary} />
               ) : null}
             </Pressable>

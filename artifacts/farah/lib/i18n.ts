@@ -78,10 +78,37 @@ export function applyDirection(_lang: AppLang): { needsReload: boolean } {
   return { needsReload: queued };
 }
 
-/** Switch the active language and apply direction side-effects. */
+/** Switch the active language and apply direction side-effects.
+ *
+ * Also persists the choice to `users.language` so server-side triggers
+ * (booking notifications, completion, etc.) emit copy in the right
+ * language. Best-effort — if the user is signed out or Supabase is
+ * unreachable we still flip the local UI language.
+ */
 export async function setAppLanguage(lang: AppLang): Promise<{ needsReload: boolean }> {
   await i18n.changeLanguage(lang);
+  // Fire-and-forget DB update so the UI doesn't wait on it.
+  void persistLanguagePreference(lang);
   return applyDirection(lang);
+}
+
+async function persistLanguagePreference(lang: AppLang): Promise<void> {
+  try {
+    // Lazy-import to avoid a circular dep (supabase.ts imports nothing
+    // from i18n, but i18n shouldn't pull supabase at module load).
+    const { isSupabaseConfigured, supabase } = await import("@/lib/supabase");
+    if (!isSupabaseConfigured || !supabase) return;
+    const { data } = await supabase.auth.getUser();
+    const authUserId = data?.user?.id;
+    if (!authUserId) return;
+    await supabase
+      .from("users")
+      .update({ language: lang })
+      .eq("auth_user_id", authUserId);
+  } catch {
+    // Network / RLS errors are non-fatal — the UI language is already
+    // switched, and the next sign-in will pick up the persisted value.
+  }
 }
 
 export default i18n;

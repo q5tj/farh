@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect } from "react";
+import React from "react";
 import {
   Platform,
   Pressable,
@@ -23,13 +23,7 @@ export default function NotificationsScreen() {
   const isWeb = Platform.OS === "web";
   const { notifications, markNotificationsRead } = useApp();
   const { t, isRtl, lang } = useT();
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      markNotificationsRead();
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [markNotificationsRead]);
+  const hasUnread = notifications.some((n) => !n.read);
 
   const onBack = () => {
     if (router.canGoBack()) router.back();
@@ -86,6 +80,25 @@ export default function NotificationsScreen() {
               {t("back")}
             </Text>
           </Pressable>
+          {hasUnread ? (
+            <Pressable
+              onPress={() => markNotificationsRead()}
+              style={[styles.markAllBtn, { backgroundColor: c.primary }]}
+            >
+              <Feather name="check-circle" size={14} color="#ffffff" />
+              <Text style={styles.markAllText}>{t("markAllRead")}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : hasUnread ? (
+        <View style={[styles.backRow, { flexDirection: flexDir }]}>
+          <Pressable
+            onPress={() => markNotificationsRead()}
+            style={[styles.markAllBtn, { backgroundColor: c.primary }]}
+          >
+            <Feather name="check-circle" size={14} color="#ffffff" />
+            <Text style={styles.markAllText}>{t("markAllRead")}</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -140,7 +153,7 @@ export default function NotificationsScreen() {
                     ]}
                     numberOfLines={1}
                   >
-                    {n.title}
+                    {lang === "en" ? n.titleEn || n.title : n.titleAr || n.title}
                   </Text>
                   <Text style={[styles.time, { color: c.mutedForeground }]}>
                     {formatTime(n.createdAt)}
@@ -152,7 +165,7 @@ export default function NotificationsScreen() {
                     { color: c.mutedForeground, textAlign: align },
                   ]}
                 >
-                  {n.body}
+                  {lang === "en" ? n.bodyEn || n.body : n.bodyAr || n.body}
                 </Text>
               </View>
             </Pressable>
@@ -167,6 +180,9 @@ const styles = StyleSheet.create({
   backRow: {
     paddingHorizontal: 16,
     paddingTop: 10,
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
   },
   backBtn: {
     flexDirection: "row",
@@ -177,6 +193,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  markAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 100,
+    gap: 6,
+  },
+  markAllText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 12,
+    color: "#ffffff",
+  },
   item: {
     borderWidth: 1,
     padding: 12,

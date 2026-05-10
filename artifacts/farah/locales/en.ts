@@ -154,6 +154,7 @@ export const en: Strings = {
   // Notifications
   noNotifications: "No notifications",
   noNotificationsDesc: "You'll receive booking updates and notifications here",
+  markAllRead: "Mark all read",
 
   // Profile
   customerAccount: "Customer account",
@@ -353,8 +354,14 @@ export const en: Strings = {
   startBusinessDesc: "After creation your card will be visible to customers, and you can add services and receive booking requests.",
   businessName: "Business name",
   businessNameExample: "e.g. Princess Palace for Weddings",
+  businessNameAr: "Business name in Arabic",
+  businessNameEn: "Business name in English",
+  businessNameEnExample: "e.g. Princess Palace for Weddings",
   shortBio: "Short description",
   shortBioPlaceholder: "Write a brief description of your services...",
+  shortBioAr: "Short bio in Arabic",
+  shortBioEn: "Short bio in English",
+  shortBioEnPlaceholder: "Write a short summary of your services in English...",
   category: "Category",
   city: "City",
   contactPhone: "Contact number (WhatsApp / Mobile)",
@@ -813,6 +820,11 @@ export const en: Strings = {
   // Home empty states + featured
   featuredForYou: "Picked for you",
   homeNoSearchResults: "No matching results",
+
+  // Hero banner (home)
+  heroBannerTitle: "Luxury halls & palaces",
+  heroBannerDesc: "Discover the finest venues for your celebration",
+  heroBannerCta: "Browse halls",
   homeEmptyTitle: "No providers yet",
   homeEmptyBody:
     "No providers have signed up yet. Be the first — open \"Profile\" and tap \"Become a provider\".",

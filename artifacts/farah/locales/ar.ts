@@ -154,6 +154,7 @@ export const ar = {
   // Notifications
   noNotifications: "لا توجد إشعارات",
   noNotificationsDesc: "ستصلك إشعارات الحجوزات والتحديثات هنا",
+  markAllRead: "تعليم الكل كمقروء",
 
   // Profile
   customerAccount: "حساب عميل",
@@ -353,8 +354,14 @@ export const ar = {
   startBusinessDesc: "بعد الإنشاء ستظهر بطاقتك للعملاء، ويمكنك إضافة خدماتك واستقبال طلبات الحجز.",
   businessName: "اسم النشاط",
   businessNameExample: "مثال: قصر الأميرة للأفراح",
+  businessNameAr: "اسم النشاط بالعربية",
+  businessNameEn: "Business name in English",
+  businessNameEnExample: "e.g. Princess Palace for Weddings",
   shortBio: "نبذة قصيرة",
   shortBioPlaceholder: "اكتب وصفاً مختصراً عن خدماتك...",
+  shortBioAr: "نبذة قصيرة بالعربية",
+  shortBioEn: "Short bio in English",
+  shortBioEnPlaceholder: "Write a short summary of your services in English...",
   category: "التصنيف",
   city: "المدينة",
   contactPhone: "رقم التواصل (واتساب / جوال)",
@@ -493,7 +500,7 @@ export const ar = {
   categoriesDeleteConfirm: "هل تريد حذف \"{{label}}\"؟",
   categoryNameArLabel: "الاسم بالعربية",
   categoryNameArPlaceholder: "مثال: ديكور خارجي",
-  categoryNameEnLabel: "Name in English",
+  categoryNameEnLabel: " الاسم بالإنجليزية",
   categoryNameEnPlaceholder: "e.g. Outdoor decor",
 
   // Admin — settings
@@ -806,6 +813,11 @@ export const ar = {
   // Home empty states + featured
   featuredForYou: "مختار لك",
   homeNoSearchResults: "لم يتم العثور على نتائج",
+
+  // Hero banner (home)
+  heroBannerTitle: "قاعات وقصور فاخرة",
+  heroBannerDesc: "اكتشف أرقى أماكن إقامة الحفلات",
+  heroBannerCta: "تصفح القاعات",
   homeEmptyTitle: "لا يوجد مزودون بعد",
   homeEmptyBody:
     "لم يُسجَّل مزودو خدمة بعد. كن أول مزود — افتح \"حسابي\" واختر \"كن مزود خدمة\".",

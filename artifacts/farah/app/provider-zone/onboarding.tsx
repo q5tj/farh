@@ -90,7 +90,9 @@ export default function ProviderOnboarding() {
   }, [profile?.providerId]);
 
   const [name, setName] = useState("");
+  const [nameEn, setNameEn] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionEn, setDescriptionEn] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [serviceAreas, setServiceAreas] = useState<Set<string>>(
     () => new Set([profile?.city ?? CITIES[0]]),
@@ -285,7 +287,9 @@ export default function ProviderOnboarding() {
       const { id: providerId } = await becomeProvider({
         categoryId,
         name: name.trim(),
+        nameEn: nameEn.trim() || undefined,
         description: description.trim() || undefined,
+        descriptionEn: descriptionEn.trim() || undefined,
         city: primaryCity,
         phone: phone.trim() || undefined,
         email: profile.email ?? undefined,
@@ -363,17 +367,32 @@ export default function ProviderOnboarding() {
         </Card>
 
         <Input
-          label={t("businessName")}
+          label={t("businessNameAr")}
           placeholder={t("businessNameExample")}
           value={name}
           onChangeText={setName}
         />
+        <Input
+          label={t("businessNameEn")}
+          placeholder={t("businessNameEnExample")}
+          value={nameEn}
+          onChangeText={setNameEn}
+        />
 
         <Input
-          label={t("shortBio")}
+          label={t("shortBioAr")}
           placeholder={t("shortBioPlaceholder")}
           value={description}
           onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+          style={{ height: 90, textAlignVertical: "top" }}
+        />
+        <Input
+          label={t("shortBioEn")}
+          placeholder={t("shortBioEnPlaceholder")}
+          value={descriptionEn}
+          onChangeText={setDescriptionEn}
           multiline
           numberOfLines={3}
           style={{ height: 90, textAlignVertical: "top" }}

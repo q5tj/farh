@@ -156,6 +156,10 @@ interface NotificationRow {
   user_id: string | null;
   title: string;
   body: string | null;
+  title_ar: string | null;
+  title_en: string | null;
+  body_ar: string | null;
+  body_en: string | null;
   booking_id: string | null;
   is_read: boolean | null;
   created_at: string;
@@ -304,8 +308,15 @@ export interface Booking {
 
 export interface AppNotification {
   id: string;
+  /** Localized at fetch time, falls back to legacy single-string copy. */
   title: string;
   body: string;
+  // Bilingual snapshots — keep so a UI language change re-renders the
+  // list with the right copy without a refetch.
+  titleAr: string;
+  titleEn: string;
+  bodyAr: string;
+  bodyEn: string;
   createdAt: number;
   read: boolean;
   bookingId?: string;
@@ -569,6 +580,10 @@ function mapNotification(row: NotificationRow): AppNotification {
     id: row.id,
     title: row.title,
     body: row.body ?? "",
+    titleAr: row.title_ar ?? row.title ?? "",
+    titleEn: row.title_en ?? row.title ?? "",
+    bodyAr: row.body_ar ?? row.body ?? "",
+    bodyEn: row.body_en ?? row.body ?? "",
     createdAt: row.created_at
       ? new Date(row.created_at).getTime()
       : Date.now(),
@@ -847,7 +862,9 @@ export async function updateOwnProvider(
   providerId: string,
   patch: {
     name?: string;
+    nameEn?: string;
     description?: string;
+    descriptionEn?: string;
     logoUrl?: string | null;
     coverUrl?: string | null;
     phone?: string;
@@ -860,9 +877,15 @@ export async function updateOwnProvider(
     // with how `become_provider` seeds the row.
     next.name_ar = patch.name;
   }
+  if (patch.nameEn !== undefined) {
+    next.name_en = patch.nameEn;
+  }
   if (patch.description !== undefined) {
     next.description = patch.description;
     next.description_ar = patch.description;
+  }
+  if (patch.descriptionEn !== undefined) {
+    next.description_en = patch.descriptionEn;
   }
   if (patch.logoUrl !== undefined) next.logo_url = patch.logoUrl;
   if (patch.coverUrl !== undefined) next.cover_url = patch.coverUrl;
@@ -1103,7 +1126,9 @@ export async function fetchNotifications(
 ): Promise<AppNotification[]> {
   const { data, error } = await client()
     .from("notifications")
-    .select("id, user_id, title, body, booking_id, is_read, created_at")
+    .select(
+      "id, user_id, title, body, title_ar, title_en, body_ar, body_en, booking_id, is_read, created_at",
+    )
     .or(`user_id.eq.${userId},user_id.is.null`)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -1823,7 +1848,9 @@ export async function toggleFavorite(
 export async function becomeProvider(input: {
   categoryId: string;
   name: string;
+  nameEn?: string;
   description?: string;
+  descriptionEn?: string;
   city?: string;
   phone?: string;
   email?: string;
@@ -1845,7 +1872,17 @@ export async function becomeProvider(input: {
     p_national_address_path: input.nationalAddressPath ?? null,
   });
   if (error) throw error;
-  return { id: data as string };
+  const providerId = data as string;
+  // The RPC seeds Arabic columns from p_name/p_description. Follow up with
+  // a direct update to set the English columns since the RPC signature
+  // doesn't accept them yet (and we'd rather not bump the RPC signature).
+  if (input.nameEn || input.descriptionEn) {
+    await updateOwnProvider(providerId, {
+      nameEn: input.nameEn,
+      descriptionEn: input.descriptionEn,
+    });
+  }
+  return { id: providerId };
 }
 
 // ============================================================
