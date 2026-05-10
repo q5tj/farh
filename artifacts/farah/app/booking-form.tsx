@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { CITIES } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import {
   AvailableSlot,
@@ -74,8 +73,6 @@ export default function BookingFormScreen() {
     providerId: string;
     serviceId: string;
   }>();
-  const { profile } = useAuth();
-  const lang = profile?.language ?? "ar";
   const { getProvider, addBooking } = useApp();
   const cached = getProvider(String(providerId));
   const [provider, setProvider] = useState<Provider | null>(cached ?? null);
