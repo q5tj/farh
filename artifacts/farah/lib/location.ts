@@ -38,6 +38,46 @@ export function buildMapUrlFromCoords(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
 }
 
+/**
+ * Try to extract latitude/longitude from a Google Maps URL.
+ *
+ * Supports the common shapes we encounter:
+ *   1. `?q=24.7136,46.6753`        — long/short share format we generate
+ *   2. `/@24.7136,46.6753,15z`     — when the user copies the URL bar
+ *   3. `/place/.../@24.7,46.7,..`  — place pages
+ *   4. `?ll=24.7136,46.6753`       — older mobile share
+ *
+ * Returns null when the URL doesn't include explicit coordinates (e.g.
+ * shortened `maps.app.goo.gl` redirect URLs we can't follow client-side).
+ */
+export function extractCoordsFromMapUrl(
+  url: string,
+): { lat: number; lng: number } | null {
+  if (!url) return null;
+  const candidates: RegExp[] = [
+    /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/i,
+    /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/i,
+    /[?&]destination=(-?\d+\.\d+),(-?\d+\.\d+)/i,
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+  ];
+  for (const re of candidates) {
+    const m = url.match(re);
+    if (m) {
+      const lat = Number.parseFloat(m[1]);
+      const lng = Number.parseFloat(m[2]);
+      if (
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        Math.abs(lat) <= 90 &&
+        Math.abs(lng) <= 180
+      ) {
+        return { lat, lng };
+      }
+    }
+  }
+  return null;
+}
+
 export async function getCurrentMapUrl(): Promise<{
   url: string;
   lat: number;

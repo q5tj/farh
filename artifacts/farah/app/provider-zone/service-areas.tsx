@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { CITIES } from "@/constants/seedData";
+import { CITIES, localizedCityName } from "@/constants/seedData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import {
@@ -27,7 +27,7 @@ import { useT } from "@/lib/i18n";
 export default function ProviderServiceAreasScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, lang } = useT();
   const { profile } = useAuth();
   const providerId = profile?.providerId ?? null;
 
@@ -128,7 +128,7 @@ export default function ProviderServiceAreasScreen() {
                         { color: active ? "#ffffff" : c.foreground },
                       ]}
                     >
-                      {city}
+                      {localizedCityName(city, lang)}
                     </Text>
                   </Pressable>
                 );

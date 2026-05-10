@@ -14,6 +14,28 @@ export const CITIES = [
   "بريدة",
 ];
 
+// AR ↔ EN mapping for the canonical city names. Cities in the DB are
+// always stored as the Arabic string (CITIES[]) — this map only flips
+// the UI label for display. Keep keys identical to CITIES entries.
+export const CITY_NAME_EN: Record<string, string> = {
+  "الرياض": "Riyadh",
+  "جدة": "Jeddah",
+  "مكة المكرمة": "Makkah",
+  "المدينة المنورة": "Madinah",
+  "الدمام": "Dammam",
+  "الخبر": "Khobar",
+  "الطائف": "Taif",
+  "تبوك": "Tabuk",
+  "أبها": "Abha",
+  "بريدة": "Buraydah",
+};
+
+/** Localized display label for a city stored as its Arabic name. */
+export function localizedCityName(arName: string, lang: string): string {
+  if (lang === "en") return CITY_NAME_EN[arName] ?? arName;
+  return arName;
+}
+
 const COVER = {
   halls: require("../assets/images/hero-hall.png"),
   music: require("../assets/images/cat-music.png"),

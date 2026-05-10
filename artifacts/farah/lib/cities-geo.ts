@@ -48,3 +48,46 @@ export function nearestCity(coords: {
   if (!best) return null;
   return best.km <= MATCH_RADIUS_KM ? best.city : null;
 }
+
+export interface LocationCheck {
+  /** City inferred from the map URL coordinates (if extractable). */
+  detectedCity: string | null;
+  /** True when the customer's selected city matches the URL's city. */
+  cityMatchesUrl: boolean;
+  /** True when the selected city is part of the provider's service areas. */
+  cityInServiceAreas: boolean;
+  /** Convenience: any blocking issue at all. */
+  ok: boolean;
+}
+
+/**
+ * Validate a booking location against:
+ *   • the city the customer picked from the dropdown
+ *   • the city we infer from the map URL (if any)
+ *   • the provider's primary city + extra service-area cities
+ *
+ * The result is consumed by booking-form to show a clear warning when
+ * the customer is about to book a venue that's outside the provider's
+ * coverage, or when the dropdown city contradicts the map pin.
+ */
+export function checkBookingLocation(input: {
+  selectedCity: string;
+  mapCoords?: { lat: number; lng: number } | null;
+  providerCity: string;
+  providerServiceAreas?: string[];
+}): LocationCheck {
+  const detected = input.mapCoords ? nearestCity(input.mapCoords) : null;
+  const cityMatchesUrl =
+    detected == null ? true : detected === input.selectedCity;
+  const areas = new Set<string>([
+    input.providerCity,
+    ...(input.providerServiceAreas ?? []),
+  ]);
+  const cityInServiceAreas = areas.has(input.selectedCity);
+  return {
+    detectedCity: detected,
+    cityMatchesUrl,
+    cityInServiceAreas,
+    ok: cityMatchesUrl && cityInServiceAreas,
+  };
+}

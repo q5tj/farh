@@ -19,9 +19,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BookingSuccessOverlay } from "@/components/BookingSuccessOverlay";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CityPicker } from "@/components/ui/CityPicker";
 import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { CITIES } from "@/constants/seedData";
+import { CITIES, localizedCityName } from "@/constants/seedData";
+import { checkBookingLocation } from "@/lib/cities-geo";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
 import {
@@ -29,6 +31,7 @@ import {
   fetchPaymentSettings,
   fetchProviderBusyIntervals,
   fetchProviderById,
+  fetchProviderServiceAreas,
   formatTimeAr,
   generateSlots,
   weekdayKey,
@@ -38,7 +41,11 @@ import {
 } from "@/lib/data";
 import { formatShortDate, formatWeekday } from "@/lib/date-format";
 import { useT } from "@/lib/i18n";
-import { getCurrentMapUrl, isMapUrl } from "@/lib/location";
+import {
+  extractCoordsFromMapUrl,
+  getCurrentMapUrl,
+  isMapUrl,
+} from "@/lib/location";
 import {
   createBookingDepositPaymentRow,
   createMoyasarInvoice,
@@ -109,6 +116,21 @@ export default function BookingFormScreen() {
       alive = false;
     };
   }, []);
+
+  // Provider's extra service areas (the primary city is on `provider.city`).
+  const [providerAreas, setProviderAreas] = useState<string[]>([]);
+  useEffect(() => {
+    if (!provider?.id) return;
+    let alive = true;
+    fetchProviderServiceAreas(provider.id)
+      .then((areas) => {
+        if (alive) setProviderAreas(areas);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [provider?.id]);
 
   const breakdown = useMemo(() => {
     if (!service || !paySettings) return null;
@@ -186,6 +208,12 @@ export default function BookingFormScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [locationWarning, setLocationWarning] = useState<{
+    kind: "mismatch" | "outsideAreas";
+    selected: string;
+    detected?: string;
+    areas?: string[];
+  } | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
   const successTargetRef = useRef<string | null>(null);
   // useRef lock — survives multiple state updates from rapid taps. State-only
@@ -247,7 +275,7 @@ export default function BookingFormScreen() {
     }
   };
 
-  const validateAndOpenConfirm = () => {
+  const validateAndOpenConfirm = (skipLocationWarn = false) => {
     if (!selectedSlot) {
       const msg = t("pickAvailableTime");
       if (Platform.OS !== "web") Alert.alert(t("required"), msg);
@@ -262,6 +290,33 @@ export default function BookingFormScreen() {
       }
       return;
     }
+
+    if (!skipLocationWarn && provider) {
+      const check = checkBookingLocation({
+        selectedCity: city,
+        mapCoords: extractCoordsFromMapUrl(trimmed),
+        providerCity: provider.city,
+        providerServiceAreas: providerAreas,
+      });
+      if (!check.cityInServiceAreas) {
+        const allAreas = [provider.city, ...providerAreas];
+        setLocationWarning({
+          kind: "outsideAreas",
+          selected: city,
+          areas: allAreas,
+        });
+        return;
+      }
+      if (!check.cityMatchesUrl && check.detectedCity) {
+        setLocationWarning({
+          kind: "mismatch",
+          selected: city,
+          detected: check.detectedCity,
+        });
+        return;
+      }
+    }
+
     setConfirmOpen(true);
   };
 
@@ -386,134 +441,112 @@ export default function BookingFormScreen() {
           </View>
         </Card>
 
-        <Text style={[styles.label, { color: c.foreground }]}>
-          {t("selectDate")}
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-        >
-          {days.map((d) => {
-            const active = selectedDayIso === d.iso;
-            return (
-              <Pressable
-                key={d.iso}
-                onPress={() => setSelectedDayIso(d.iso)}
-                style={[
-                  styles.dateChip,
-                  {
-                    backgroundColor: active ? c.primary : c.muted,
-                    borderRadius: 14,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.dateChipDay,
-                    { color: active ? "#ffffff" : c.foreground },
-                  ]}
-                >
-                  {d.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.dateChipSub,
-                    { color: active ? "rgba(255,255,255,0.85)" : c.mutedForeground },
-                  ]}
-                >
-                  {d.sub}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <Text style={[styles.label, { color: c.foreground }]}>
-          {t("selectTime")}
-        </Text>
-
-        {slotsLoading ? (
-          <View style={{ paddingVertical: 18, alignItems: "center" }}>
-            <ActivityIndicator color={c.primary} />
-          </View>
-        ) : !dayHasHours ? (
-          <Text style={[styles.helperText, { color: c.mutedForeground }]}>
-            المزود لا يعمل في هذا اليوم — اختر يوماً آخر.
+        <Card style={{ marginTop: 8 }}>
+          <Text style={[styles.label, { color: c.foreground, marginBottom: 12 }]}>
+            {t("pickDateAndTime")}
           </Text>
-        ) : slots.length === 0 ? (
-          <Text style={[styles.helperText, { color: c.mutedForeground }]}>
-            لا توجد مواعيد متاحة في هذا اليوم. جرّب يوماً آخر.
-          </Text>
-        ) : (
-          <View style={styles.timesGrid}>
-            {slots.map((slot) => {
-              const active = selectedSlot?.start.getTime() === slot.start.getTime();
+
+          {/* 7-column calendar grid: 14 days laid out in 2 rows. Each cell
+              shows the date number with the weekday underneath, so the
+              picker reads like a real calendar instead of a chip strip. */}
+          <View style={styles.calGrid}>
+            {days.map((d) => {
+              const active = selectedDayIso === d.iso;
               return (
                 <Pressable
-                  key={slot.start.toISOString()}
-                  onPress={() => setSelectedSlot(slot)}
+                  key={d.iso}
+                  onPress={() => setSelectedDayIso(d.iso)}
                   style={[
-                    styles.timeChip,
+                    styles.calCell,
                     {
-                      backgroundColor: active ? c.primaryBg : c.background,
+                      backgroundColor: active ? c.primary : c.muted,
                       borderColor: active ? c.primary : c.border,
-                      borderRadius: 12,
                     },
                   ]}
                 >
                   <Text
                     style={[
-                      styles.timeChipText,
-                      {
-                        color: active ? c.primary : c.foreground,
-                        fontFamily: active
-                          ? "Cairo_700Bold"
-                          : "Cairo_500Medium",
-                      },
+                      styles.calCellSub,
+                      { color: active ? "rgba(255,255,255,0.92)" : c.mutedForeground },
                     ]}
                   >
-                    {slot.label}
+                    {d.sub}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.calCellDay,
+                      { color: active ? "#ffffff" : c.foreground },
+                    ]}
+                  >
+                    {d.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-        )}
 
-        <Text style={[styles.label, { color: c.foreground }]}>
-          {t("cityLabel")}
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-        >
-          {CITIES.map((cityName) => {
-            const active = city === cityName;
-            return (
-              <Pressable
-                key={cityName}
-                onPress={() => setCity(cityName)}
-                style={[
-                  styles.cityChip,
-                  {
-                    backgroundColor: active ? c.primary : c.muted,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.cityChipText,
-                    { color: active ? "#ffffff" : c.foreground },
-                  ]}
-                >
-                  {cityName}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+          <View style={[styles.calDivider, { backgroundColor: c.border }]} />
+
+          <Text style={[styles.calSubLabel, { color: c.mutedForeground }]}>
+            {t("availableTimesFor", { date: selectedDay?.label ?? "" })}
+          </Text>
+
+          {slotsLoading ? (
+            <View style={{ paddingVertical: 18, alignItems: "center" }}>
+              <ActivityIndicator color={c.primary} />
+            </View>
+          ) : !dayHasHours ? (
+            <Text style={[styles.helperText, { color: c.mutedForeground }]}>
+              {t("providerOffToday")}
+            </Text>
+          ) : slots.length === 0 ? (
+            <Text style={[styles.helperText, { color: c.mutedForeground }]}>
+              {t("noAvailableSlots")}
+            </Text>
+          ) : (
+            <View style={styles.timesGrid}>
+              {slots.map((slot) => {
+                const active = selectedSlot?.start.getTime() === slot.start.getTime();
+                return (
+                  <Pressable
+                    key={slot.start.toISOString()}
+                    onPress={() => setSelectedSlot(slot)}
+                    style={[
+                      styles.timeChip,
+                      {
+                        backgroundColor: active ? c.primaryBg : c.background,
+                        borderColor: active ? c.primary : c.border,
+                        borderRadius: 12,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.timeChipText,
+                        {
+                          color: active ? c.primary : c.foreground,
+                          fontFamily: active
+                            ? "Cairo_700Bold"
+                            : "Cairo_500Medium",
+                        },
+                      ]}
+                    >
+                      {slot.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </Card>
+
+        <View style={{ marginTop: 8 }}>
+          <CityPicker
+            label={t("cityLabel")}
+            value={city}
+            onChange={setCity}
+          />
+        </View>
 
         <Text style={[styles.label, { color: c.foreground }]}>
           {t("location")}
@@ -750,6 +783,86 @@ export default function BookingFormScreen() {
           if (target) router.replace(target as never);
         }}
       />
+
+      <Modal
+        visible={!!locationWarning}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationWarning(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: c.background, borderRadius: c.radius, padding: 22 },
+            ]}
+          >
+            <View
+              style={{
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 14,
+              }}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: "#fef3c7",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Feather name="alert-triangle" size={26} color="#a16207" />
+              </View>
+              <Text style={[styles.modalTitle, { color: c.foreground, textAlign: "center" }]}>
+                {locationWarning?.kind === "mismatch"
+                  ? t("cityMismatchTitle")
+                  : t("cityOutsideAreasTitle", {
+                      city: localizedCityName(
+                        locationWarning?.selected ?? "",
+                        lang,
+                      ),
+                    })}
+              </Text>
+            </View>
+            <Text style={[styles.modalDesc, { color: c.mutedForeground, textAlign: "center" }]}>
+              {locationWarning?.kind === "mismatch"
+                ? t("cityMismatchBody", {
+                    selected: localizedCityName(
+                      locationWarning.selected,
+                      lang,
+                    ),
+                    detected: localizedCityName(
+                      locationWarning.detected ?? "",
+                      lang,
+                    ),
+                  })
+                : t("cityOutsideAreasBody", {
+                    areas: (locationWarning?.areas ?? [])
+                      .map((a) => localizedCityName(a, lang))
+                      .join("، "),
+                  })}
+            </Text>
+            <View style={{ gap: 10, marginTop: 4 }}>
+              <Button
+                label={t("changeCity")}
+                onPress={() => setLocationWarning(null)}
+                size="lg"
+              />
+              <Button
+                label={t("cityOutsideAreasContinue")}
+                variant="ghost"
+                onPress={() => {
+                  setLocationWarning(null);
+                  validateAndOpenConfirm(true);
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -824,6 +937,42 @@ const styles = StyleSheet.create({
   },
   dateChipDay: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   dateChipSub: { fontFamily: "Cairo_400Regular", fontSize: 11, marginTop: 3 },
+  // Calendar grid (date+time card)
+  calGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  calCell: {
+    width: "13.4%", // ~7 columns minus the gap
+    aspectRatio: 0.9,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+  },
+  calCellSub: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 10,
+    textAlign: "center",
+  },
+  calCellDay: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    marginTop: 2,
+    textAlign: "center",
+  },
+  calDivider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  calSubLabel: {
+    fontFamily: "Cairo_500Medium",
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: "right",
+  },
   timesGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
   timeChip: {
     paddingHorizontal: 14,
