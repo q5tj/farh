@@ -837,8 +837,17 @@ export const ar = {
     "المزود أنهى الخدمة. أكمل دفع المبلغ المتبقي لإتمام العملية.",
   payRemainingNow: "ادفع المتبقي الآن",
   finalPaymentPaid: "تم استلام كامل المبلغ. شكراً!",
-  finalPaymentPending: "بانتظار دفع المتبقي",
+  finalPaymentPending: "بانتظار دفع المتبقي من العميل",
+  finalPaymentReceivedOffline: "العميل سدّد {{method}}",
   notifyCustomerToPay: "تم إرسال إشعار للعميل لدفع المتبقي",
+  filterAwaitingFinalPayment: "بانتظار دفع المتبقي",
+  requestDateLabel: "تاريخ الطلب",
+  eventDateLabel: "تاريخ المناسبة",
+
+  // Final-payment success page (after Moyasar)
+  finalPaymentSuccessTitle: "تم استكمال المبلغ",
+  finalPaymentSuccessDesc:
+    "تم استلام المتبقي بنجاح. شكراً لاستخدامك تطبيق فرحتكم — نتمنى لك مناسبة سعيدة.",
 
   // Provider wallet
   walletTitle: "محفظتي",

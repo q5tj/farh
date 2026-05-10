@@ -845,8 +845,17 @@ export const en: Strings = {
     "The provider has completed the service. Pay the remaining amount to close the booking.",
   payRemainingNow: "Pay remaining now",
   finalPaymentPaid: "Full amount received. Thank you!",
-  finalPaymentPending: "Awaiting remaining payment",
+  finalPaymentPending: "Customer hasn't paid the remainder yet",
+  finalPaymentReceivedOffline: "Customer paid via {{method}}",
   notifyCustomerToPay: "Customer notified to pay the remaining amount",
+  filterAwaitingFinalPayment: "Awaiting final payment",
+  requestDateLabel: "Request date",
+  eventDateLabel: "Event date",
+
+  // Final-payment success page (after Moyasar)
+  finalPaymentSuccessTitle: "Payment completed",
+  finalPaymentSuccessDesc:
+    "We received the remaining amount. Thank you for using Farhatukum — wishing you a memorable event.",
 
   // Provider wallet
   walletTitle: "My wallet",

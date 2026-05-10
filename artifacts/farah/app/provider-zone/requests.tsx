@@ -30,27 +30,59 @@ import {
   type FinalPaymentMethod,
 } from "@/lib/payments";
 
+function formatDate(ms: number) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const months = [
+    "يناير",
+    "فبراير",
+    "مارس",
+    "أبريل",
+    "مايو",
+    "يونيو",
+    "يوليو",
+    "أغسطس",
+    "سبتمبر",
+    "أكتوبر",
+    "نوفمبر",
+    "ديسمبر",
+  ];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function RequestsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const { providerBookings, updateBookingStatus, refresh } = useApp();
-  const [filter, setFilter] = useState<"all" | BookingStatus>("pending");
+  const [filter, setFilter] = useState<"all" | BookingStatus | "awaiting_final">(
+    "pending",
+  );
   const [completing, setCompleting] = useState<Booking | null>(null);
 
-  // Order: rendered LTR; on RTL the eye starts at the right anyway. Avoid
-  // `row-reverse` on horizontal scrolls — breaks on native.
-  const FILTERS: { id: "all" | BookingStatus; label: string }[] = [
+  // Filter set: the synthetic "awaiting_final" tab surfaces completed
+  // bookings whose customer hasn't paid the remainder yet (online flow).
+  type FilterId = "all" | BookingStatus | "awaiting_final";
+  const [filterTyped] = [filter as FilterId];
+  const FILTERS: { id: FilterId; label: string }[] = [
     { id: "all", label: t("all") },
+    { id: "awaiting_final", label: t("filterAwaitingFinalPayment") },
     { id: "completed", label: t("statusCompleted") },
     { id: "accepted", label: t("statusAccepted") },
     { id: "pending", label: t("statusPending") },
   ];
 
   const filtered = useMemo(() => {
-    if (filter === "all") return providerBookings;
-    return providerBookings.filter((b) => b.status === filter);
-  }, [providerBookings, filter]);
+    if (filterTyped === "all") return providerBookings;
+    if (filterTyped === "awaiting_final") {
+      return providerBookings.filter(
+        (b) =>
+          b.finalPaymentMethod === "online" &&
+          b.finalPaymentStatus === "pending",
+      );
+    }
+    return providerBookings.filter((b) => b.status === filterTyped);
+  }, [providerBookings, filterTyped]);
 
   const onBack = () => {
     if (router.canGoBack()) router.back();
@@ -367,9 +399,15 @@ function RequestCard({
 
       <View style={styles.metaRow}>
         <View style={styles.metaItem}>
+          <Feather name="inbox" size={12} color={c.mutedForeground} />
+          <Text style={[styles.meta, { color: c.mutedForeground }]}>
+            {t("requestDateLabel")}: {formatDate(booking.createdAt)}
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
           <Feather name="calendar" size={12} color={c.mutedForeground} />
           <Text style={[styles.meta, { color: c.mutedForeground }]}>
-            {booking.date} • {booking.time}
+            {t("eventDateLabel")}: {booking.date} • {booking.time}
           </Text>
         </View>
         <LocationLine location={booking.location} />
@@ -402,6 +440,43 @@ function RequestCard({
           <Feather name="shield" size={14} color={c.primary} />
           <Text style={[styles.depositText, { color: c.foreground }]}>
             {t("depositSecuredNotice")}
+          </Text>
+        </View>
+      ) : null}
+
+      {booking.finalPaymentMethod === "online" &&
+      booking.finalPaymentStatus === "pending" ? (
+        <View
+          style={[
+            styles.depositSecured,
+            { backgroundColor: "#fef3c7", borderColor: "#fde68a" },
+          ]}
+        >
+          <Feather name="clock" size={14} color="#a16207" />
+          <Text style={[styles.depositText, { color: "#a16207" }]}>
+            {t("finalPaymentPending")}
+          </Text>
+        </View>
+      ) : null}
+
+      {booking.finalPaymentStatus === "paid" &&
+      booking.status === "completed" ? (
+        <View
+          style={[
+            styles.depositSecured,
+            { backgroundColor: "#dcfce7", borderColor: "#86efac" },
+          ]}
+        >
+          <Feather name="check-circle" size={14} color="#15803d" />
+          <Text style={[styles.depositText, { color: "#15803d" }]}>
+            {booking.finalPaymentMethod === "online"
+              ? t("finalPaymentPaid")
+              : t("finalPaymentReceivedOffline", {
+                  method:
+                    booking.finalPaymentMethod === "cash"
+                      ? t("methodCashTitle")
+                      : t("methodBankTitle"),
+                })}
           </Text>
         </View>
       ) : null}

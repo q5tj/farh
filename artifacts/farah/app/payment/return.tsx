@@ -6,6 +6,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { verifyMoyasarPayment, type VerifyStatus } from "@/lib/payments";
 
 /**
@@ -52,6 +53,27 @@ export default function PaymentReturnScreen() {
   );
   const [error, setError] = useState<string | null>(null);
   const verifiedRef = useRef(false);
+  // Distinguishes "deposit success" vs "final-payment success" messaging.
+  // We learn the kind from the payments table after the redirect.
+  const [paymentKind, setPaymentKind] = useState<
+    "booking_deposit" | "final_payment" | "provider_commission" | null
+  >(null);
+
+  useEffect(() => {
+    if (!paymentId || !isSupabaseConfigured || !supabase) return;
+    let alive = true;
+    supabase
+      .from("payments")
+      .select("kind")
+      .eq("id", paymentId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive && data?.kind) setPaymentKind(data.kind);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [paymentId]);
 
   useEffect(() => {
     if (verifiedRef.current) return;
@@ -132,10 +154,14 @@ export default function PaymentReturnScreen() {
             <Feather name="check-circle" size={48} color="#16a34a" />
           </View>
           <Text style={[styles.title, { color: c.foreground }]}>
-            {t("paymentSuccessTitle")}
+            {paymentKind === "final_payment"
+              ? t("finalPaymentSuccessTitle")
+              : t("paymentSuccessTitle")}
           </Text>
           <Text style={[styles.body, { color: c.mutedForeground }]}>
-            {t("paymentSuccessDesc")}
+            {paymentKind === "final_payment"
+              ? t("finalPaymentSuccessDesc")
+              : t("paymentSuccessDesc")}
           </Text>
           <Button label={t("goToBooking")} onPress={goToBooking} size="lg" />
         </>
