@@ -491,6 +491,10 @@ export const ar = {
   categoriesPlaceholder: "مثال: ديكور خارجي",
   categoriesCount: "التصنيفات الحالية ({{count}})",
   categoriesDeleteConfirm: "هل تريد حذف \"{{label}}\"؟",
+  categoryNameArLabel: "الاسم بالعربية",
+  categoryNameArPlaceholder: "مثال: ديكور خارجي",
+  categoryNameEnLabel: "Name in English",
+  categoryNameEnPlaceholder: "e.g. Outdoor decor",
 
   // Admin — settings
   settingsScreenTitle: "العمولة والإعدادات",

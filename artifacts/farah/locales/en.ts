@@ -491,6 +491,10 @@ export const en: Strings = {
   categoriesPlaceholder: "e.g. Outdoor decor",
   categoriesCount: "Current categories ({{count}})",
   categoriesDeleteConfirm: "Delete \"{{label}}\"?",
+  categoryNameArLabel: "Name in Arabic",
+  categoryNameArPlaceholder: "e.g. ديكور خارجي",
+  categoryNameEnLabel: "Name in English",
+  categoryNameEnPlaceholder: "e.g. Outdoor decor",
 
   // Admin — settings
   settingsScreenTitle: "Commission & settings",

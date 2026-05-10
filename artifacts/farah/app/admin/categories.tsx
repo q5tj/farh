@@ -24,12 +24,22 @@ export default function CategoriesScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const { categories, addCategory, removeCategory } = useApp();
-  const [name, setName] = useState("");
+  const [nameAr, setNameAr] = useState("");
+  const [nameEn, setNameEn] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const handleAdd = async () => {
-    if (!name.trim()) return;
-    await addCategory(name.trim());
-    setName("");
+    const ar = nameAr.trim();
+    const en = nameEn.trim();
+    if (!ar || !en) return;
+    setBusy(true);
+    try {
+      await addCategory({ nameAr: ar, nameEn: en });
+      setNameAr("");
+      setNameEn("");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRemove = (id: string, label: string) => {
@@ -62,13 +72,29 @@ export default function CategoriesScreen() {
           </Text>
           <View style={{ marginTop: 10 }}>
             <Input
-              placeholder={t("categoriesPlaceholder")}
-              value={name}
-              onChangeText={setName}
+              label={t("categoryNameArLabel")}
+              placeholder={t("categoryNameArPlaceholder")}
+              value={nameAr}
+              onChangeText={setNameAr}
+              maxLength={60}
+            />
+          </View>
+          <View style={{ marginTop: 10 }}>
+            <Input
+              label={t("categoryNameEnLabel")}
+              placeholder={t("categoryNameEnPlaceholder")}
+              value={nameEn}
+              onChangeText={setNameEn}
+              maxLength={60}
             />
           </View>
           <View style={{ marginTop: 12 }}>
-            <Button label={t("add")} onPress={handleAdd} />
+            <Button
+              label={t("add")}
+              onPress={handleAdd}
+              loading={busy}
+              disabled={!nameAr.trim() || !nameEn.trim()}
+            />
           </View>
         </Card>
 
@@ -99,11 +125,16 @@ export default function CategoriesScreen() {
               >
                 <Feather name={cat.icon} size={18} color={cat.color} />
               </View>
-              <Text style={[styles.itemName, { color: c.foreground }]}>
-                {cat.name}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemName, { color: c.foreground }]}>
+                  {cat.nameAr}
+                </Text>
+                <Text style={[styles.itemNameEn, { color: c.mutedForeground }]}>
+                  {cat.nameEn}
+                </Text>
+              </View>
               <Pressable
-                onPress={() => handleRemove(cat.id, cat.name)}
+                onPress={() => handleRemove(cat.id, cat.nameAr)}
                 style={styles.deleteBtn}
               >
                 <Feather name="trash-2" size={16} color={c.destructive} />
@@ -137,7 +168,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  itemName: { flex: 1, fontFamily: "Cairo_500Medium", fontSize: 14, textAlign: "right" },
+  itemName: { fontFamily: "Cairo_600SemiBold", fontSize: 14, textAlign: "right" },
+  itemNameEn: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: "right",
+  },
   deleteBtn: {
     padding: 8,
   },

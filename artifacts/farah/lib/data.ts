@@ -1142,7 +1142,8 @@ export async function fetchCommissionRate(): Promise<number> {
 // ADMIN — categories CRUD, broadcast, commission settings
 // ============================================================
 export async function adminAddCategory(input: {
-  name: string;
+  nameAr: string;
+  nameEn: string;
   slug: string;
   icon?: string;
   color?: string;
@@ -1150,8 +1151,9 @@ export async function adminAddCategory(input: {
   const { error } = await client()
     .from("categories")
     .insert({
-      name: input.name,
-      name_ar: input.name,
+      name: input.nameAr,
+      name_ar: input.nameAr,
+      name_en: input.nameEn,
       slug: input.slug,
       icon: input.icon ?? "star",
       color: input.color ?? "#7b2cbf",

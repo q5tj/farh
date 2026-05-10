@@ -85,7 +85,11 @@ interface AppContextValue {
   isFavorite: (providerId: string) => boolean;
   toggleFavorite: (providerId: string) => Promise<void>;
   // admin actions (RLS enforces admin-only)
-  addCategory: (name: string, slug?: string) => Promise<void>;
+  addCategory: (input: {
+    nameAr: string;
+    nameEn: string;
+    slug?: string;
+  }) => Promise<void>;
   removeCategory: (id: string) => Promise<void>;
   setCommissionRate: (rate: number) => Promise<void>;
   pushNotification: (input: { title: string; body: string }) => Promise<void>;
@@ -511,11 +515,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Admin actions ----
   const addCategory = useCallback(
-    async (name: string, slug?: string) => {
+    async (input: { nameAr: string; nameEn: string; slug?: string }) => {
       const finalSlug =
-        slug?.trim() ||
+        input.slug?.trim() ||
         `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-      await adminAddCategory({ name, slug: finalSlug });
+      await adminAddCategory({
+        nameAr: input.nameAr,
+        nameEn: input.nameEn,
+        slug: finalSlug,
+      });
       await loadCatalog();
     },
     [loadCatalog],
