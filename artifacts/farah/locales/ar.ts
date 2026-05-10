@@ -103,6 +103,8 @@ export const ar = {
   selectTime: "الوقت",
   pickDateAndTime: "اختر تاريخ ووقت المناسبة",
   availableTimesFor: "المواعيد المتاحة في {{date}}",
+  calendarClear: "مسح",
+  calendarToday: "اليوم",
   location: "موقع المناسبة",
   locationPlaceholder: "https://maps.app.goo.gl/...",
   locationHint: "أرفق رابط قوقل ماب لمكان المناسبة لتسهيل وصول مزود الخدمة",

@@ -103,6 +103,8 @@ export const en: Strings = {
   selectTime: "Time",
   pickDateAndTime: "Pick event date & time",
   availableTimesFor: "Available times on {{date}}",
+  calendarClear: "Clear",
+  calendarToday: "Today",
   location: "Event Location",
   locationPlaceholder: "https://maps.app.goo.gl/...",
   locationHint: "Attach a Google Maps link for the event so the provider can find you",

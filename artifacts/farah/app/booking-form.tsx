@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookingSuccessOverlay } from "@/components/BookingSuccessOverlay";
 import { Button } from "@/components/ui/Button";
+import { Calendar } from "@/components/ui/Calendar";
 import { Card } from "@/components/ui/Card";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { Input } from "@/components/ui/Input";
@@ -153,6 +154,10 @@ export default function BookingFormScreen() {
   }, [service, paySettings]);
 
   const days = useMemo(() => getNextDays(14, t, lang), [t, lang]);
+  const availableIsoSet = useMemo(
+    () => new Set(days.map((d) => d.iso)),
+    [days],
+  );
   const [selectedDayIso, setSelectedDayIso] = useState(days[1]?.iso ?? "");
   const selectedDay = useMemo(
     () => days.find((d) => d.iso === selectedDayIso) ?? days[0],
@@ -441,53 +446,23 @@ export default function BookingFormScreen() {
           </View>
         </Card>
 
-        <Card style={{ marginTop: 8 }}>
-          <Text style={[styles.label, { color: c.foreground, marginBottom: 12 }]}>
+        <View style={{ marginTop: 8 }}>
+          <Text style={[styles.label, { color: c.foreground, marginBottom: 10 }]}>
             {t("pickDateAndTime")}
           </Text>
 
-          {/* 7-column calendar grid: 14 days laid out in 2 rows. Each cell
-              shows the date number with the weekday underneath, so the
-              picker reads like a real calendar instead of a chip strip. */}
-          <View style={styles.calGrid}>
-            {days.map((d) => {
-              const active = selectedDayIso === d.iso;
-              return (
-                <Pressable
-                  key={d.iso}
-                  onPress={() => setSelectedDayIso(d.iso)}
-                  style={[
-                    styles.calCell,
-                    {
-                      backgroundColor: active ? c.primary : c.muted,
-                      borderColor: active ? c.primary : c.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.calCellSub,
-                      { color: active ? "rgba(255,255,255,0.92)" : c.mutedForeground },
-                    ]}
-                  >
-                    {d.sub}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.calCellDay,
-                      { color: active ? "#ffffff" : c.foreground },
-                    ]}
-                  >
-                    {d.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Calendar
+            value={selectedDayIso}
+            onChange={(iso) => setSelectedDayIso(iso)}
+            availableDays={availableIsoSet}
+          />
 
-          <View style={[styles.calDivider, { backgroundColor: c.border }]} />
-
-          <Text style={[styles.calSubLabel, { color: c.mutedForeground }]}>
+          <Text
+            style={[
+              styles.calSubLabel,
+              { color: c.mutedForeground, marginTop: 16 },
+            ]}
+          >
             {t("availableTimesFor", { date: selectedDay?.label ?? "" })}
           </Text>
 
@@ -538,7 +513,7 @@ export default function BookingFormScreen() {
               })}
             </View>
           )}
-        </Card>
+        </View>
 
         <View style={{ marginTop: 8 }}>
           <CityPicker
@@ -937,36 +912,6 @@ const styles = StyleSheet.create({
   },
   dateChipDay: { fontFamily: "Cairo_700Bold", fontSize: 13 },
   dateChipSub: { fontFamily: "Cairo_400Regular", fontSize: 11, marginTop: 3 },
-  // Calendar grid (date+time card)
-  calGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  calCell: {
-    width: "13.4%", // ~7 columns minus the gap
-    aspectRatio: 0.9,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 6,
-  },
-  calCellSub: {
-    fontFamily: "Cairo_400Regular",
-    fontSize: 10,
-    textAlign: "center",
-  },
-  calCellDay: {
-    fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    marginTop: 2,
-    textAlign: "center",
-  },
-  calDivider: {
-    height: 1,
-    marginVertical: 14,
-  },
   calSubLabel: {
     fontFamily: "Cairo_500Medium",
     fontSize: 12,
