@@ -14,13 +14,19 @@
       "backgroundColor": "#7b2cbf"
     },
     "extra": {
-      "supportsRTL": true
+      "supportsRTL": true,
+      "eas": {
+        "projectId": "314c8697-122b-43be-8880-e7feccd0af08"
+      }
     },
     "locales": {},
     "primaryColor": "#7b2cbf",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.farhatukum.app"
+      "bundleIdentifier": "com.farhatukum.app",
+      "infoPlist": {
+        "ExpoLocalization_supportsRTL": true
+      }
     },
     "android": {
       "package": "com.farhatukum.app"

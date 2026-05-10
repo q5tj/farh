@@ -197,9 +197,20 @@ function CompleteServiceModal({
       await recordCompletion(booking.id, method, note);
       await onDone();
     } catch (e) {
-      const msg = (e as Error)?.message ?? t("completionFailed");
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      const raw = (e as Error)?.message ?? "";
+      // Map known SQL exceptions to user-friendly localized messages.
+      const translated =
+        raw.includes("deposit_not_paid")
+          ? t("cannotCompleteWithoutDeposit")
+          : raw.includes("forbidden")
+            ? t("notAllowed")
+            : raw.includes("booking_not_in_progress")
+              ? t("bookingNotInProgress")
+              : raw.includes("booking_not_found")
+                ? t("bookingNotFound")
+                : t("completionFailed");
+      if (Platform.OS !== "web") Alert.alert(t("error"), translated);
+      else if (typeof window !== "undefined") window.alert(translated);
     } finally {
       setBusy(false);
     }
@@ -495,13 +506,27 @@ function RequestCard({
           </View>
         </View>
       ) : booking.status === "accepted" ? (
-        <View style={{ marginTop: 14 }}>
-          <Button
-            label={t("markCompleted")}
-            variant="secondary"
-            onPress={onComplete}
-          />
-        </View>
+        booking.depositPaidAt ? (
+          <View style={{ marginTop: 14 }}>
+            <Button
+              label={t("markCompleted")}
+              variant="secondary"
+              onPress={onComplete}
+            />
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.depositSecured,
+              { backgroundColor: "#fef3c7", borderColor: "#fde68a" },
+            ]}
+          >
+            <Feather name="alert-triangle" size={14} color="#a16207" />
+            <Text style={[styles.depositText, { color: "#a16207" }]}>
+              {t("cannotCompleteWithoutDeposit")}
+            </Text>
+          </View>
+        )
       ) : null}
     </Card>
   );

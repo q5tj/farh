@@ -838,6 +838,9 @@ export const en: Strings = {
   completeNoteOptional: "Internal note (optional)",
   completeConfirm: "Confirm completion",
   completionFailed: "Couldn't complete the service",
+  cannotCompleteWithoutDeposit:
+    "You can't complete the service before the customer pays the deposit. Wait until the deposit is received.",
+  bookingNotInProgress: "This booking isn't currently in progress.",
 
   // Customer pays the remaining (online)
   finalPaymentTitle: "Pay remaining",

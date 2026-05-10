@@ -830,6 +830,9 @@ export const ar = {
   completeNoteOptional: "ملاحظة داخلية (اختيارية)",
   completeConfirm: "تأكيد إنهاء الخدمة",
   completionFailed: "تعذّر إنهاء الخدمة",
+  cannotCompleteWithoutDeposit:
+    "ما يمكن إنهاء الخدمة قبل ما يدفع العميل العربون. انتظر استلام العربون أولاً.",
+  bookingNotInProgress: "هذا الحجز ليس في حالة قيد التنفيذ.",
 
   // Customer pays the remaining (online)
   finalPaymentTitle: "دفع المتبقي",
