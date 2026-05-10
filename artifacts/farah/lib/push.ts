@@ -103,23 +103,40 @@ export async function requestPushPermission(): Promise<PushPermissionStatus> {
   return "undetermined";
 }
 
+export type RegisterPushResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: string };
+
 /**
  * Register the current device for push, save the token to Supabase, and
- * activate it. Returns the Expo push token, or null if push is unavailable
- * (web, simulator, denied permission, or Supabase not configured).
+ * activate it. Returns a discriminated result so callers can surface the
+ * failure reason in the UI (instead of swallowing it silently).
  */
 export async function registerPushAsync(
   userId: string,
-): Promise<string | null> {
+): Promise<RegisterPushResult> {
   const native = await loadNative();
-  if (!native) return null;
-  if (!native.Device.isDevice) return null;
-  if (!isSupabaseConfigured || !supabase) return null;
+  if (!native) {
+    return {
+      ok: false,
+      reason: isExpoGo
+        ? "Push isn't supported in Expo Go (SDK 53+). Use a development build."
+        : "Push is only available on iOS/Android devices.",
+    };
+  }
+  if (!native.Device.isDevice) {
+    return { ok: false, reason: "Push requires a real device, not a simulator." };
+  }
+  if (!isSupabaseConfigured || !supabase) {
+    return { ok: false, reason: "Supabase not configured." };
+  }
 
   const { Notifications } = native;
 
   const { status } = await Notifications.getPermissionsAsync();
-  if (status !== "granted") return null;
+  if (status !== "granted") {
+    return { ok: false, reason: `notification permission is "${status}"` };
+  }
 
   await ensureHandler(Notifications);
   await ensureAndroidChannel(Notifications);
@@ -132,8 +149,9 @@ export async function registerPushAsync(
     );
     token = result.data;
   } catch (err) {
+    const msg = (err as Error)?.message ?? String(err);
     console.warn("[push] failed to get Expo push token", err);
-    return null;
+    return { ok: false, reason: `getExpoPushToken failed: ${msg}` };
   }
 
   const platform: "ios" | "android" =
@@ -151,9 +169,9 @@ export async function registerPushAsync(
   );
   if (error) {
     console.warn("[push] failed to upsert push token", error);
-    return null;
+    return { ok: false, reason: `db upsert failed: ${error.message}` };
   }
-  return token;
+  return { ok: true, token };
 }
 
 /**

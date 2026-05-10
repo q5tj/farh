@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "126078698761",
+    "project_id": "farhatukum",
+    "storage_bucket": "farhatukum.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126078698761:android:6f6184ddbf0a649f0f7fd8",
+        "android_client_info": {
+          "package_name": "com.farhatukum.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2unmzhojYnN7Ix_AUApvFZ66UbK8ttig"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

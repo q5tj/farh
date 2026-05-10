@@ -29,7 +29,8 @@
       }
     },
     "android": {
-      "package": "com.farhatukum.app"
+      "package": "com.farhatukum.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/images/icon.png"

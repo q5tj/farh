@@ -47,3 +47,10 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Firebase service account — contains private key, NEVER commit.
+# google-services.json / GoogleService-Info.plist are public client config
+# and ARE meant to be committed (the API keys inside are restricted to the
+# package id at the FCM level).
+firebase-service-account*.json
+*-firebase-adminsdk-*.json

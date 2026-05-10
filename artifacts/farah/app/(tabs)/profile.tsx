@@ -160,7 +160,13 @@ export default function ProfileScreen() {
         const status = await requestPushPermission();
         setPushStatus(status);
         if (status === "granted") {
-          await registerPushAsync(profile.id);
+          const result = await registerPushAsync(profile.id);
+          if (!result.ok && Platform.OS !== "web") {
+            Alert.alert(
+              "تعذّر تفعيل الإشعارات",
+              result.reason,
+            );
+          }
         } else if (status === "denied" && Platform.OS !== "web") {
           Alert.alert(
             "تم تعطيل الإشعارات",
