@@ -1135,21 +1135,39 @@ export async function fetchProviderReviews(
 export async function fetchNotifications(
   userId: string,
 ): Promise<AppNotification[]> {
-  const { data, error } = await client().rpc("fetch_user_notifications", {
+  // Try the v20 RPC first — it consolidates per-user `is_read` AND
+  // broadcast notification_reads into a single `effective_read` column.
+  const rpc = await client().rpc("fetch_user_notifications", {
     p_user_id: userId,
     p_limit: 100,
   });
-  if (error) throw error;
-  // Rows include `effective_read` that consolidates both user-specific
-  // `is_read` AND broadcast notification_reads. Map it into the shared
-  // `read` field so the UI doesn't care about the storage details.
-  return ((data ?? []) as (NotificationRow & { effective_read: boolean })[]).map(
-    (row) => {
+  if (!rpc.error && rpc.data) {
+    return (
+      (rpc.data ?? []) as (NotificationRow & { effective_read: boolean })[]
+    ).map((row) => {
       const mapped = mapNotification(row as NotificationRow);
       mapped.read = row.effective_read ?? mapped.read;
       return mapped;
-    },
+    });
+  }
+  // Fallback to a direct SELECT if the RPC isn't deployed yet OR fails
+  // for any reason (e.g. is_admin() missing on an older DB). We lose
+  // the per-user broadcast read receipts in this branch, but the user
+  // still sees their notifications instead of an empty list.
+  console.warn(
+    "[fetchNotifications] RPC failed, falling back to direct SELECT:",
+    rpc.error?.message,
   );
+  const { data, error } = await client()
+    .from("notifications")
+    .select(
+      "id, user_id, title, body, title_ar, title_en, body_ar, body_en, booking_id, is_read, created_at",
+    )
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return ((data ?? []) as NotificationRow[]).map(mapNotification);
 }
 
 export async function markAllNotificationsRead(

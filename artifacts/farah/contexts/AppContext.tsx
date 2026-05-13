@@ -166,8 +166,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNotifications([]);
       return;
     }
-    const list = await fetchNotifications(userDbId);
-    if (mountedRef.current) setNotifications(list);
+    try {
+      const list = await fetchNotifications(userDbId);
+      if (mountedRef.current) setNotifications(list);
+    } catch (err) {
+      // Log + leave the existing list intact. Surfacing this as a thrown
+      // error blanked the entire app shell on the previous code path.
+      console.warn("[notifications] load failed", err);
+    }
   }, [userDbId]);
 
   const loadFavorites = useCallback(async () => {
