@@ -1124,26 +1124,34 @@ export async function fetchProviderReviews(
 export async function fetchNotifications(
   userId: string,
 ): Promise<AppNotification[]> {
-  const { data, error } = await client()
-    .from("notifications")
-    .select(
-      "id, user_id, title, body, title_ar, title_en, body_ar, body_en, booking_id, is_read, created_at",
-    )
-    .or(`user_id.eq.${userId},user_id.is.null`)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const { data, error } = await client().rpc("fetch_user_notifications", {
+    p_user_id: userId,
+    p_limit: 100,
+  });
   if (error) throw error;
-  return ((data ?? []) as NotificationRow[]).map(mapNotification);
+  // Rows include `effective_read` that consolidates both user-specific
+  // `is_read` AND broadcast notification_reads. Map it into the shared
+  // `read` field so the UI doesn't care about the storage details.
+  return ((data ?? []) as (NotificationRow & { effective_read: boolean })[]).map(
+    (row) => {
+      const mapped = mapNotification(row as NotificationRow);
+      mapped.read = row.effective_read ?? mapped.read;
+      return mapped;
+    },
+  );
 }
 
 export async function markAllNotificationsRead(
   userId: string,
 ): Promise<void> {
-  const { error } = await client()
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", userId)
-    .eq("is_read", false);
+  // Calls the v20 RPC which handles BOTH:
+  //   1) UPDATE notifications SET is_read=true WHERE user_id=p_user_id
+  //   2) INSERT INTO notification_reads for every broadcast not yet
+  //      dismissed by this user (so the next fetch returns
+  //      effective_read=true for those rows too).
+  const { error } = await client().rpc("mark_all_notifications_read", {
+    p_user_id: userId,
+  });
   if (error) throw error;
 }
 

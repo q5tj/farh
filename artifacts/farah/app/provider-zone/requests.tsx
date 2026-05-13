@@ -34,7 +34,7 @@ import {
 export default function RequestsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, isRtl } = useT();
   const { providerBookings, updateBookingStatus, refresh } = useApp();
   const [filter, setFilter] = useState<"all" | BookingStatus | "awaiting_final">(
     "pending",
@@ -77,11 +77,11 @@ export default function RequestsScreen() {
         onBack={onBack}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ maxHeight: 60 }}
-        contentContainerStyle={styles.filterRow}
+      <View
+        style={[
+          styles.filterRow,
+          { flexDirection: isRtl ? "row-reverse" : "row" },
+        ]}
       >
         {FILTERS.map((f) => {
           const active = filter === f.id;
@@ -107,7 +107,7 @@ export default function RequestsScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {filtered.length === 0 ? (
         <EmptyState icon="inbox" title={t("noRequestsInCategory")} />
@@ -570,6 +570,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   chip: {
     paddingHorizontal: 16,

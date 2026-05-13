@@ -26,7 +26,7 @@ import { useT } from "@/lib/i18n";
 export default function AdminBookings() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { t } = useT();
+  const { t, isRtl } = useT();
   const { providers } = useApp();
 
   // Order chosen so on RTL the most-actionable filter sits on the right.
@@ -72,11 +72,11 @@ export default function AdminBookings() {
         subtitle={t("bookingsCountSubtitle", { count: bookings.length })}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ maxHeight: 56 }}
-        contentContainerStyle={styles.filterRow}
+      <View
+        style={[
+          styles.filterRow,
+          { flexDirection: isRtl ? "row-reverse" : "row" },
+        ]}
       >
         {FILTERS.map((f) => {
           const active = filter === f.id;
@@ -100,7 +100,7 @@ export default function AdminBookings() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -213,6 +213,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   chip: {
     paddingHorizontal: 14,
