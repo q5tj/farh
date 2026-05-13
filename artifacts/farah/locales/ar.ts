@@ -914,6 +914,17 @@ export const ar = {
   statementForProvider: "كشف حساب {{provider}}",
   noOutstandingBalance: "لا يوجد رصيد مستحق",
   noFinancialDataYet: "لا توجد بيانات مالية بعد",
+  // Per-booking breakdown (provider statement)
+  brkDepositPaid: "العربون",
+  brkPending: "لم يُدفع بعد",
+  brkFinalOnline: "المتبقي (دفع إلكتروني)",
+  brkFinalCash: "المتبقي (كاش — استلمتها مباشرة)",
+  brkFinalBank: "المتبقي (تحويل بنكي — استلمتها مباشرة)",
+  brkFinalNotChosen: "المتبقي: لم تختر طريقة الاستلام بعد",
+  brkAwaitingCustomerPayment: "بانتظار دفع العميل",
+  brkCommissionTaken: "عمولة المنصة",
+  brkYourNet: "نصيبك من هذا الحجز",
+  brkYouOweUs: "ما عليك من عمولة",
 
   // Payment / Moyasar
   paymentInitFailed: "تعذّر بدء عملية الدفع",

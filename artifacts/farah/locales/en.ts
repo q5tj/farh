@@ -920,6 +920,17 @@ export const en: Strings = {
   statementForProvider: "Statement for {{provider}}",
   noOutstandingBalance: "No outstanding balance",
   noFinancialDataYet: "No financial data yet",
+  // Per-booking breakdown (provider statement)
+  brkDepositPaid: "Deposit",
+  brkPending: "Not paid yet",
+  brkFinalOnline: "Remaining (paid online)",
+  brkFinalCash: "Remaining (cash — collected directly)",
+  brkFinalBank: "Remaining (bank transfer — collected directly)",
+  brkFinalNotChosen: "Remaining: settlement method not chosen yet",
+  brkAwaitingCustomerPayment: "Awaiting customer payment",
+  brkCommissionTaken: "Platform commission",
+  brkYourNet: "Your net for this booking",
+  brkYouOweUs: "Commission you owe",
 
   // Payment / Moyasar
   paymentInitFailed: "Couldn't start the payment",

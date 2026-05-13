@@ -263,32 +263,159 @@ function StatCell({
 function BookingRow({ booking }: { booking: Booking }) {
   const c = useColors();
   const { t } = useT();
-  const status = booking.commissionStatus;
-  const palette: Record<CommissionStatus, { bg: string; fg: string; label: string }> = {
+
+  // Commission status pill — same palette as before.
+  const cStatus = booking.commissionStatus;
+  const cPalette: Record<
+    CommissionStatus,
+    { bg: string; fg: string; label: string }
+  > = {
     owed: { bg: "#fef3c7", fg: "#a16207", label: t("commissionOwed") },
     paid: { bg: "#dcfce7", fg: "#15803d", label: t("commissionPaid") },
     waived: { bg: "#e5e5e5", fg: "#525252", label: t("commissionWaived") },
   };
-  const p = palette[status];
+  const cp = cPalette[cStatus];
+
+  // Compute the provider-facing breakdown so the row reads like a
+  // line in a real statement (instead of just "commission amount: X").
+  const deposit = booking.depositAmount ?? 0;
+  const remaining = Math.max(0, booking.price - deposit);
+  const commission = booking.commissionAmount ?? 0;
+  // The provider's net depends on the final-payment method:
+  //   • online → both deposit-net AND final-net flow through the
+  //     platform; total net = price − commission (auto-payout when
+  //     Moyasar Payouts is enabled).
+  //   • cash / bank → provider received `remaining` directly from
+  //     the customer; only the deposit-net flowed through the
+  //     platform and they owe `commission - app_share_from_deposit`.
+  //   • not yet decided (still pending/accepted) → show only what
+  //     they've earned so far (the deposit net, if paid).
+  const method = booking.finalPaymentMethod; // null | 'online' | 'cash' | 'bank_transfer'
+
   return (
     <Card>
       <View style={styles.bookingRow}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.bookingTitle, { color: c.foreground }]} numberOfLines={1}>
+          <Text
+            style={[styles.bookingTitle, { color: c.foreground }]}
+            numberOfLines={1}
+          >
             {booking.serviceTitle}
           </Text>
           <Text style={[styles.bookingMeta, { color: c.mutedForeground }]}>
             {booking.date} • {booking.price.toLocaleString()} {t("sar")}
-            {" • "}
-            {t("commissionAmount")}: {Math.round(booking.commissionAmount)}{" "}
-            {t("sar")}
           </Text>
         </View>
-        <View style={[styles.pill, { backgroundColor: p.bg }]}>
-          <Text style={[styles.pillText, { color: p.fg }]}>{p.label}</Text>
+        <View style={[styles.pill, { backgroundColor: cp.bg }]}>
+          <Text style={[styles.pillText, { color: cp.fg }]}>{cp.label}</Text>
         </View>
       </View>
+
+      <View style={[styles.brkDivider, { backgroundColor: c.border }]} />
+
+      {/* Deposit row — always relevant */}
+      <BrkRow
+        label={t("brkDepositPaid")}
+        value={
+          booking.depositPaidAt
+            ? `${deposit.toLocaleString()} ${t("sar")}`
+            : t("brkPending")
+        }
+        muted={!booking.depositPaidAt}
+      />
+
+      {/* Final payment — branches on method */}
+      {method === "online" ? (
+        <BrkRow
+          label={t("brkFinalOnline")}
+          value={
+            booking.finalPaymentStatus === "paid"
+              ? `${remaining.toLocaleString()} ${t("sar")}`
+              : t("brkAwaitingCustomerPayment")
+          }
+          muted={booking.finalPaymentStatus !== "paid"}
+        />
+      ) : method === "cash" ? (
+        <BrkRow
+          label={t("brkFinalCash")}
+          value={`${remaining.toLocaleString()} ${t("sar")}`}
+          accent
+        />
+      ) : method === "bank_transfer" ? (
+        <BrkRow
+          label={t("brkFinalBank")}
+          value={`${remaining.toLocaleString()} ${t("sar")}`}
+          accent
+        />
+      ) : booking.status === "completed" ? (
+        <BrkRow
+          label={t("brkFinalNotChosen")}
+          value="—"
+          muted
+        />
+      ) : null}
+
+      {/* Commission line — what platform takes */}
+      <BrkRow
+        label={t("brkCommissionTaken")}
+        value={`${Math.round(commission).toLocaleString()} ${t("sar")}`}
+        negative
+      />
+
+      {/* Bottom-line: net to provider for THIS booking */}
+      <View style={[styles.brkDivider, { backgroundColor: c.border }]} />
+      <View style={styles.brkBottom}>
+        <Text style={[styles.brkBottomLabel, { color: c.foreground }]}>
+          {method === "cash" || method === "bank_transfer"
+            ? t("brkYouOweUs")
+            : t("brkYourNet")}
+        </Text>
+        <Text style={[styles.brkBottomValue, { color: c.primary }]}>
+          {method === "cash" || method === "bank_transfer"
+            ? `${Math.round(commission).toLocaleString()} ${t("sar")}`
+            : `${Math.max(0, booking.price - commission).toLocaleString()} ${t("sar")}`}
+        </Text>
+      </View>
     </Card>
+  );
+}
+
+function BrkRow({
+  label,
+  value,
+  muted,
+  negative,
+  accent,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+  negative?: boolean;
+  accent?: boolean;
+}) {
+  const c = useColors();
+  const valueColor = negative
+    ? c.destructive
+    : muted
+      ? c.mutedForeground
+      : accent
+        ? c.primary
+        : c.foreground;
+  return (
+    <View style={styles.brkRow}>
+      <Text style={[styles.brkLabel, { color: c.mutedForeground }]}>{label}</Text>
+      <Text
+        style={[
+          styles.brkValue,
+          {
+            color: valueColor,
+            fontFamily: muted ? "Cairo_400Regular" : "Cairo_600SemiBold",
+          },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -315,6 +442,23 @@ const styles = StyleSheet.create({
   },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   pillText: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
+  brkDivider: { height: 1, marginVertical: 10 },
+  brkRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  brkLabel: { fontFamily: "Cairo_500Medium", fontSize: 12 },
+  brkValue: { fontSize: 12 },
+  brkBottom: {
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 4,
+  },
+  brkBottomLabel: { fontFamily: "Cairo_700Bold", fontSize: 13 },
+  brkBottomValue: { fontFamily: "Cairo_700Bold", fontSize: 15 },
   holdNotice: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
