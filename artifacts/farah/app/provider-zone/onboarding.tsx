@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -16,7 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { CategoryPicker } from "@/components/ui/CategoryPicker";
 import { Input } from "@/components/ui/Input";
+import { MultiCityPicker } from "@/components/ui/MultiCityPicker";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { CITIES } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
@@ -25,7 +26,6 @@ import { useColors } from "@/hooks/useColors";
 import {
   becomeProvider,
   setProviderServiceAreas,
-  updateProviderLocation,
 } from "@/lib/data";
 import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
@@ -97,51 +97,14 @@ export default function ProviderOnboarding() {
     () => new Set([profile?.city ?? CITIES[0]]),
   );
   const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [iban, setIban] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [acceptedCommission, setAcceptedCommission] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    null,
-  );
-  const [locationBusy, setLocationBusy] = useState(false);
   const primaryCity = useMemo(() => {
     const arr = Array.from(serviceAreas);
     return arr[0] ?? CITIES[0];
   }, [serviceAreas]);
-
-  const toggleArea = (cityName: string) => {
-    setServiceAreas((prev) => {
-      const next = new Set(prev);
-      if (next.has(cityName)) {
-        if (next.size === 1) return prev; // Don't allow zero
-        next.delete(cityName);
-      } else {
-        next.add(cityName);
-      }
-      return next;
-    });
-  };
-
-  const captureLocation = async () => {
-    setError("");
-    setLocationBusy(true);
-    try {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      if (perm.status !== "granted") {
-        setError(t("locationPermissionDenied"));
-        return;
-      }
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    } catch (e) {
-      const msg = (e as Error)?.message ?? t("locationFetchFailed");
-      setError(msg);
-    } finally {
-      setLocationBusy(false);
-    }
-  };
 
   const [slots, setSlots] = useState<Record<DocKey, DocSlot>>({
     logo: EMPTY_SLOT,
@@ -275,6 +238,11 @@ export default function ProviderOnboarding() {
       setError(t("uploadAllDocsFirst"));
       return;
     }
+    const ibanClean = iban.trim().toUpperCase().replace(/\s+/g, "");
+    if (!/^SA\d{22}$/.test(ibanClean)) {
+      setError(t("invalidIban"));
+      return;
+    }
     if (!acceptedCommission) {
       setError(t("acceptCommissionFirst"));
       return;
@@ -292,26 +260,20 @@ export default function ProviderOnboarding() {
         city: primaryCity,
         phone: phone.trim() || undefined,
         email: profile.email ?? undefined,
+        iban: ibanClean,
         logoUrl: slots.logo.publicUrl ?? null,
         commercialRegistrationPath: slots.cr.path,
         taxNumberPath: slots.tax.path,
         nationalAddressPath: slots.address.path,
       });
 
-      // Persist additional service areas + geolocation. Failures here are
-      // non-fatal — the provider is already created; admin can fix later.
+      // Persist additional service areas. Failures here are non-fatal —
+      // the provider is already created; admin can fix later.
       const allAreas = Array.from(serviceAreas);
       if (allAreas.length > 1) {
         await setProviderServiceAreas(providerId, allAreas).catch((e) => {
           console.warn("[onboarding] service areas failed", e);
         });
-      }
-      if (coords) {
-        await updateProviderLocation(providerId, coords.lat, coords.lng).catch(
-          (e) => {
-            console.warn("[onboarding] location failed", e);
-          },
-        );
       }
 
       await refreshProfile();
@@ -395,110 +357,23 @@ export default function ProviderOnboarding() {
           style={{ height: 90, textAlignVertical: "top" }}
         />
 
-        <View>
-          <Text style={[styles.label, { color: c.foreground }]}>
-            {t("category")}
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-          >
-            {sortedCategories.map((cat) => {
-              const active = categoryId === cat.id;
-              return (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setCategoryId(cat.id)}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: active ? c.primary : c.muted },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: active ? "#ffffff" : c.foreground },
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+        <CategoryPicker
+          label={t("category")}
+          value={categoryId}
+          onChange={setCategoryId}
+          categories={sortedCategories}
+        />
 
         <View>
-          <Text style={[styles.label, { color: c.foreground }]}>
-            {t("serviceAreasTitle")}
-          </Text>
-          <Text style={[styles.helperText, { color: c.mutedForeground }]}>
+          <Text style={[styles.helperText, { color: c.mutedForeground, marginBottom: 6 }]}>
             {t("serviceAreasDesc")}
           </Text>
-          <View style={styles.areasWrap}>
-            {CITIES.map((cityName) => {
-              const active = serviceAreas.has(cityName);
-              return (
-                <Pressable
-                  key={cityName}
-                  onPress={() => toggleArea(cityName)}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: active ? c.primary : c.muted,
-                      flexDirection: "row-reverse",
-                      alignItems: "center",
-                      gap: 6,
-                    },
-                  ]}
-                >
-                  {active ? (
-                    <Feather name="check" size={12} color="#ffffff" />
-                  ) : null}
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: active ? "#ffffff" : c.foreground },
-                    ]}
-                  >
-                    {cityName}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <Pressable
-          onPress={captureLocation}
-          disabled={locationBusy}
-          style={[
-            styles.locationBtn,
-            {
-              borderColor: coords ? c.primary : c.border,
-              backgroundColor: coords ? "rgba(123,44,191,0.06)" : c.card,
-            },
-          ]}
-        >
-          <Feather
-            name={coords ? "check-circle" : "map-pin"}
-            size={18}
-            color={coords ? c.primary : c.mutedForeground}
+          <MultiCityPicker
+            label={t("serviceAreasTitle")}
+            values={Array.from(serviceAreas)}
+            onChange={(arr) => setServiceAreas(new Set(arr))}
           />
-          <Text
-            style={[
-              styles.locationText,
-              { color: coords ? c.primary : c.foreground },
-            ]}
-          >
-            {locationBusy
-              ? "..."
-              : coords
-                ? t("locationCaptured")
-                : t("useMyLocation")}
-          </Text>
-        </Pressable>
+        </View>
 
         <Input
           label={t("contactPhone")}
@@ -507,6 +382,23 @@ export default function ProviderOnboarding() {
           onChangeText={setPhone}
           keyboardType="phone-pad"
         />
+
+        <Input
+          label={t("ibanLabel")}
+          placeholder={t("ibanPlaceholder")}
+          value={iban}
+          onChangeText={(v) => setIban(v.toUpperCase().replace(/\s+/g, ""))}
+          autoCapitalize="characters"
+          maxLength={24}
+        />
+        <Text
+          style={[
+            styles.helperText,
+            { color: c.mutedForeground, marginTop: -4 },
+          ]}
+        >
+          {t("ibanHelp")}
+        </Text>
 
         <Card>
           <Text style={[styles.sectionTitle, { color: c.foreground }]}>
@@ -588,6 +480,26 @@ export default function ProviderOnboarding() {
             mutedFg={c.mutedForeground}
             destructive={c.destructive}
           />
+        </Card>
+
+        <Card>
+          <View style={styles.commissionHeader}>
+            <Feather name="credit-card" size={18} color={c.primary} />
+            <Text style={[styles.sectionTitle, { color: c.foreground }]}>
+              {t("moyasarApprovalTitle")}
+            </Text>
+          </View>
+          <Text style={[styles.sectionDesc, { color: c.mutedForeground }]}>
+            {t("moyasarApprovalBody")}
+          </Text>
+          <Text
+            style={[
+              styles.lockedNote,
+              { color: c.mutedForeground, borderColor: c.border },
+            ]}
+          >
+            {t("moyasarApprovalNote")}
+          </Text>
         </Card>
 
         <Card>

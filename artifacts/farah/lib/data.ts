@@ -45,6 +45,8 @@ interface ProviderRow {
   city: string | null;
   phone: string | null;
   email: string | null;
+  iban: string | null;
+  moyasar_seller_id: string | null;
   cover_url: string | null;
   logo_url: string | null;
   commercial_registration_path: string | null;
@@ -235,6 +237,8 @@ export interface Provider {
   city: string;
   phone: string;
   email: string | null;
+  iban: string | null;
+  moyasarSellerId: string | null;
   coverUrl: string | null;
   logoUrl: string | null;
   commercialRegistrationPath: string | null;
@@ -435,6 +439,8 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
     city: row.city ?? "",
     phone: row.phone ?? "",
     email: row.email,
+    iban: row.iban ?? null,
+    moyasarSellerId: row.moyasar_seller_id ?? null,
     coverUrl: row.cover_url,
     logoUrl: row.logo_url,
     commercialRegistrationPath: row.commercial_registration_path,
@@ -647,7 +653,7 @@ export async function fetchCategories(lang: AppLang): Promise<Category[]> {
 const PROVIDER_SELECT = `
   id, user_id, category_id, name, name_ar, name_en,
   description, description_ar, description_en,
-  city, phone, email, cover_url,
+  city, phone, email, iban, moyasar_seller_id, cover_url,
   logo_url, commercial_registration_path, tax_number_path,
   national_address_path, commission_rate_snapshot,
   verification_rejection_reason,
@@ -1864,6 +1870,7 @@ export async function becomeProvider(input: {
   city?: string;
   phone?: string;
   email?: string;
+  iban?: string;
   logoUrl?: string | null;
   commercialRegistrationPath?: string | null;
   taxNumberPath?: string | null;
@@ -1883,14 +1890,21 @@ export async function becomeProvider(input: {
   });
   if (error) throw error;
   const providerId = data as string;
-  // The RPC seeds Arabic columns from p_name/p_description. Follow up with
-  // a direct update to set the English columns since the RPC signature
-  // doesn't accept them yet (and we'd rather not bump the RPC signature).
-  if (input.nameEn || input.descriptionEn) {
-    await updateOwnProvider(providerId, {
-      nameEn: input.nameEn,
-      descriptionEn: input.descriptionEn,
-    });
+  // The RPC seeds Arabic columns from p_name/p_description and doesn't
+  // accept the bilingual + IBAN fields. Follow up with a direct UPDATE
+  // (RLS lets the owner edit their own row).
+  if (input.nameEn || input.descriptionEn || input.iban) {
+    const patch: Record<string, unknown> = {};
+    if (input.nameEn) patch.name_en = input.nameEn;
+    if (input.descriptionEn) patch.description_en = input.descriptionEn;
+    if (input.iban) patch.iban = input.iban;
+    if (Object.keys(patch).length > 0) {
+      const { error: pErr } = await client()
+        .from("providers")
+        .update(patch)
+        .eq("id", providerId);
+      if (pErr) throw pErr;
+    }
   }
   return { id: providerId };
 }
