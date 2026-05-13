@@ -36,6 +36,19 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   const [appliedLang, setAppliedLang] = useState<string | null>(null);
+
+  // a11y: blur the focused element on every route change. React Native
+  // Web's Stack navigator slaps `aria-hidden="true"` on the previous
+  // screen container, but the button the user just tapped is still
+  // focused inside it — Chrome warns "Blocked aria-hidden on an
+  // element because its descendant retained focus". Moving focus to
+  // <body> first sidesteps the conflict. Web-only no-op everywhere else.
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) active.blur?.();
+    }
+  }, [segments]);
   // Hold the BootSplash on screen briefly even after `loading` flips so the
   // animation doesn't pop out abruptly. 350ms is just long enough for the
   // logo pulse to complete a half cycle, then we cross-fade to the app.
