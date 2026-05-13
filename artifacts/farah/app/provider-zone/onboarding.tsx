@@ -35,7 +35,7 @@ import {
   type UploadJob,
 } from "@/lib/image-upload";
 
-type DocKey = "logo" | "cr" | "tax" | "address";
+type DocKey = "logo" | "cr" | "tax" | "address" | "iban";
 
 interface DocSlot {
   /** Local URI shown in the thumbnail (compressed before upload happens). */
@@ -63,6 +63,7 @@ const DOC_BUCKET: Record<DocKey, "provider-logos" | "provider-docs"> = {
   cr: "provider-docs",
   tax: "provider-docs",
   address: "provider-docs",
+  iban: "provider-docs",
 };
 
 const DOC_FILE_NAME: Record<DocKey, string> = {
@@ -70,6 +71,7 @@ const DOC_FILE_NAME: Record<DocKey, string> = {
   cr: "cr",
   tax: "tax",
   address: "national-address",
+  iban: "iban-document",
 };
 
 export default function ProviderOnboarding() {
@@ -111,6 +113,7 @@ export default function ProviderOnboarding() {
     cr: EMPTY_SLOT,
     tax: EMPTY_SLOT,
     address: EMPTY_SLOT,
+    iban: EMPTY_SLOT,
   });
 
   const jobsRef = useRef<Partial<Record<DocKey, UploadJob>>>({});
@@ -215,7 +218,8 @@ export default function ProviderOnboarding() {
     !!slots.logo.path &&
     !!slots.cr.path &&
     !!slots.tax.path &&
-    !!slots.address.path;
+    !!slots.address.path &&
+    !!slots.iban.path;
 
   const submit = async () => {
     setError("");
@@ -265,6 +269,7 @@ export default function ProviderOnboarding() {
         commercialRegistrationPath: slots.cr.path,
         taxNumberPath: slots.tax.path,
         nationalAddressPath: slots.address.path,
+        ibanDocumentPath: slots.iban.path,
       });
 
       // Persist additional service areas. Failures here are non-fatal —
@@ -470,6 +475,24 @@ export default function ProviderOnboarding() {
             onRemove={() => removeSlot("address")}
             uploadingLabel={t("uploadingPercent", {
               percent: slots.address.progress,
+            })}
+            replaceLabel={t("replaceImage")}
+            removeLabel={t("removeImage")}
+            pickLabel={t("pickImage")}
+            primary={c.primary}
+            muted={c.muted}
+            border={c.border}
+            mutedFg={c.mutedForeground}
+            destructive={c.destructive}
+          />
+          <DocPicker
+            label={t("ibanDocumentLabel")}
+            desc={t("ibanDocumentDesc")}
+            slot={slots.iban}
+            onPick={() => pickAndUpload("iban")}
+            onRemove={() => removeSlot("iban")}
+            uploadingLabel={t("uploadingPercent", {
+              percent: slots.iban.progress,
             })}
             replaceLabel={t("replaceImage")}
             removeLabel={t("removeImage")}

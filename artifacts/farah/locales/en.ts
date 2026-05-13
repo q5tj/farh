@@ -383,6 +383,9 @@ export const en: Strings = {
   ibanHelp:
     "The IBAN must be in the name of the same business (matching your commercial registration). Transfers are routed only to this account.",
   invalidIban: "Invalid IBAN (must start with SA and be 24 characters).",
+  ibanDocumentLabel: "IBAN certificate photo",
+  ibanDocumentDesc:
+    "Attach the IBAN certificate from your bank so we can verify the name matches your commercial registration.",
   moyasarApprovalTitle: "Payment integration via Moyasar",
   moyasarApprovalBody:
     "After admin approval, your details are prepared for integration with the Moyasar payment gateway. Moyasar is a Saudi Central Bank licensed payment processor that handles electronic payments from customers (Mada/Visa/Mastercard). Your share is transferred to you directly after commission is deducted.",

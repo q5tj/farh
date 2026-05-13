@@ -46,6 +46,7 @@ interface ProviderRow {
   phone: string | null;
   email: string | null;
   iban: string | null;
+  iban_document_path: string | null;
   moyasar_seller_id: string | null;
   cover_url: string | null;
   logo_url: string | null;
@@ -238,6 +239,7 @@ export interface Provider {
   phone: string;
   email: string | null;
   iban: string | null;
+  ibanDocumentPath: string | null;
   moyasarSellerId: string | null;
   coverUrl: string | null;
   logoUrl: string | null;
@@ -440,6 +442,7 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
     phone: row.phone ?? "",
     email: row.email,
     iban: row.iban ?? null,
+    ibanDocumentPath: row.iban_document_path ?? null,
     moyasarSellerId: row.moyasar_seller_id ?? null,
     coverUrl: row.cover_url,
     logoUrl: row.logo_url,
@@ -653,7 +656,7 @@ export async function fetchCategories(lang: AppLang): Promise<Category[]> {
 const PROVIDER_SELECT = `
   id, user_id, category_id, name, name_ar, name_en,
   description, description_ar, description_en,
-  city, phone, email, iban, moyasar_seller_id, cover_url,
+  city, phone, email, iban, iban_document_path, moyasar_seller_id, cover_url,
   logo_url, commercial_registration_path, tax_number_path,
   national_address_path, commission_rate_snapshot,
   verification_rejection_reason,
@@ -1871,6 +1874,7 @@ export async function becomeProvider(input: {
   phone?: string;
   email?: string;
   iban?: string;
+  ibanDocumentPath?: string | null;
   logoUrl?: string | null;
   commercialRegistrationPath?: string | null;
   taxNumberPath?: string | null;
@@ -1893,11 +1897,17 @@ export async function becomeProvider(input: {
   // The RPC seeds Arabic columns from p_name/p_description and doesn't
   // accept the bilingual + IBAN fields. Follow up with a direct UPDATE
   // (RLS lets the owner edit their own row).
-  if (input.nameEn || input.descriptionEn || input.iban) {
+  if (
+    input.nameEn ||
+    input.descriptionEn ||
+    input.iban ||
+    input.ibanDocumentPath
+  ) {
     const patch: Record<string, unknown> = {};
     if (input.nameEn) patch.name_en = input.nameEn;
     if (input.descriptionEn) patch.description_en = input.descriptionEn;
     if (input.iban) patch.iban = input.iban;
+    if (input.ibanDocumentPath) patch.iban_document_path = input.ibanDocumentPath;
     if (Object.keys(patch).length > 0) {
       const { error: pErr } = await client()
         .from("providers")
