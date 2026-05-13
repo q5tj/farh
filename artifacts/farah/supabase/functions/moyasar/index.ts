@@ -359,6 +359,10 @@ serve(async (req: Request) => {
         return await handleVerify(req, body);
       case "refund":
         return await handleRefund(req, body);
+      case "process-payouts":
+        return await handleProcessPayouts(req);
+      case "create-payout":
+        return await handleCreatePayout(req, body);
       default:
         return json({ error: "unknown_action" }, 400);
     }
@@ -368,3 +372,147 @@ serve(async (req: Request) => {
     return json({ error: msg }, 500);
   }
 });
+
+// ----------------------------------------------------------------
+// Payouts (Moyasar Payouts API — POST /payouts)
+// ----------------------------------------------------------------
+
+const MOYASAR_PAYOUT_SOURCE_ID = Deno.env.get("MOYASAR_PAYOUT_SOURCE_ID") ?? "";
+
+/**
+ * Process a single payout row by ID. Admin-only.
+ * Body: { action: "create-payout", payout_id: "..." }
+ */
+async function handleCreatePayout(req: Request, body: any) {
+  const auth = req.headers.get("authorization");
+  const userClient = await userScopedClient(auth);
+  const admin = serviceRoleClient();
+
+  const { data: isAdminRow } = await userClient.rpc("is_admin");
+  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+
+  const payoutId: string | undefined = body?.payout_id;
+  if (!payoutId) return json({ error: "payout_id required" }, 400);
+
+  const result = await processPayoutRow(admin, payoutId);
+  return json(result, result.error ? 502 : 200);
+}
+
+/**
+ * Run all queued payouts. Idempotent — safe to call from a cron job
+ * or from an admin button.
+ * Body: { action: "process-payouts" }
+ */
+async function handleProcessPayouts(req: Request) {
+  const auth = req.headers.get("authorization");
+  const userClient = await userScopedClient(auth);
+  const admin = serviceRoleClient();
+
+  const { data: isAdminRow } = await userClient.rpc("is_admin");
+  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+
+  const { data: rows, error } = await admin
+    .from("provider_payouts")
+    .select("id")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (error) return json({ error: error.message }, 500);
+
+  const results: Array<{ id: string; ok: boolean; reason?: string }> = [];
+  for (const row of rows ?? []) {
+    const r = await processPayoutRow(admin, (row as { id: string }).id);
+    results.push({
+      id: (row as { id: string }).id,
+      ok: !r.error,
+      reason: r.error,
+    });
+  }
+  return json({ processed: results.length, results });
+}
+
+/**
+ * Core: takes a payout row id, fetches its details + the provider's
+ * IBAN, calls Moyasar `POST /payouts`, and updates the DB row.
+ */
+async function processPayoutRow(
+  admin: ReturnType<typeof serviceRoleClient>,
+  payoutId: string,
+): Promise<{ moyasar_id?: string; error?: string }> {
+  if (!MOYASAR_PAYOUT_SOURCE_ID) {
+    return { error: "MOYASAR_PAYOUT_SOURCE_ID env var not set" };
+  }
+
+  const { data: payout, error: pErr } = await admin
+    .from("provider_payouts")
+    .select(
+      "id, provider_id, booking_id, amount_halalas, status, payout_type",
+    )
+    .eq("id", payoutId)
+    .maybeSingle();
+  if (pErr || !payout) return { error: "payout_not_found" };
+  if (payout.status !== "queued") {
+    return { error: `payout_not_queued_${payout.status}` };
+  }
+
+  const { data: provider } = await admin
+    .from("providers")
+    .select("id, name, name_ar, iban, phone")
+    .eq("id", payout.provider_id)
+    .maybeSingle();
+  if (!provider) return { error: "provider_not_found" };
+  if (!provider.iban) return { error: "provider_has_no_iban" };
+
+  // Call Moyasar Payouts API.
+  const created = await moyasarFetch("/payouts", {
+    method: "POST",
+    jsonBody: {
+      source_id: MOYASAR_PAYOUT_SOURCE_ID,
+      amount: payout.amount_halalas,
+      purpose: "payment_to_merchant",
+      comment: `Farah booking ${payout.booking_id ?? "(no-booking)"} — ${payout.payout_type}`,
+      destination: {
+        type: "bank",
+        iban: provider.iban,
+        name: provider.name_ar ?? provider.name ?? "Provider",
+        mobile: provider.phone ?? undefined,
+        country: "SA",
+      },
+      metadata: {
+        farah_payout_id: payout.id,
+        farah_booking_id: payout.booking_id,
+        farah_provider_id: payout.provider_id,
+      },
+    },
+  });
+
+  if (!created.ok) {
+    const reason =
+      created.data?.message ??
+      created.data?.errors?.[0]?.message ??
+      `http_${created.status}`;
+    await admin
+      .from("provider_payouts")
+      .update({
+        status: "failed",
+        failure_reason: reason,
+      })
+      .eq("id", payout.id);
+    return { error: reason };
+  }
+
+  const moyasarId = created.data?.id as string | undefined;
+  const moyasarStatus = (created.data?.status as string) ?? "initiated";
+  await admin
+    .from("provider_payouts")
+    .update({
+      status: moyasarStatus === "completed" ? "completed" : "initiated",
+      moyasar_payout_id: moyasarId,
+      initiated_at: new Date().toISOString(),
+      completed_at:
+        moyasarStatus === "completed" ? new Date().toISOString() : null,
+    })
+    .eq("id", payout.id);
+
+  return { moyasar_id: moyasarId };
+}

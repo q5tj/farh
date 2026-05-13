@@ -104,6 +104,129 @@ export interface ProviderWalletBreakdown {
   pendingCommissionSar: number;
 }
 
+// ============================================================
+// Admin: Moyasar payouts API (Edge Function actions)
+// ============================================================
+
+export type PayoutStatus =
+  | "manual_pending"
+  | "queued"
+  | "initiated"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type PayoutType = "deposit_share" | "final_share" | "manual";
+
+export interface ProviderPayoutRow {
+  id: string;
+  providerId: string;
+  providerName: string | null;
+  bookingId: string | null;
+  serviceTitle: string | null;
+  amountSar: number;
+  status: PayoutStatus;
+  payoutType: PayoutType | null;
+  moyasarPayoutId: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  initiatedAt: string | null;
+  completedAt: string | null;
+}
+
+interface PayoutRowDb {
+  id: string;
+  provider_id: string;
+  booking_id: string | null;
+  amount_halalas: number;
+  status: PayoutStatus;
+  payout_type: PayoutType | null;
+  moyasar_payout_id: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  initiated_at: string | null;
+  completed_at: string | null;
+  providers: { name: string | null; name_ar: string | null } | null;
+  bookings: { service_title: string | null } | null;
+}
+
+/** Admin view of every payout queue row + manual settlement. */
+export async function adminFetchProviderPayouts(
+  status?: PayoutStatus,
+): Promise<ProviderPayoutRow[]> {
+  let q = client()
+    .from("provider_payouts")
+    .select(
+      `id, provider_id, booking_id, amount_halalas, status, payout_type,
+       moyasar_payout_id, failure_reason, created_at,
+       initiated_at, completed_at,
+       providers ( name, name_ar ),
+       bookings ( service_title )`,
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (status) q = q.eq("status", status);
+  const { data, error } = await q;
+  if (error) throw error;
+  return ((data ?? []) as unknown as PayoutRowDb[]).map((r) => ({
+    id: r.id,
+    providerId: r.provider_id,
+    providerName: r.providers?.name_ar ?? r.providers?.name ?? null,
+    bookingId: r.booking_id,
+    serviceTitle: r.bookings?.service_title ?? null,
+    amountSar: (r.amount_halalas ?? 0) / 100,
+    status: r.status,
+    payoutType: r.payout_type,
+    moyasarPayoutId: r.moyasar_payout_id,
+    failureReason: r.failure_reason,
+    createdAt: r.created_at,
+    initiatedAt: r.initiated_at,
+    completedAt: r.completed_at,
+  }));
+}
+
+/** Trigger Moyasar API for a single payout row (admin "retry" button). */
+export async function adminCreateMoyasarPayout(
+  payoutId: string,
+): Promise<{ moyasarId?: string; error?: string }> {
+  const { data, error } = await invokeMoyasar<{ moyasar_id?: string }>({
+    action: "create-payout",
+    payout_id: payoutId,
+  });
+  if (error) return { error: error.message };
+  return { moyasarId: data?.moyasar_id };
+}
+
+/** Process every queued payout (admin "Process all" button / cron). */
+export async function adminProcessMoyasarPayouts(): Promise<{
+  processed: number;
+  results: { id: string; ok: boolean; reason?: string }[];
+}> {
+  const { data, error } = await invokeMoyasar<{
+    processed: number;
+    results: { id: string; ok: boolean; reason?: string }[];
+  }>({ action: "process-payouts" });
+  if (error || !data) throw new Error(error?.message ?? "process_failed");
+  return data;
+}
+
+/** Mark a payout row as manually settled (cash/bank transfer outside Moyasar). */
+export async function adminMarkPayoutManuallySettled(
+  payoutId: string,
+  note?: string,
+): Promise<void> {
+  const { error } = await client()
+    .from("provider_payouts")
+    .update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      note: note?.trim() || null,
+      method: "manual",
+    })
+    .eq("id", payoutId);
+  if (error) throw error;
+}
+
 /** Read the provider's wallet snapshot. */
 export async function fetchProviderWalletBreakdown(
   providerId: string,

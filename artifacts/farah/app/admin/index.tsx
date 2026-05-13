@@ -132,6 +132,13 @@ export default function AdminHome() {
       color: "#dc2626",
     },
     {
+      icon: "send",
+      title: t("adminPayouts"),
+      desc: t("adminPayoutsDesc"),
+      route: "/admin/payouts",
+      color: "#0ea5e9",
+    },
+    {
       icon: "dollar-sign",
       title: t("adminFinancials"),
       desc: t("adminFinancialsDesc"),
