@@ -75,22 +75,6 @@ export function BootSplash() {
 
   return (
     <View style={styles.root}>
-      {/* Layered "gradient" without expo-linear-gradient (which is a native
-          module that can occasionally flake at first launch). */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#5a189a" }]} />
-      <View
-        style={[
-          StyleSheet.absoluteFillObject,
-          { backgroundColor: "rgba(123,44,191,0.55)", top: -200 },
-        ]}
-      />
-      <View
-        style={[
-          StyleSheet.absoluteFillObject,
-          { backgroundColor: "rgba(60,9,108,0.45)", top: "60%" },
-        ]}
-      />
-
       <View style={styles.center}>
         {/* Animated halo — pulses outward behind the logo */}
         <Animated.View
@@ -171,7 +155,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#5a189a",
+    backgroundColor: "#7b2cbf",
   },
   center: { alignItems: "center", paddingHorizontal: 24 },
   halo: {
