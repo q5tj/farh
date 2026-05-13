@@ -3,7 +3,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Image,
   Modal,
   Platform,
@@ -14,6 +13,8 @@ import {
   Text,
   View,
 } from "react-native";
+
+import { confirmDialog, infoDialog } from "@/lib/dialog";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -162,14 +163,17 @@ export default function ProfileScreen() {
         setPushStatus(status);
         if (status === "granted") {
           const result = await registerPushAsync(profile.id);
-          if (!result.ok && Platform.OS !== "web") {
-            Alert.alert(t("pushEnableFailedTitle"), result.reason);
+          if (!result.ok) {
+            await infoDialog({
+              title: t("pushEnableFailedTitle"),
+              message: result.reason,
+            });
           }
-        } else if (status === "denied" && Platform.OS !== "web") {
-          Alert.alert(
-            t("pushDeniedSystemTitle"),
-            t("pushDeniedSystemBody"),
-          );
+        } else if (status === "denied") {
+          await infoDialog({
+            title: t("pushDeniedSystemTitle"),
+            message: t("pushDeniedSystemBody"),
+          });
         }
       } else {
         await deactivatePushAsync(profile.id);
@@ -180,17 +184,14 @@ export default function ProfileScreen() {
     }
   };
 
-  const confirmLogout = () => {
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(t("logoutConfirmMsg"))) {
-        signOut();
-      }
-      return;
-    }
-    Alert.alert(t("logoutConfirmTitle"), t("logoutConfirmMsg"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("confirm"), style: "destructive", onPress: signOut },
-    ]);
+  const confirmLogout = async () => {
+    const ok = await confirmDialog({
+      title: t("logoutConfirmTitle"),
+      message: t("logoutConfirmMsg"),
+      confirmLabel: t("logout"),
+      destructive: true,
+    });
+    if (ok) signOut();
   };
 
   const onPickLanguage = async (lang: LangCode) => {
@@ -202,8 +203,11 @@ export default function ProfileScreen() {
       // Persist to DB
       await updateProfile({ language: lang });
       setLangModalOpen(false);
-      if (needsReload && Platform.OS !== "web") {
-        Alert.alert(t("languageChanged"), t("restartRequired"));
+      if (needsReload) {
+        await infoDialog({
+          title: t("languageChanged"),
+          message: t("restartRequired"),
+        });
       }
     } catch {
       // Revert UI? AuthGate will refetch profile and re-sync.

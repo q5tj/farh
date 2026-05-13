@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Platform,
@@ -29,6 +28,7 @@ import {
   removeGalleryItem,
   type MediaKind,
 } from "@/lib/data";
+import { confirmDialog, infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import { uploadGalleryMedia } from "@/lib/image-upload";
 
@@ -153,43 +153,33 @@ export default function ProviderGalleryScreen() {
     } catch (e) {
       const msg = (e as Error)?.message ?? t("galleryUploadFailed");
       setError(msg);
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusyKind(null);
       setProgress(0);
     }
   };
 
-  const onDelete = (item: GalleryItem) => {
-    const run = async () => {
-      try {
-        await removeGalleryItem(item.id, [
-          item.storagePath,
-          // The thumbnail path lives in the same bucket; we can't reconstruct
-          // it from the URL alone, so the trigger relies on best-effort
-          // cleanup. For now we leave the orphan poster — Storage tooling can
-          // sweep these later.
-        ]);
-        setItems((prev) => prev.filter((i) => i.id !== item.id));
-      } catch (e) {
-        const msg = (e as Error)?.message ?? "";
-        if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-        else if (typeof window !== "undefined") window.alert(msg);
-      }
-    };
-    if (Platform.OS === "web") {
-      if (
-        typeof window !== "undefined" &&
-        window.confirm(t("galleryDeleteConfirm"))
-      ) {
-        run();
-      }
-      return;
+  const onDelete = async (item: GalleryItem) => {
+    const ok = await confirmDialog({
+      title: t("galleryDeleteConfirm"),
+      confirmLabel: t("galleryDelete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await removeGalleryItem(item.id, [
+        item.storagePath,
+        // The thumbnail path lives in the same bucket; we can't reconstruct
+        // it from the URL alone, so the trigger relies on best-effort
+        // cleanup. For now we leave the orphan poster — Storage tooling can
+        // sweep these later.
+      ]);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "";
+      await infoDialog({ title: t("error"), message: msg });
     }
-    Alert.alert(t("galleryDeleteConfirm"), undefined, [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("galleryDelete"), style: "destructive", onPress: run },
-    ]);
   };
 
   if (!providerId) {

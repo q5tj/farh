@@ -1,8 +1,6 @@
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -24,6 +22,7 @@ import {
   type Weekday,
   type WorkingHours,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 const ORDER: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -207,11 +206,7 @@ export default function AvailabilityScreen() {
         /^([01]\d|2[0-3]):[0-5]\d$/.test(v[1]);
       if (!valid) {
         const msg = t("saveTimeFormatErr", { day: DAY_LABELS[day] });
-        if (Platform.OS === "web") {
-          if (typeof window !== "undefined") window.alert(msg);
-        } else {
-          Alert.alert(t("error"), msg);
-        }
+        await infoDialog({ title: t("error"), message: msg });
         return;
       }
     }
@@ -223,11 +218,7 @@ export default function AvailabilityScreen() {
       setTimeout(() => setSavedAt(0), 2000);
     } catch (e) {
       const msg = (e as Error).message ?? t("contentSaveFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSaving(false);
     }

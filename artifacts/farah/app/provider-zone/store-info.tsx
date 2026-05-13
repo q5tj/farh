@@ -4,9 +4,7 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -23,6 +21,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { fetchProviderByOwner, updateOwnProvider } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   uploadImage,
@@ -199,9 +198,7 @@ export default function StoreInfoScreen() {
       refreshAppCatalog().catch(() => {});
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2200);
-      if (Platform.OS !== "web") {
-        Alert.alert(t("done"), t("storeDataSaved"));
-      }
+      await infoDialog({ title: t("done"), message: t("storeDataSaved") });
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       setError(msg || t("storeDataSaveFailed"));

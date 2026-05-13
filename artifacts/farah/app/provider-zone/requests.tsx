@@ -2,10 +2,8 @@ import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
   Linking,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +21,7 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Booking, BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import { isMapUrl, parseLocation } from "@/lib/location";
 import { formatLongDate } from "@/lib/date-format";
@@ -190,8 +189,7 @@ function CompleteServiceModal({
               : raw.includes("booking_not_found")
                 ? t("bookingNotFound")
                 : t("completionFailed");
-      if (Platform.OS !== "web") Alert.alert(t("error"), translated);
-      else if (typeof window !== "undefined") window.alert(translated);
+      await infoDialog({ title: t("error"), message: translated });
     } finally {
       setBusy(false);
     }

@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { BootSplash } from "@/components/BootSplash";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ConfirmHost } from "@/components/ConfirmHost";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -187,6 +188,7 @@ export default function RootLayout() {
                   <StatusBar barStyle="dark-content" />
                   <AuthGate />
                   <OfflineBanner />
+                  <ConfirmHost />
                 </AppProvider>
               </AuthProvider>
             </KeyboardProvider>

@@ -2,10 +2,8 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -31,6 +29,7 @@ import {
   type Provider,
   type VerificationStatus,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import { getSignedDocUrl } from "@/lib/image-upload";
 
@@ -92,17 +91,11 @@ export default function AdminVerificationsScreen() {
     setBusyId(provider.id);
     try {
       await adminApproveProvider(provider.id);
-      if (Platform.OS !== "web") {
-        Alert.alert(t("verificationApproved"), provider.name);
-      }
+      await infoDialog({ title: t("verificationApproved"), message: provider.name });
       await load();
     } catch (e) {
       const msg = (e as Error).message ?? t("verificationActionFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusyId(null);
     }
@@ -122,11 +115,7 @@ export default function AdminVerificationsScreen() {
     const reason = decisionReason.trim();
     if (mode === "needs_update" && !reason) {
       const msg = t("requestUpdateReasonRequired");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
       return;
     }
     setBusyId(providerId);
@@ -141,11 +130,7 @@ export default function AdminVerificationsScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error).message ?? t("verificationActionFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusyId(null);
     }

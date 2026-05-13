@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Modal,
@@ -27,6 +26,7 @@ import { COVER_BY_CATEGORY, DEFAULT_COVER } from "@/constants/seedData";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   cancelBooking as cancelBookingDb,
@@ -201,8 +201,7 @@ export default function BookingDetailScreen() {
       }
     } catch (e) {
       const msg = (e as Error)?.message ?? t("paymentInitFailed");
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setPayingFinal(false);
     }
@@ -219,11 +218,7 @@ export default function BookingDetailScreen() {
       setCancelReason("");
     } catch (e) {
       const msg = (e as Error)?.message ?? t("cancelBookingFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setCancelling(false);
     }

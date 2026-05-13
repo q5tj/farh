@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -20,6 +18,7 @@ import {
   fetchAppContent,
   type AppContentEntry,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 export default function AdminContentScreen() {
@@ -78,18 +77,10 @@ export default function AdminContentScreen() {
       });
       const refreshed = await fetchAppContent();
       setEntries(refreshed);
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(t("contentSaveSuccess"));
-      } else {
-        Alert.alert(t("done"), t("contentSaveSuccess"));
-      }
+      await infoDialog({ title: t("done"), message: t("contentSaveSuccess") });
     } catch (e) {
       const msg = (e as Error).message ?? t("contentSaveFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSaving(null);
     }

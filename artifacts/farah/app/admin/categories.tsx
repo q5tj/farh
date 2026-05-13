@@ -1,13 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { confirmDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 export default function CategoriesScreen() {
@@ -42,17 +36,14 @@ export default function CategoriesScreen() {
     }
   };
 
-  const handleRemove = (id: string, label: string) => {
-    const run = () => removeCategory(id);
-    const confirmText = t("categoriesDeleteConfirm", { label });
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(confirmText)) run();
-      return;
-    }
-    Alert.alert(t("delete"), confirmText, [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("delete"), style: "destructive", onPress: run },
-    ]);
+  const handleRemove = async (id: string, label: string) => {
+    const ok = await confirmDialog({
+      title: t("delete"),
+      message: t("categoriesDeleteConfirm", { label }),
+      confirmLabel: t("delete"),
+      destructive: true,
+    });
+    if (ok) removeCategory(id);
   };
 
   return (

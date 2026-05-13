@@ -2,10 +2,8 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -27,6 +25,7 @@ import {
   adminSetUserRole,
   type AdminUserRow,
 } from "@/lib/data";
+import { confirmDialog, infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 type RoleTab = "all" | "customer" | "provider" | "admin";
@@ -117,51 +116,38 @@ export default function UsersScreen() {
 
   const toggleRole = async (user: AdminUserRow) => {
     if (user.role === "admin") {
-      const msg = t("cantChangeAdmin");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("notAllowed"), msg);
-      }
+      await infoDialog({
+        title: t("notAllowed"),
+        message: t("cantChangeAdmin"),
+      });
       return;
     }
     const next = user.role === "customer" ? "provider" : "customer";
     const userName = user.fullName ?? t("guest");
-    const confirmText =
-      next === "provider"
-        ? t("promoteConfirm", { name: userName })
-        : t("demoteConfirm", { name: userName });
-
-    const run = async () => {
-      setBusyUser(user.id);
-      try {
-        if (next === "customer") {
-          // Provider → customer: full cleanup via RPC (deletes services,
-          // gallery, reviews, service areas, storage objects, etc.).
-          await adminDemoteProvider(user.id);
-        } else {
-          await adminSetUserRole(user.id, next);
-        }
-        await load();
-      } catch (e) {
-        const msg = (e as Error).message ?? t("updateRoleFailed");
-        if (Platform.OS === "web") {
-          if (typeof window !== "undefined") window.alert(msg);
-        } else {
-          Alert.alert(t("error"), msg);
-        }
-      } finally {
-        setBusyUser(null);
+    const ok = await confirmDialog({
+      title: t("confirm"),
+      message:
+        next === "provider"
+          ? t("promoteConfirm", { name: userName })
+          : t("demoteConfirm", { name: userName }),
+      destructive: next === "customer",
+    });
+    if (!ok) return;
+    setBusyUser(user.id);
+    try {
+      if (next === "customer") {
+        // Provider → customer: full cleanup via RPC (deletes services,
+        // gallery, reviews, service areas, storage objects, etc.).
+        await adminDemoteProvider(user.id);
+      } else {
+        await adminSetUserRole(user.id, next);
       }
-    };
-
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm(confirmText)) run();
-    } else {
-      Alert.alert(t("confirm"), confirmText, [
-        { text: t("cancel"), style: "cancel" },
-        { text: t("confirm"), onPress: run },
-      ]);
+      await load();
+    } catch (e) {
+      const msg = (e as Error).message ?? t("updateRoleFailed");
+      await infoDialog({ title: t("error"), message: msg });
+    } finally {
+      setBusyUser(null);
     }
   };
 

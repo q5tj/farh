@@ -3,9 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -25,6 +23,7 @@ import {
   providerResubmitForReview,
   updateOwnProvider,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   uploadImage,
@@ -250,11 +249,7 @@ export default function UpdateInfoScreen() {
       //    instant on this device).
       await refreshProfile();
 
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(t("resubmitDone"));
-      } else {
-        Alert.alert(t("done"), t("resubmitDone"));
-      }
+      await infoDialog({ title: t("done"), message: t("resubmitDone") });
       router.replace("/provider-zone/pending");
     } catch (e) {
       const msg = (e as Error)?.message ?? "";

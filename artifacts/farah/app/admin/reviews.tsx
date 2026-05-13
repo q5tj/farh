@@ -2,9 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -28,6 +26,7 @@ import {
   adminSetReviewHidden,
   type ReviewWithContext,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 type Tab = "all" | "visible" | "hidden";
@@ -81,8 +80,7 @@ export default function AdminReviewsScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusyId(null);
     }
@@ -98,8 +96,7 @@ export default function AdminReviewsScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusyId(null);
     }

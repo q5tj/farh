@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Platform,
@@ -41,6 +40,7 @@ import {
   type Provider,
 } from "@/lib/data";
 import { formatShortDate, formatWeekday } from "@/lib/date-format";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   extractCoordsFromMapUrl,
@@ -280,19 +280,16 @@ export default function BookingFormScreen() {
     }
   };
 
-  const validateAndOpenConfirm = (skipLocationWarn = false) => {
+  const validateAndOpenConfirm = async (skipLocationWarn = false) => {
     if (!selectedSlot) {
       const msg = t("pickAvailableTime");
-      if (Platform.OS !== "web") Alert.alert(t("required"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("required"), message: msg });
       return;
     }
     const trimmed = mapUrl.trim();
     if (!trimmed || !isMapUrl(trimmed)) {
       setMapError(t("locationRequired"));
-      if (Platform.OS !== "web") {
-        Alert.alert(t("required"), t("locationRequired"));
-      }
+      await infoDialog({ title: t("required"), message: t("locationRequired") });
       return;
     }
 
@@ -370,11 +367,7 @@ export default function BookingFormScreen() {
         // Booking already exists; surface the failure but still let the
         // user open the booking detail to retry payment from there.
         const msg = (payErr as Error)?.message ?? t("paymentInitFailed");
-        if (Platform.OS === "web") {
-          if (typeof window !== "undefined") window.alert(msg);
-        } else {
-          Alert.alert(t("error"), msg);
-        }
+        await infoDialog({ title: t("error"), message: msg });
         successTargetRef.current = `/booking/${booking.id}`;
         setSuccessOpen(true);
       }
@@ -395,11 +388,7 @@ export default function BookingFormScreen() {
           // ignore
         }
       }
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSubmitting(false);
       submitLock.current = false;

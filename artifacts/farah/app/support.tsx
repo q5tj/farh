@@ -3,8 +3,6 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -27,6 +25,7 @@ import {
   type SupportTicket,
   type TicketStatus,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 const STATUS_COLORS: Record<TicketStatus, { bg: string; fg: string }> = {
@@ -97,9 +96,7 @@ export default function SupportScreen() {
       setMessage("");
       setTab("list");
       await load();
-      if (Platform.OS !== "web") {
-        Alert.alert(t("supportSentTitle"), t("supportSentDesc"));
-      }
+      await infoDialog({ title: t("supportSentTitle"), message: t("supportSentDesc") });
     } catch (e) {
       const msg = (e as Error).message ?? t("supportSubmitFail");
       setError(msg);

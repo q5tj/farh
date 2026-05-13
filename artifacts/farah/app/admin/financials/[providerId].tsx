@@ -3,11 +3,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -34,6 +32,7 @@ import {
   type Provider,
   type ProviderFinancialSummary,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 export default function AdminFinancialsDetailScreen() {
@@ -91,8 +90,7 @@ export default function AdminFinancialsDetailScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusy(false);
     }
@@ -122,9 +120,7 @@ export default function AdminFinancialsDetailScreen() {
     )}&body=${encodeURIComponent(body)}`;
     // TODO(moyasar): replace mailto with payment link
     Linking.openURL(url).catch(() => {
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(url);
-      }
+      void infoDialog({ title: t("error"), message: url });
     });
   };
 

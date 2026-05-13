@@ -3,8 +3,6 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -27,6 +25,7 @@ import {
   type AppContentEntry,
   type PaymentSettings,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -94,11 +93,7 @@ export default function AdminSettings() {
       setTimeout(() => setPaySavedFlash(false), 2000);
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setPaySaving(false);
     }
@@ -383,17 +378,10 @@ function BilingualEditor({
         valueEn: en,
         updatedAt: new Date().toISOString(),
       });
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined")
-          window.alert(t("contentSaveSuccess"));
-      }
+      await infoDialog({ title: t("done"), message: t("contentSaveSuccess") });
     } catch (e) {
       const msg = (e as Error).message ?? t("contentSaveFailed");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSaving(false);
     }

@@ -2,9 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -26,6 +24,7 @@ import {
   type SupportTicket,
   type TicketStatus,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 const STATUS_COLORS: Record<TicketStatus, { bg: string; fg: string }> = {
@@ -278,11 +277,7 @@ function ReplyModal({
     if (!ticket) return;
     if (!reply.trim()) {
       const msg = t("ticketEnterReply");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
       return;
     }
     setSaving(true);
@@ -295,11 +290,7 @@ function ReplyModal({
       onSaved();
     } catch (e) {
       const msg = (e as Error).message ?? t("ticketSaveFail");
-      if (Platform.OS === "web") {
-        if (typeof window !== "undefined") window.alert(msg);
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSaving(false);
     }

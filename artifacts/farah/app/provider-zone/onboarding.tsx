@@ -4,9 +4,7 @@ import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +27,7 @@ import {
   setProviderServiceAreas,
   updateProviderLocation,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   uploadImage,
@@ -321,9 +320,7 @@ export default function ProviderOnboarding() {
     } catch (e) {
       const msg = (e as Error)?.message ?? t("createProviderFailed");
       setError(msg);
-      if (Platform.OS !== "web") {
-        Alert.alert(t("error"), msg);
-      }
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       submitLockRef.current = false;
       setSubmitting(false);

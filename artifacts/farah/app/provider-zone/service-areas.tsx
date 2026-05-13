@@ -3,8 +3,6 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +20,7 @@ import {
   fetchProviderServiceAreas,
   setProviderServiceAreas,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 export default function ProviderServiceAreasScreen() {
@@ -75,7 +74,7 @@ export default function ProviderServiceAreasScreen() {
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       setError(msg);
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setSaving(false);
     }

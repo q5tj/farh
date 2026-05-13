@@ -2,9 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -27,6 +25,7 @@ import {
   type Booking,
   type RefundStatus,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
   fetchBookingPayments,
@@ -77,8 +76,7 @@ export default function AdminRefundsScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusy(false);
     }
@@ -95,8 +93,7 @@ export default function AdminRefundsScreen() {
       );
       if (!deposit) {
         const msg = t("refundNoPayment");
-        if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-        else if (typeof window !== "undefined") window.alert(msg);
+        await infoDialog({ title: t("error"), message: msg });
         return;
       }
       await refundMoyasarPayment(deposit.id, {
@@ -106,8 +103,7 @@ export default function AdminRefundsScreen() {
       await load();
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
-      if (Platform.OS !== "web") Alert.alert(t("error"), msg);
-      else if (typeof window !== "undefined") window.alert(msg);
+      await infoDialog({ title: t("error"), message: msg });
     } finally {
       setBusy(false);
     }

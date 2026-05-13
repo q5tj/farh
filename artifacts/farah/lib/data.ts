@@ -231,6 +231,7 @@ export interface Provider {
   nameAr: string;
   nameEn: string | null;
   description: string; // localized
+  descriptionEn: string | null;
   city: string;
   phone: string;
   email: string | null;
@@ -430,6 +431,7 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
       row.description ?? "",
       lang,
     ),
+    descriptionEn: row.description_en,
     city: row.city ?? "",
     phone: row.phone ?? "",
     email: row.email,
