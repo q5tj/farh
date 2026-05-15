@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BookingItem } from "@/components/BookingItem";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,9 +45,18 @@ interface ActionCardProps {
   title: string;
   desc: string;
   onPress: () => void;
+  tipTitle?: string;
+  tipBody?: string;
 }
 
-function ActionCard({ icon, title, desc, onPress }: ActionCardProps) {
+function ActionCard({
+  icon,
+  title,
+  desc,
+  onPress,
+  tipTitle,
+  tipBody,
+}: ActionCardProps) {
   const c = useColors();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
@@ -59,6 +69,9 @@ function ActionCard({ icon, title, desc, onPress }: ActionCardProps) {
             <Text style={[styles.actionTitle, { color: c.foreground }]}>{title}</Text>
             <Text style={[styles.actionDesc, { color: c.mutedForeground }]}>{desc}</Text>
           </View>
+          {tipTitle && tipBody ? (
+            <InfoTip title={tipTitle} body={tipBody} />
+          ) : null}
           <Feather name="chevron-left" size={20} color={c.mutedForeground} />
         </View>
       </Card>
@@ -170,18 +183,24 @@ export default function ProviderHome() {
             title={t("manageStoreInfo")}
             desc={t("manageStoreInfoDesc")}
             onPress={() => router.push("/provider-zone/store-info" as never)}
+            tipTitle={t("tipProviderStoreInfoTitle")}
+            tipBody={t("tipProviderStoreInfoBody")}
           />
           <ActionCard
             icon="package"
             title={t("myServices")}
             desc={t("myServicesDesc")}
             onPress={() => router.push("/provider-zone/services")}
+            tipTitle={t("tipProviderServicesTitle")}
+            tipBody={t("tipProviderServicesBody")}
           />
           <ActionCard
             icon="inbox"
             title={t("incomingRequests")}
             desc={t("pendingRequestsDesc", { count: pending.length })}
             onPress={() => router.push("/provider-zone/requests")}
+            tipTitle={t("tipProviderRequestsTitle")}
+            tipBody={t("tipProviderRequestsBody")}
           />
           <ActionCard
             icon="file-text"
@@ -190,6 +209,8 @@ export default function ProviderHome() {
             onPress={() =>
               router.push("/provider-zone/financials" as never)
             }
+            tipTitle={t("tipProviderFinancialsTitle")}
+            tipBody={t("tipProviderFinancialsBody")}
           />
         </View>
 

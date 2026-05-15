@@ -420,6 +420,49 @@ function RequestCard({
         </Text>
       </View>
 
+      {booking.status === "pending" || booking.status === "accepted" ? (
+        <View
+          style={{
+            marginTop: 12,
+            flexDirection: "row-reverse",
+            alignItems: "flex-start",
+            gap: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#bfdbfe",
+            backgroundColor: "#eff6ff",
+          }}
+        >
+          <Feather name="lock" size={14} color="#1d4ed8" />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 13,
+                color: "#1e3a8a",
+                textAlign: "right",
+              }}
+            >
+              {t("bookingLocksSlotTitle")}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 12,
+                color: "#1e3a8a",
+                textAlign: "right",
+                marginTop: 4,
+                lineHeight: 19,
+              }}
+            >
+              {t("bookingLocksSlotBody")}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {booking.depositPaidAt ? (
         <View
           style={[

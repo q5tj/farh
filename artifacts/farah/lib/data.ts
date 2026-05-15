@@ -219,8 +219,17 @@ export interface ProviderService {
   descriptionAr: string;
   descriptionEn: string | null;
   price: number;
+  /**
+   * Legacy free-text label (e.g. "4 hours"). Kept on the model for
+   * backwards compatibility with imported rows, but new UI should
+   * derive the display label from `durationMinutes` via
+   * `formatDurationMinutes` so the customer-facing text always
+   * matches the slot length used by the booking calendar.
+   */
   duration: string;
   durationMinutes: number;
+  /** Hidden services don't appear in public browsing / booking. */
+  isActive: boolean;
   /** First entry rendered on the marketplace card; rest available as gallery. */
   images: string[];
 }
@@ -375,6 +384,7 @@ function mapService(row: ServiceRow, lang: AppLang): ProviderService {
     price: Number(row.price),
     duration: row.duration ?? "",
     durationMinutes: Number(row.duration_minutes ?? 60),
+    isActive: row.is_active ?? true,
     images: row.images ?? [],
   };
 }
@@ -723,10 +733,10 @@ export async function fetchProviderByOwner(
   if (error) throw error;
   if (!data) return null;
   const row = data as unknown as ProviderRow;
-  return mapProvider(
-    { ...row, services: (row.services ?? []).filter((s) => s.is_active !== false) },
-    lang,
-  );
+  // Provider owners need to see their disabled services too so they can
+  // re-enable them. Public-facing fetches (fetchProviderById, the catalog
+  // in AppContext) filter them out instead.
+  return mapProvider(row, lang);
 }
 
 export interface CreateProviderInput {
@@ -810,6 +820,8 @@ export interface UpsertServiceInput {
   durationMinutes: number;
   /** Optional product images (first one is the marketplace card thumbnail). */
   images?: string[];
+  /** Optional active flag. Omit on create (defaults to true). */
+  isActive?: boolean;
 }
 
 export async function upsertService(
@@ -832,6 +844,9 @@ export async function upsertService(
   if (input.images !== undefined) {
     payload.images = input.images;
   }
+  if (input.isActive !== undefined) {
+    payload.is_active = input.isActive;
+  }
 
   if (input.id) {
     const { data, error } = await c
@@ -848,12 +863,24 @@ export async function upsertService(
     .insert({
       ...payload,
       provider_id: input.providerId,
-      is_active: true,
+      is_active: input.isActive ?? true,
     })
     .select("id")
     .single();
   if (error) throw error;
   return { id: (data as { id: string }).id };
+}
+
+/** Flip a service's visibility. Owning provider (or admin) per RLS. */
+export async function setServiceActive(
+  serviceId: string,
+  isActive: boolean,
+): Promise<void> {
+  const { error } = await client()
+    .from("services")
+    .update({ is_active: isActive })
+    .eq("id", serviceId);
+  if (error) throw error;
 }
 
 /** Update only working_hours for a provider. */
@@ -1539,21 +1566,52 @@ export interface AdminUserRow {
   language: "ar" | "en" | null;
   avatarUrl: string | null;
   createdAt: string;
+  /** Set only when role = 'provider' and the providers row exists. */
+  providerId: string | null;
+  providerName: string | null;
 }
 
 export async function adminFetchAllUsers(filters?: {
   role?: "customer" | "provider" | "admin";
 }): Promise<AdminUserRow[]> {
-  let q = client()
+  // Two separate queries instead of a PostgREST embed: the embed was
+  // returning zero rows whenever the providers FK relationship couldn't
+  // be resolved by PostgREST (schema cache lag, ambiguity, RLS mismatch),
+  // and the whole list collapsed to empty even though the dashboard card
+  // happily counted 13. Running them in parallel and joining locally
+  // isolates failure modes — even if the providers fetch fails, the user
+  // list still renders.
+  const c = client();
+  let usersQ = c
     .from("users")
     .select(
       "id, auth_user_id, email, full_name, phone, role, city, profile_completed, language, avatar_url, created_at",
     )
     .order("created_at", { ascending: false });
-  if (filters?.role) q = q.eq("role", filters.role);
-  const { data, error } = await q;
-  if (error) throw error;
-  return ((data ?? []) as Array<{
+  if (filters?.role) usersQ = usersQ.eq("role", filters.role);
+
+  const [usersRes, providersRes] = await Promise.all([
+    usersQ,
+    c.from("providers").select("id, user_id, name"),
+  ]);
+  if (usersRes.error) throw usersRes.error;
+  if (providersRes.error) {
+    console.warn(
+      "[adminFetchAllUsers] providers fetch failed, store names will be empty",
+      providersRes.error,
+    );
+  }
+
+  const providerByUserId = new Map<string, { id: string; name: string }>();
+  for (const p of (providersRes.data ?? []) as {
+    id: string;
+    user_id: string;
+    name: string;
+  }[]) {
+    providerByUserId.set(p.user_id, { id: p.id, name: p.name });
+  }
+
+  return ((usersRes.data ?? []) as Array<{
     id: string;
     auth_user_id: string;
     email: string | null;
@@ -1565,19 +1623,24 @@ export async function adminFetchAllUsers(filters?: {
     language: "ar" | "en" | null;
     avatar_url: string | null;
     created_at: string;
-  }>).map((r) => ({
-    id: r.id,
-    authUserId: r.auth_user_id,
-    email: r.email,
-    fullName: r.full_name,
-    phone: r.phone,
-    role: r.role,
-    city: r.city,
-    profileCompleted: r.profile_completed,
-    language: r.language,
-    avatarUrl: r.avatar_url,
-    createdAt: r.created_at,
-  }));
+  }>).map((r) => {
+    const provider = providerByUserId.get(r.id) ?? null;
+    return {
+      id: r.id,
+      authUserId: r.auth_user_id,
+      email: r.email,
+      fullName: r.full_name,
+      phone: r.phone,
+      role: r.role,
+      city: r.city,
+      profileCompleted: r.profile_completed,
+      language: r.language,
+      avatarUrl: r.avatar_url,
+      createdAt: r.created_at,
+      providerId: provider?.id ?? null,
+      providerName: provider?.name ?? null,
+    };
+  });
 }
 
 export async function adminSetUserRole(

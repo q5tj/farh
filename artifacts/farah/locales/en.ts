@@ -298,7 +298,80 @@ export const en: Strings = {
   serviceNameEnExample: "e.g. Silver wedding photography package",
   serviceDescArPlaceholder: "Service details (in Arabic)...",
   serviceDescEnPlaceholder: "Service details...",
-  serviceDurationMinutesLabel: "Service duration in minutes (for slot calculation)",
+  serviceDurationMinutesLabel: "Service duration in minutes",
+  serviceDurationLabel: "Service duration",
+  durationHoursField: "Hours",
+  durationMinutesField: "Minutes",
+  serviceDurationPreview: "Shown to customers: {{text}}",
+  serviceDurationHelp:
+    "No other customer can book the same window while this booking is active. If a customer books 10:00 for 2 hours, the next available slot is 12:00.",
+  bookingLocksSlotTitle: "Slot reserved",
+  bookingLocksSlotBody:
+    "While this booking is active, no other customer can book this time with you — even if you haven't accepted it yet.",
+
+  // Admin dashboard tips
+  tipAdminUsersTitle: "Manage users",
+  tipAdminUsersBody:
+    "All registered users (customers, providers, admins). Search, filter by role, and export CSV. \"Promote to provider\" converts a customer (they complete onboarding, then wait for verification). \"Demote to customer\" permanently deletes the provider profile with all services, gallery, reviews, and documents (cannot be undone — but past customer bookings are preserved).",
+  tipAdminBookingsTitle: "Manage bookings",
+  tipAdminBookingsBody:
+    "All bookings system-wide with their statuses (pending, accepted, completed, rejected). See payment, deposit, and remaining-amount details. \"Awaiting final payment\" means the customer paid the deposit, the service is delivered, and the customer still owes the remainder online.",
+  tipAdminCategoriesTitle: "Manage categories",
+  tipAdminCategoriesBody:
+    "Top-level categories shown on the home screen (Photography, Halls, Catering...). Each provider belongs to one category. Disabling a category hides it from customers but does not delete its providers. Add a name (AR + EN) and an icon.",
+  tipAdminTicketsTitle: "Support tickets",
+  tipAdminTicketsBody:
+    "User support messages (complaints, inquiries, requests). Open ones can be replied to and closed. The red badge means there are open tickets waiting for a response.",
+  tipAdminVerificationsTitle: "Provider verifications",
+  tipAdminVerificationsBody:
+    "New providers don't appear to customers until verified. View their CR, tax number, national address, and IBAN certificate. Click \"Approve\" to make the provider visible, or \"Reject\" with a reason (sent to them as a notification). The badge number is pending providers.",
+  tipAdminAuditTitle: "Audit log",
+  tipAdminAuditBody:
+    "Record of every sensitive operation in the system: role changes, provider approvals/rejections, ticket responses, settings changes, etc. Read-only.",
+  tipAdminBroadcastTitle: "Broadcast",
+  tipAdminBroadcastBody:
+    "Send a push + in-app notification to all users at once. Pick language (Arabic/English), target audience (customers, providers, or everyone), then title and body. Delivered immediately to anyone with notifications enabled.",
+  tipAdminReviewsTitle: "Manage reviews",
+  tipAdminReviewsBody:
+    "All provider reviews in the system. You can delete abusive or fake reviews. Reviews affect provider ranking in search, so delete carefully.",
+  tipAdminRefundsTitle: "Refunds",
+  tipAdminRefundsBody:
+    "Customer refund requests. Cancellations that qualify for partial refunds (per the event-date window) land here. Click \"Refund\" to send the request to Moyasar, which credits the card within 3-7 business days.",
+  tipAdminPayoutsTitle: "Provider payouts",
+  tipAdminPayoutsBody:
+    "Transfer provider earnings to their bank accounts via Moyasar Payouts. Each provider has an \"Owed\" amount = sum of completed bookings minus commission. This feature is off by default and activates via a feature flag once Moyasar Payouts is enabled on the account.",
+  tipAdminFinancialsTitle: "Financial reports",
+  tipAdminFinancialsBody:
+    "Overall revenue: total bookings, total commission, per-provider breakdown (services completed, commission, paid amount). Exportable as CSV.",
+  tipAdminSettingsTitle: "App settings",
+  tipAdminSettingsBody:
+    "Global settings: commission rate (applied to NEW providers only — existing providers keep the rate snapshotted at signup), deposit percentage, cancellation windows, and support contact info. Every change is recorded in the audit log.",
+
+  // Provider zone tips
+  tipProviderRequestsTitle: "Booking requests",
+  tipProviderRequestsBody:
+    "All incoming booking requests. \"Pending\" ones need your decision (accept or reject). Once accepted, the slot is reserved (no other customer can book the same time). Pending requests expire automatically after 6 hours if not decided.",
+  tipProviderServicesTitle: "Services",
+  tipProviderServicesBody:
+    "Add your services with prices and durations. \"Disable service\" hides it from customers without deleting it — you can re-enable any time. \"Delete\" removes it permanently with all images (past bookings are not affected). You can also bulk-import via CSV.",
+  tipProviderGalleryTitle: "Gallery",
+  tipProviderGalleryBody:
+    "Photos and videos shown on your store page. Images are auto-compressed before upload. Videos cap at 60 MB with an auto-generated thumbnail. Other files (PDF) cap at 15 MB. Display order = upload order.",
+  tipProviderAvailabilityTitle: "Working hours",
+  tipProviderAvailabilityBody:
+    "Set your booking hours per weekday. Days you leave unset won't appear to customers as bookable days. You can use different hours per day (e.g. Friday 4 PM – 11 PM, weekdays 9 AM – 9 PM).",
+  tipProviderAreasTitle: "Service areas",
+  tipProviderAreasBody:
+    "Cities you serve. Your store appears only to customers in these cities (plus your primary city). If you pick multiple, customers can choose a city at booking time.",
+  tipProviderStoreInfoTitle: "Store info",
+  tipProviderStoreInfoBody:
+    "Store name, description, logo, cover photo, and your map location. Logo appears on the home screen and cards. Map location helps customers gauge distance.",
+  tipProviderUpdateInfoTitle: "Update documents",
+  tipProviderUpdateInfoBody:
+    "Update CR, tax number, national address, or IBAN certificate. Any change goes back to admin for re-verification. Some changes may temporarily hide your store until approved.",
+  tipProviderFinancialsTitle: "Earnings & statements",
+  tipProviderFinancialsBody:
+    "Your total earnings from completed bookings. See per-booking details: price, deposit, commission deducted, and amount owed to you. The statement updates automatically after every completed booking.",
   serviceDurationExample: "e.g. 4 hours",
   enterServiceNameAr: "Please enter the service name in Arabic",
   enterServiceNameEn: "Please enter the service name in English",
@@ -463,6 +536,7 @@ export const en: Strings = {
   noName: "No name",
   promoteToProvider: "Promote to provider",
   demoteToCustomer: "Demote to customer",
+  browseStore: "Browse store",
   promoteConfirm: "Do you want to promote {{name}} to provider?",
   demoteConfirm:
     "Demoting {{name}} to customer will permanently delete: provider profile, all services, gallery (photos and videos), reviews, service areas, documents, and logo. Past customer bookings remain preserved. Continue?",
@@ -852,6 +926,18 @@ export const en: Strings = {
   weekdayThu: "Thu",
   weekdayFri: "Fri",
   weekdaySat: "Sat",
+  durationMinuteShort: "min",
+  durationMinuteOne: "minute",
+  durationMinutesPlural: "minutes",
+  durationOneHour: "1 hour",
+  durationTwoHours: "2 hours",
+  durationHoursFewAr: "hours",
+  durationHourManyAr: "hours",
+  durationHoursPlural: "hours",
+  durationAnd: "and",
+  serviceDisabled: "This service is disabled and hidden from customers",
+  enableService: "Enable service",
+  disableService: "Disable service",
   timeAgoNow: "Now",
   defaultUserInitial: "G",
 

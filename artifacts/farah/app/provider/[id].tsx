@@ -29,6 +29,7 @@ import {
   type Provider,
   type ProviderReview,
 } from "@/lib/data";
+import { formatDurationMinutes } from "@/lib/date-format";
 import { useT } from "@/lib/i18n";
 
 export default function ProviderScreen() {
@@ -75,12 +76,6 @@ export default function ProviderScreen() {
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<ProviderReview[]>([]);
-
-  useEffect(() => {
-    if (provider && !selectedServiceId && provider.services.length > 0) {
-      setSelectedServiceId(provider.services[0].id);
-    }
-  }, [provider, selectedServiceId]);
 
   // Fetch ALL reviews for the provider (not just the viewer's bookings).
   useEffect(() => {
@@ -392,7 +387,7 @@ export default function ProviderScreen() {
                             {s.description}
                           </Text>
                         ) : null}
-                        {s.duration ? (
+                        {s.durationMinutes > 0 ? (
                           <View style={styles.serviceMetaRow}>
                             <Feather
                               name="clock"
@@ -405,7 +400,7 @@ export default function ProviderScreen() {
                                 { color: c.mutedForeground },
                               ]}
                             >
-                              {s.duration}
+                              {formatDurationMinutes(s.durationMinutes, t, lang)}
                             </Text>
                           </View>
                         ) : null}

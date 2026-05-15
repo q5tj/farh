@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -30,10 +30,12 @@ import { parseCsvRows, pickField } from "@/lib/csv-import";
 import {
   deleteService as deleteServiceDb,
   fetchProviderByOwner,
+  setServiceActive,
   type Provider,
   type ProviderService,
   upsertService as upsertServiceDb,
 } from "@/lib/data";
+import { formatDurationMinutes } from "@/lib/date-format";
 import { useT } from "@/lib/i18n";
 import { uploadImage } from "@/lib/image-upload";
 
@@ -113,8 +115,16 @@ export default function ServicesScreen() {
   const [descriptionAr, setDescriptionAr] = useState("");
   const [descriptionEn, setDescriptionEn] = useState("");
   const [price, setPrice] = useState("");
-  const [duration, setDuration] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState("60");
+  // Duration is collected as hours + minutes (15-minute steps) to match how
+  // providers think about a service, then combined into total minutes for
+  // the DB. Defaults: 1 hour, 0 minutes.
+  const [durationHours, setDurationHours] = useState("1");
+  const [durationMinutesPart, setDurationMinutesPart] = useState("0");
+  const totalMinutes = useMemo(() => {
+    const h = Math.max(0, Math.min(24, Number(durationHours) || 0));
+    const m = Math.max(0, Math.min(59, Number(durationMinutesPart) || 0));
+    return Math.max(15, Math.min(1440, h * 60 + m));
+  }, [durationHours, durationMinutesPart]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imagePct, setImagePct] = useState(0);
@@ -138,8 +148,8 @@ export default function ServicesScreen() {
     setDescriptionAr("");
     setDescriptionEn("");
     setPrice("");
-    setDuration("");
-    setDurationMinutes("60");
+    setDurationHours("1");
+    setDurationMinutesPart("0");
     setImageUrl(null);
     setError("");
     setEditing(null);
@@ -157,8 +167,8 @@ export default function ServicesScreen() {
     setDescriptionAr(s.descriptionAr ?? "");
     setDescriptionEn(s.descriptionEn ?? "");
     setPrice(String(s.price));
-    setDuration(s.duration);
-    setDurationMinutes(String(s.durationMinutes));
+    setDurationHours(String(Math.floor(s.durationMinutes / 60)));
+    setDurationMinutesPart(String(s.durationMinutes % 60));
     setImageUrl(s.images?.[0] ?? null);
     setError("");
     setOpen(true);
@@ -216,7 +226,7 @@ export default function ServicesScreen() {
       setError(t("enterPrice"));
       return;
     }
-    const minutes = Math.max(15, Math.min(1440, Number(durationMinutes) || 60));
+    const minutes = totalMinutes;
     setSaving(true);
     try {
       await upsertServiceDb({
@@ -227,7 +237,10 @@ export default function ServicesScreen() {
         descriptionAr: descriptionAr.trim() || undefined,
         descriptionEn: descriptionEn.trim() || undefined,
         price: Number(price.replace(/[^0-9]/g, "")) || 0,
-        duration: duration.trim() || "غير محدد",
+        // Derive the legacy free-text label from the minutes so the two
+        // columns can't disagree. Stored in Arabic — the UI re-derives the
+        // display text from durationMinutes at render time anyway.
+        duration: formatDurationMinutes(minutes, t, "ar"),
         durationMinutes: minutes,
         images: imageUrl ? [imageUrl] : [],
       });
@@ -274,6 +287,7 @@ export default function ServicesScreen() {
         price: 3000,
         duration: "4 ساعات",
         durationMinutes: 240,
+        isActive: true,
         images: [""],
       },
     ];
@@ -427,6 +441,17 @@ export default function ServicesScreen() {
     }
   };
 
+  const toggleActive = async (s: ProviderService) => {
+    if (!providerId) return;
+    try {
+      await setServiceActive(s.id, !s.isActive);
+      await reloadProvider();
+      refreshAppCatalog().catch(() => {});
+    } catch (e) {
+      console.warn("[services] toggle active failed", e);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader
@@ -489,7 +514,7 @@ export default function ServicesScreen() {
         >
           {provider.services.map((s) => (
             <Card key={s.id}>
-              <View style={styles.row}>
+              <View style={[styles.row, !s.isActive && { opacity: 0.55 }]}>
                 {s.images && s.images[0] ? (
                   <Image
                     source={{ uri: s.images[0] }}
@@ -525,13 +550,30 @@ export default function ServicesScreen() {
                     </Text>
                   ) : null}
                   <Text style={[styles.duration, { color: c.mutedForeground }]}>
-                    {s.duration}
+                    {formatDurationMinutes(s.durationMinutes, t, lang)}
                   </Text>
                 </View>
                 <Text style={[styles.price, { color: c.primary }]}>
                   {s.price.toLocaleString()} ر.س
                 </Text>
               </View>
+              {!s.isActive ? (
+                <Text
+                  style={{
+                    marginTop: 8,
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    borderRadius: 8,
+                    backgroundColor: "#fef3c7",
+                    color: "#92400e",
+                    fontFamily: "Cairo_600SemiBold",
+                    fontSize: 12,
+                    textAlign: "right",
+                  }}
+                >
+                  {t("serviceDisabled")}
+                </Text>
+              ) : null}
               <View style={styles.actions}>
                 <Pressable
                   onPress={() => openEdit(s)}
@@ -540,6 +582,27 @@ export default function ServicesScreen() {
                   <Feather name="edit-2" size={14} color={c.primary} />
                   <Text style={[styles.actionText, { color: c.primary }]}>
                     {t("editService")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => toggleActive(s)}
+                  style={[
+                    styles.actionBtn,
+                    { backgroundColor: s.isActive ? c.muted : "#dcfce7" },
+                  ]}
+                >
+                  <Feather
+                    name={s.isActive ? "eye-off" : "eye"}
+                    size={14}
+                    color={s.isActive ? c.foreground : "#166534"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionText,
+                      { color: s.isActive ? c.foreground : "#166534" },
+                    ]}
+                  >
+                    {s.isActive ? t("disableService") : t("enableService")}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -685,19 +748,99 @@ export default function ServicesScreen() {
                   keyboardType="numeric"
                   placeholder="3000"
                 />
-                <Input
-                  label={t("serviceDuration")}
-                  value={duration}
-                  onChangeText={setDuration}
-                  placeholder={t("serviceDurationExample")}
-                />
-                <Input
-                  label={t("serviceDurationMinutesLabel")}
-                  value={durationMinutes}
-                  onChangeText={setDurationMinutes}
-                  keyboardType="numeric"
-                  placeholder="60"
-                />
+                <View>
+                  <Text
+                    style={[
+                      styles.fieldLabel,
+                      { color: c.foreground, marginBottom: 6 },
+                    ]}
+                  >
+                    {t("serviceDurationLabel")}
+                  </Text>
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Input
+                        label={t("durationHoursField")}
+                        value={durationHours}
+                        onChangeText={setDurationHours}
+                        keyboardType="numeric"
+                        placeholder="1"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[
+                          styles.fieldLabel,
+                          { color: c.foreground, marginBottom: 6 },
+                        ]}
+                      >
+                        {t("durationMinutesField")}
+                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row-reverse",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {["0", "15", "30", "45"].map((m) => {
+                          const active = durationMinutesPart === m;
+                          return (
+                            <Pressable
+                              key={m}
+                              onPress={() => setDurationMinutesPart(m)}
+                              style={{
+                                paddingHorizontal: 14,
+                                paddingVertical: 10,
+                                borderRadius: 100,
+                                borderWidth: 1.5,
+                                borderColor: active ? c.primary : c.border,
+                                backgroundColor: active
+                                  ? c.primary
+                                  : "transparent",
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: "Cairo_700Bold",
+                                  fontSize: 13,
+                                  color: active ? "#ffffff" : c.foreground,
+                                }}
+                              >
+                                {m}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: "Cairo_500Medium",
+                      fontSize: 12,
+                      color: c.mutedForeground,
+                      textAlign: "right",
+                      marginTop: 8,
+                    }}
+                  >
+                    {t("serviceDurationPreview", {
+                      text: formatDurationMinutes(totalMinutes, t, lang),
+                    })}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Cairo_400Regular",
+                      fontSize: 11,
+                      color: c.mutedForeground,
+                      textAlign: "right",
+                      marginTop: 4,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {t("serviceDurationHelp")}
+                  </Text>
+                </View>
                 {error ? (
                   <Text
                     style={{

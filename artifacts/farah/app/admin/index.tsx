@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card } from "@/components/ui/Card";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useColors } from "@/hooks/useColors";
 import {
@@ -30,6 +31,8 @@ interface ActionTile {
   route: string;
   color: string;
   badge?: number;
+  tipTitle: string;
+  tipBody: string;
 }
 
 export default function AdminHome() {
@@ -70,6 +73,8 @@ export default function AdminHome() {
       desc: stats ? t("manageUsersDesc", { count: stats.totalUsers }) : t("customers"),
       route: "/admin/users",
       color: "#7b2cbf",
+      tipTitle: t("tipAdminUsersTitle"),
+      tipBody: t("tipAdminUsersBody"),
     },
     {
       icon: "calendar",
@@ -77,6 +82,8 @@ export default function AdminHome() {
       desc: stats ? t("manageBookingsDesc", { count: stats.totalBookings }) : t("manageBookings"),
       route: "/admin/bookings",
       color: "#5a189a",
+      tipTitle: t("tipAdminBookingsTitle"),
+      tipBody: t("tipAdminBookingsBody"),
     },
     {
       icon: "list",
@@ -84,6 +91,8 @@ export default function AdminHome() {
       desc: t("manageCategoriesDesc"),
       route: "/admin/categories",
       color: "#9d4edd",
+      tipTitle: t("tipAdminCategoriesTitle"),
+      tipBody: t("tipAdminCategoriesBody"),
     },
     {
       icon: "help-circle",
@@ -94,6 +103,8 @@ export default function AdminHome() {
       route: "/admin/tickets",
       color: "#ec4899",
       badge: stats?.openTickets ?? 0,
+      tipTitle: t("tipAdminTicketsTitle"),
+      tipBody: t("tipAdminTicketsBody"),
     },
     {
       icon: "shield",
@@ -102,6 +113,8 @@ export default function AdminHome() {
       route: "/admin/verifications",
       color: "#16a34a",
       badge: pendingVerifications,
+      tipTitle: t("tipAdminVerificationsTitle"),
+      tipBody: t("tipAdminVerificationsBody"),
     },
     {
       icon: "file-text",
@@ -109,6 +122,8 @@ export default function AdminHome() {
       desc: t("adminAuditLogDesc"),
       route: "/admin/audit",
       color: "#525252",
+      tipTitle: t("tipAdminAuditTitle"),
+      tipBody: t("tipAdminAuditBody"),
     },
     {
       icon: "send",
@@ -116,6 +131,8 @@ export default function AdminHome() {
       desc: t("broadcastDesc"),
       route: "/admin/broadcast",
       color: "#c026d3",
+      tipTitle: t("tipAdminBroadcastTitle"),
+      tipBody: t("tipAdminBroadcastBody"),
     },
     {
       icon: "star",
@@ -123,6 +140,8 @@ export default function AdminHome() {
       desc: t("adminReviewsDesc"),
       route: "/admin/reviews",
       color: "#f59e0b",
+      tipTitle: t("tipAdminReviewsTitle"),
+      tipBody: t("tipAdminReviewsBody"),
     },
     {
       icon: "rotate-ccw",
@@ -130,6 +149,8 @@ export default function AdminHome() {
       desc: t("adminRefundsDesc"),
       route: "/admin/refunds",
       color: "#dc2626",
+      tipTitle: t("tipAdminRefundsTitle"),
+      tipBody: t("tipAdminRefundsBody"),
     },
     {
       icon: "send",
@@ -137,6 +158,8 @@ export default function AdminHome() {
       desc: t("adminPayoutsDesc"),
       route: "/admin/payouts",
       color: "#0ea5e9",
+      tipTitle: t("tipAdminPayoutsTitle"),
+      tipBody: t("tipAdminPayoutsBody"),
     },
     {
       icon: "dollar-sign",
@@ -144,6 +167,8 @@ export default function AdminHome() {
       desc: t("adminFinancialsDesc"),
       route: "/admin/financials",
       color: "#16a34a",
+      tipTitle: t("tipAdminFinancialsTitle"),
+      tipBody: t("tipAdminFinancialsBody"),
     },
     {
       icon: "settings",
@@ -151,6 +176,8 @@ export default function AdminHome() {
       desc: t("appSettingsDesc"),
       route: "/admin/settings",
       color: "#7b2cbf",
+      tipTitle: t("tipAdminSettingsTitle"),
+      tipBody: t("tipAdminSettingsBody"),
     },
   ];
 
@@ -206,10 +233,10 @@ export default function AdminHome() {
           {t("adminMenuTitle")}
         </Text>
         <View style={styles.tilesGrid}>
-          {tiles.map((t) => (
+          {tiles.map((tile) => (
             <Pressable
-              key={t.route}
-              onPress={() => router.push(t.route as never)}
+              key={tile.route}
+              onPress={() => router.push(tile.route as never)}
               style={({ pressed }) => [
                 styles.tile,
                 {
@@ -220,23 +247,30 @@ export default function AdminHome() {
                 },
               ]}
             >
-              <View
-                style={[styles.tileIcon, { backgroundColor: t.color + "1A" }]}
-              >
-                <Feather name={t.icon} size={22} color={t.color} />
-                {t.badge ? (
-                  <View style={[styles.badge, { backgroundColor: t.color }]}>
-                    <Text style={styles.badgeText}>
-                      {t.badge > 99 ? "99+" : t.badge}
-                    </Text>
-                  </View>
-                ) : null}
+              <View style={styles.tileTopRow}>
+                <View
+                  style={[styles.tileIcon, { backgroundColor: tile.color + "1A" }]}
+                >
+                  <Feather name={tile.icon} size={22} color={tile.color} />
+                  {tile.badge ? (
+                    <View style={[styles.badge, { backgroundColor: tile.color }]}>
+                      <Text style={styles.badgeText}>
+                        {tile.badge > 99 ? "99+" : tile.badge}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <InfoTip
+                  title={tile.tipTitle}
+                  body={tile.tipBody}
+                  tint={tile.color}
+                />
               </View>
               <Text style={[styles.tileTitle, { color: c.foreground }]}>
-                {t.title}
+                {tile.title}
               </Text>
               <Text style={[styles.tileDesc, { color: c.mutedForeground }]}>
-                {t.desc}
+                {tile.desc}
               </Text>
             </Pressable>
           ))}
@@ -367,6 +401,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 14,
     gap: 8,
+  },
+  tileTopRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   tileIcon: {
     width: 44,

@@ -39,7 +39,11 @@ import {
   type PaymentSettings,
   type Provider,
 } from "@/lib/data";
-import { formatShortDate, formatWeekday } from "@/lib/date-format";
+import {
+  formatDurationMinutes,
+  formatShortDate,
+  formatWeekday,
+} from "@/lib/date-format";
 import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
@@ -169,12 +173,23 @@ export default function BookingFormScreen() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
 
-  // Refresh busy intervals when provider/day changes
+  // Refresh busy intervals when provider/day changes.
+  //
+  // We depend on the primitives (provider.id, selectedDayIso) — NOT the
+  // `selectedDay` object or `provider` object — because `days` is rebuilt
+  // every render (its useMemo depends on `t`, whose reference changes on
+  // every re-render). That used to make `selectedDay` a fresh reference
+  // each render, retriggering this effect indefinitely: setSlotsLoading
+  // → re-render → new selectedDay → effect runs again → spinner never
+  // clears until a hard refresh.
+  const providerId_ = provider?.id;
   useEffect(() => {
-    if (!provider || !selectedDay) return;
+    if (!providerId_ || !selectedDayIso) return;
     let alive = true;
     setSlotsLoading(true);
-    fetchProviderBusyIntervals(provider.id, selectedDay.date)
+    const [y, m, d] = selectedDayIso.split("-").map(Number);
+    const dayDate = new Date(y, m - 1, d);
+    fetchProviderBusyIntervals(providerId_, dayDate)
       .then((intervals) => {
         if (alive) setBusy(intervals);
       })
@@ -187,7 +202,7 @@ export default function BookingFormScreen() {
     return () => {
       alive = false;
     };
-  }, [provider, selectedDay]);
+  }, [providerId_, selectedDayIso]);
 
   // Reset selected slot when day changes
   useEffect(() => {
@@ -426,7 +441,7 @@ export default function BookingFormScreen() {
                 {service.title}
               </Text>
               <Text style={[styles.serviceDur, { color: c.mutedForeground }]}>
-                {service.duration || `${service.durationMinutes} دقيقة`}
+                {formatDurationMinutes(service.durationMinutes, t, lang)}
               </Text>
             </View>
             <Text style={[styles.servicePrice, { color: c.primary }]}>

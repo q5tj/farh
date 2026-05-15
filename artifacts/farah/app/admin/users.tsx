@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -52,6 +53,7 @@ export default function UsersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busyUser, setBusyUser] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const exportTo = (scope: "all" | "customer" | "provider") => {
     setExportOpen(false);
@@ -87,8 +89,12 @@ export default function UsersScreen() {
     try {
       const list = await adminFetchAllUsers();
       setUsers(list);
+      setLoadError(null);
     } catch (e) {
       console.warn("[admin users] load failed", e);
+      // Surface the failure so the page doesn't silently show 0 users
+      // when the dashboard tile knows there are e.g. 13.
+      setLoadError((e as Error)?.message ?? t("updateRoleFailed"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -203,6 +209,40 @@ export default function UsersScreen() {
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={c.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={{ padding: 16 }}>
+          <View
+            style={{
+              padding: 14,
+              borderRadius: 10,
+              backgroundColor: "#fef2f2",
+              borderWidth: 1,
+              borderColor: "#fecaca",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Cairo_700Bold",
+                fontSize: 13,
+                color: "#991b1b",
+                textAlign: "right",
+              }}
+            >
+              {t("error")}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 12,
+                color: "#991b1b",
+                textAlign: "right",
+                marginTop: 4,
+              }}
+            >
+              {loadError}
+            </Text>
+          </View>
         </View>
       ) : filtered.length === 0 ? (
         <EmptyState icon="users" title={t("noMatchingUsers")} />
@@ -384,6 +424,37 @@ function UserCard({
         </View>
       </View>
 
+      {user.role === "provider" && user.providerName ? (
+        <View
+          style={[
+            styles.storeRow,
+            { backgroundColor: c.muted, borderColor: c.border },
+          ]}
+        >
+          <Feather name="shopping-bag" size={14} color={c.primary} />
+          <Text
+            style={[styles.storeName, { color: c.foreground }]}
+            numberOfLines={1}
+          >
+            {user.providerName}
+          </Text>
+          {user.providerId ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/provider/[id]",
+                  params: { id: user.providerId! },
+                })
+              }
+              style={[styles.browseBtn, { backgroundColor: c.primary }]}
+            >
+              <Feather name="external-link" size={12} color="#ffffff" />
+              <Text style={styles.browseBtnText}>{t("browseStore")}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       {user.role !== "admin" ? (
         <Pressable
           onPress={onToggleRole}
@@ -494,6 +565,35 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   roleBtnText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
+  storeRow: {
+    marginTop: 12,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  storeName: {
+    flex: 1,
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  browseBtn: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  browseBtnText: {
+    color: "#ffffff",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+  },
   email: {
     fontFamily: "Cairo_400Regular",
     fontSize: 11,
