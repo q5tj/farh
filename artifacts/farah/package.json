@@ -9,8 +9,8 @@
     "dev:tunnel": "pnpm exec expo start --tunnel --port 8081",
     "dev:web": "pnpm exec expo start --web --port 8081",
     "build": "node scripts/build.js",
-    "build:web": "pnpm exec expo export --platform web --output-dir dist && node -e \"const fs=require('fs');try{fs.rmSync('../../dist',{recursive:true,force:true});fs.cpSync('dist','../../dist',{recursive:true});console.log('mirrored to repo-root/dist')}catch(e){console.warn(e.message)}\"",
-    "vercel-build": "pnpm exec expo export --platform web --output-dir dist && node -e \"const fs=require('fs');try{fs.rmSync('../../dist',{recursive:true,force:true});fs.cpSync('dist','../../dist',{recursive:true});console.log('mirrored to repo-root/dist')}catch(e){console.warn(e.message)}\"",
+    "build:web": "pnpm exec expo export --platform web --output-dir dist && node scripts/post-export.js",
+    "vercel-build": "pnpm exec expo export --platform web --output-dir dist && node scripts/post-export.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

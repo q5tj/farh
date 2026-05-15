@@ -2,12 +2,12 @@
  * Image compression + upload pipeline.
  *
  * - Resizes to max 1600px wide (aspect-preserving).
- * - Encodes as WEBP on Android, JPEG on iOS / Web (expo-image-manipulator
- *   doesn't ship a WEBP encoder on iOS as of SDK 54, and browser canvas
- *   support for WEBP encoding is inconsistent).
- * - Uploads via Supabase's direct `upload()` for reliability — no signed-URL
- *   dance, no custom auth headers, no CORS pitfalls. Progress is fired as
- *   a single 0→100% transition because the SDK doesn't expose increments.
+ * - Encodes as WEBP on Android, JPEG on iOS / Web.
+ * - Uploads via XMLHttpRequest against the Supabase Storage REST endpoint
+ *   (NOT the supabase-js SDK, which uses fetch() and can't expose upload
+ *   progress). This gives us a real moving progress bar, the ability to
+ *   abort mid-flight, a hard timeout, and explicit error messages instead
+ *   of a silently-pending promise when the network or CORS misbehaves.
  *
  * Usage:
  *   const job = uploadImage({ uri, bucket: 'provider-logos', authUserId,
@@ -115,6 +115,7 @@ export function uploadImage(input: UploadOptions): UploadJob {
   }
 
   let cancelled = false;
+  let activeXhr: XMLHttpRequest | null = null;
 
   const promise = (async () => {
     const processed = await compressImage(input.uri, input.compress);
@@ -122,27 +123,22 @@ export function uploadImage(input: UploadOptions): UploadJob {
 
     const path = `${input.authUserId}/${input.fileName}.${processed.ext}`;
 
-    // Resolve the local URI (file://, content://, blob:) → Blob suitable
-    // for Supabase Storage's direct upload.
     const res = await fetch(processed.uri);
     if (cancelled) throw new UploadCancelledError();
     const blob = await res.blob();
     if (cancelled) throw new UploadCancelledError();
 
-    input.onProgress?.(0.05);
-
-    const { error: uploadErr } = await supabase!.storage
-      .from(input.bucket)
-      .upload(path, blob, {
-        contentType: processed.mime,
-        upsert: true,
-      });
-    if (cancelled) throw new UploadCancelledError();
-    if (uploadErr) {
-      throw new Error(uploadErr.message || "Upload failed");
-    }
-
-    input.onProgress?.(1);
+    await xhrUploadToSupabaseStorage({
+      bucket: input.bucket,
+      path,
+      blob,
+      contentType: processed.mime,
+      onProgress: input.onProgress,
+      isCancelled: () => cancelled,
+      setActiveXhr: (xhr) => {
+        activeXhr = xhr;
+      },
+    });
 
     let publicUrl = "";
     if (input.withPublicUrl) {
@@ -156,8 +152,106 @@ export function uploadImage(input: UploadOptions): UploadJob {
     promise,
     cancel: () => {
       cancelled = true;
+      try {
+        activeXhr?.abort();
+      } catch {
+        // ignore — abort can throw if xhr is in an unusual state
+      }
     },
   };
+}
+
+/**
+ * Upload a blob to Supabase Storage via XHR, exposing real progress events.
+ *
+ * The supabase-js SDK uses fetch() internally, which provides no upload
+ * progress on web — so we hit the REST endpoint directly. This also lets
+ * us abort mid-flight and surface CORS/network errors clearly instead of
+ * leaving the promise pending.
+ */
+async function xhrUploadToSupabaseStorage(args: {
+  bucket: string;
+  path: string;
+  blob: Blob;
+  contentType: string;
+  onProgress?: (pct: number) => void;
+  isCancelled: () => boolean;
+  setActiveXhr: (xhr: XMLHttpRequest) => void;
+}): Promise<void> {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+  if (!supabaseUrl) throw new Error("Supabase URL not configured");
+
+  // Fall back to the anon key if no user JWT is present — the bucket's RLS
+  // policies decide what the request can actually do. Both keys are publishable.
+  const { data } = await supabase!.auth.getSession();
+  const accessToken =
+    data?.session?.access_token ??
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!accessToken) throw new Error("Not authenticated");
+
+  if (args.isCancelled()) throw new UploadCancelledError();
+
+  return new Promise<void>((resolve, reject) => {
+    const url = `${supabaseUrl}/storage/v1/object/${args.bucket}/${args.path}`;
+    const xhr = new XMLHttpRequest();
+    args.setActiveXhr(xhr);
+
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.setRequestHeader("x-upsert", "true");
+    xhr.setRequestHeader("Cache-Control", "max-age=3600");
+    if (args.contentType) {
+      xhr.setRequestHeader("Content-Type", args.contentType);
+    }
+
+    // 2 min hard cap — large blobs over slow links would otherwise hang.
+    xhr.timeout = 120_000;
+
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable || e.total === 0) return;
+      // Reserve the last 5% for the server's commit so the bar doesn't
+      // sit at 100% while we wait for the response.
+      const pct = Math.min(0.95, e.loaded / e.total);
+      args.onProgress?.(pct);
+    };
+
+    xhr.onload = () => {
+      if (args.isCancelled()) {
+        reject(new UploadCancelledError());
+        return;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        args.onProgress?.(1);
+        resolve();
+        return;
+      }
+      // Supabase returns JSON errors like { statusCode, error, message }
+      let message = `Upload failed (HTTP ${xhr.status})`;
+      try {
+        const body = JSON.parse(xhr.responseText);
+        if (body?.message) message = body.message;
+        else if (body?.error) message = body.error;
+      } catch {
+        // body wasn't JSON — keep the default message
+      }
+      reject(new Error(message));
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network error during upload"));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error("Upload timed out"));
+    };
+
+    xhr.onabort = () => {
+      reject(new UploadCancelledError());
+    };
+
+    args.onProgress?.(0);
+    xhr.send(args.blob);
+  });
 }
 
 /** Resolve a private storage path → temporary signed URL (default 1h TTL). */
@@ -242,6 +336,7 @@ export function uploadGalleryMedia(input: MediaUploadInput): MediaUploadJob {
   }
 
   let cancelled = false;
+  let activeXhr: XMLHttpRequest | null = null;
 
   const promise = (async (): Promise<MediaUploadResult> => {
     if (input.kind === "image") {
@@ -287,15 +382,20 @@ export function uploadGalleryMedia(input: MediaUploadInput): MediaUploadJob {
     const mime = input.mimeType ?? (input.kind === "video" ? "video/mp4" : "application/octet-stream");
     const path = `${input.authUserId}/${input.fileName}.${ext}`;
 
-    input.onProgress?.(0.05);
-
-    const { error: uploadErr } = await supabase!.storage
-      .from(input.bucket)
-      .upload(path, blob, { contentType: mime, upsert: true });
+    // Reserve the last slice of the bar for the optional thumbnail step.
+    const mainCap = input.kind === "video" ? 0.7 : 1;
+    await xhrUploadToSupabaseStorage({
+      bucket: input.bucket,
+      path,
+      blob,
+      contentType: mime,
+      onProgress: (p) => input.onProgress?.(p * mainCap),
+      isCancelled: () => cancelled,
+      setActiveXhr: (xhr) => {
+        activeXhr = xhr;
+      },
+    });
     if (cancelled) throw new UploadCancelledError();
-    if (uploadErr) throw new Error(uploadErr.message || "Upload failed");
-
-    input.onProgress?.(0.7);
 
     let thumbnailPath: string | undefined;
     let thumbnailUrl: string | undefined;
@@ -347,6 +447,11 @@ export function uploadGalleryMedia(input: MediaUploadInput): MediaUploadJob {
     promise,
     cancel: () => {
       cancelled = true;
+      try {
+        activeXhr?.abort();
+      } catch {
+        // ignore
+      }
     },
   };
 }

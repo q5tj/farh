@@ -4,7 +4,12 @@
   "outputDirectory": "dist",
   "installCommand": "pnpm install --frozen-lockfile=false",
   "framework": null,
+  "trailingSlash": false,
+  "cleanUrls": false,
   "rewrites": [
-    { "source": "/:path*", "destination": "/index.html" }
+    {
+      "source": "/((?!_expo/|assets/|favicon|.*\\.[a-zA-Z0-9]+$).*)",
+      "destination": "/index.html"
+    }
   ]
 }
