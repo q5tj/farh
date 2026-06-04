@@ -363,11 +363,15 @@ export default function BookingFormScreen() {
       // verify the result and route into /booking/:id.
       try {
         const paymentId = await createBookingDepositPaymentRow(booking.id);
-        const origin =
-          Platform.OS === "web" && typeof window !== "undefined"
-            ? window.location.origin
-            : "https://farh-app.vercel.app"; // TODO: real native deep-link
-        const callbackUrl = `${origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+        let callbackUrl: string;
+        
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          callbackUrl = `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+        } else {
+          // Native app deep link
+          callbackUrl = `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+        }
+        
         const { invoice_url } = await createMoyasarInvoice(
           paymentId,
           callbackUrl,

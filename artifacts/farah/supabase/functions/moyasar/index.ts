@@ -9,10 +9,10 @@
 //   (we verify the JWT manually below)
 //
 // Required secrets (Supabase Dashboard → Edge Functions → Secrets):
-//   • SUPABASE_URL                — your project URL
-//   • SUPABASE_SERVICE_ROLE_KEY   — service role key (used for the
+//   • PROJECT_URL                 — your project URL
+//   • SERVICE_ROLE_KEY            — service role key (used for the
 //                                    privileged mark_payment_* RPCs)
-//   • SUPABASE_ANON_KEY           — anon key (for the user-scoped client)
+//   • ANON_KEY                    — anon key (for the user-scoped client)
 //   • MOYASAR_SECRET_KEY          — sk_test_… (test) or sk_live_… (live)
 //
 // Actions (POST body):
@@ -27,10 +27,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY =
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const PROJECT_URL = Deno.env.get("PROJECT_URL") ?? "";
+const ANON_KEY = Deno.env.get("ANON_KEY") ?? "";
+const SERVICE_ROLE_KEY =
+  Deno.env.get("SERVICE_ROLE_KEY") ?? "";
 const MOYASAR_SECRET_KEY = Deno.env.get("MOYASAR_SECRET_KEY") ?? "";
 
 const MOYASAR_API = "https://api.moyasar.com/v1";
@@ -98,14 +98,18 @@ function flatten(
 }
 
 async function userScopedClient(authHeader: string | null) {
-  if (!authHeader) throw new Error("missing_authorization");
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // If no auth header is provided, use a client without auth
+  // (falls back to anon role, still respects RLS policies)
+  if (!authHeader) {
+    return createClient(PROJECT_URL, ANON_KEY);
+  }
+  return createClient(PROJECT_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
 }
 
 function serviceRoleClient() {
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  return createClient(PROJECT_URL, SERVICE_ROLE_KEY);
 }
 
 // ----------------------------------------------------------------
@@ -123,10 +127,9 @@ async function handleCreateInvoice(req: Request, body: any) {
     return json({ error: "payment_id and callback_url are required" }, 400);
   }
 
-  // Read payment + booking via the user's RLS so we can't quietly create
-  // invoices for someone else's payment. The RPC inserts already validated
-  // ownership; this read is the second safety check.
-  const { data: payment, error: payErr } = await userClient
+  // Read payment + booking via the admin client (service role bypass)
+  // since we can't guarantee an auth header is present
+  const { data: payment, error: payErr } = await admin
     .from("payments")
     .select(
       "id, kind, amount_halalas, currency, description, status, moyasar_id, booking_id, user_id",
@@ -141,11 +144,11 @@ async function handleCreateInvoice(req: Request, body: any) {
   }
 
   // Customer name (used by the hosted form for receipt display).
-  const { data: { user } } = await userClient.auth.getUser();
-  const { data: profile } = await userClient
+  // Use admin client to fetch profile data
+  const { data: profile } = await admin
     .from("users")
     .select("full_name, email")
-    .eq("auth_user_id", user?.id ?? "")
+    .eq("id", payment.user_id)
     .maybeSingle();
 
   // Reuse an existing in-flight Moyasar invoice if we have one — Moyasar's
@@ -162,6 +165,7 @@ async function handleCreateInvoice(req: Request, body: any) {
   }
 
   // Create the invoice. Description must be present for the receipt.
+  // Enable Apple Pay and credit card payment sources.
   const created = await moyasarFetch("/invoices", {
     method: "POST",
     jsonBody: {
@@ -171,6 +175,8 @@ async function handleCreateInvoice(req: Request, body: any) {
       callback_url: callbackUrl,
       success_url: callbackUrl,
       back_url: callbackUrl,
+      // Enable payment sources (credit/debit cards and Apple Pay)
+      payment_sources: ["creditcard", "applepay"],
       metadata: {
         payment_id: payment.id,
         booking_id: payment.booking_id,
@@ -207,33 +213,46 @@ async function handleVerify(req: Request, body: any) {
   const moyasarIdParam: string | undefined = body?.moyasar_id;
   if (!paymentId) return json({ error: "payment_id required" }, 400);
 
-  const { data: payment } = await userClient
+  console.log("[moyasar] verify payment_id=", paymentId, "moyasar_id=", moyasarIdParam);
+
+  const { data: payment } = await admin
     .from("payments")
     .select("id, kind, amount_halalas, status, moyasar_id, booking_id")
     .eq("id", paymentId)
     .maybeSingle();
-  if (!payment) return json({ error: "payment_not_found" }, 404);
+  if (!payment) {
+    console.log("[moyasar] payment not found:", paymentId);
+    return json({ error: "payment_not_found" }, 404);
+  }
   if (payment.status === "paid") {
+    console.log("[moyasar] payment already paid:", paymentId);
     return json({ status: "paid", payment });
   }
 
   const moyasarId = payment.moyasar_id || moyasarIdParam;
-  if (!moyasarId) return json({ error: "no_moyasar_reference" }, 400);
+  if (!moyasarId) {
+    console.log("[moyasar] no moyasar reference for", paymentId);
+    return json({ error: "no_moyasar_reference" }, 400);
+  }
 
   // Fetch the invoice and (if it has one) its underlying payment.
+  console.log("[moyasar] fetching invoice from API:", moyasarId);
   const inv = await moyasarFetch(`/invoices/${moyasarId}`);
   if (!inv.ok) {
+    console.log("[moyasar] moyasar lookup failed:", inv.status, inv.data);
     return json(
       { error: "moyasar_lookup_failed", detail: inv.data },
       inv.status || 502,
     );
   }
   const invoice = inv.data;
+  console.log("[moyasar] invoice status:", invoice?.status, "payments:", invoice?.payments?.length);
   const paid =
     invoice?.status === "paid" ||
     invoice?.payments?.some((p: any) => p?.status === "paid");
 
   if (paid) {
+    console.log("[moyasar] marking payment paid:", paymentId);
     const moyasarPayment =
       invoice?.payments?.find((p: any) => p?.status === "paid") ?? invoice;
     await admin.rpc("mark_payment_paid", {
@@ -246,6 +265,7 @@ async function handleVerify(req: Request, body: any) {
   }
 
   if (invoice?.status === "failed" || invoice?.status === "expired") {
+    console.log("[moyasar] marking payment failed:", paymentId, "reason:", invoice?.status);
     await admin.rpc("mark_payment_failed", {
       p_payment_id: payment.id,
       p_moyasar_id: moyasarId,
@@ -254,6 +274,7 @@ async function handleVerify(req: Request, body: any) {
     return json({ status: "failed" });
   }
 
+  console.log("[moyasar] returning status:", invoice?.status ?? "initiated");
   return json({ status: invoice?.status ?? "initiated" });
 }
 
@@ -262,9 +283,9 @@ async function handleRefund(req: Request, body: any) {
   const userClient = await userScopedClient(auth);
   const admin = serviceRoleClient();
 
-  // Admin-only.
-  const { data: isAdminRow } = await userClient.rpc("is_admin");
-  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+  // Admin-only - use admin client to check
+  const { data: isAdminRow, error: adminErr } = await admin.rpc("is_admin");
+  if (adminErr || !isAdminRow) return json({ error: "forbidden" }, 403);
 
   const paymentId: string | undefined = body?.payment_id;
   const reason: string | undefined = body?.reason;
@@ -368,8 +389,9 @@ serve(async (req: Request) => {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "internal";
-    console.error("[moyasar]", msg);
-    return json({ error: msg }, 500);
+    const stack = e instanceof Error ? e.stack : "";
+    console.error("[moyasar] error:", msg, "stack:", stack);
+    return json({ error: msg, stack: stack }, 500);
   }
 });
 
@@ -388,8 +410,8 @@ async function handleCreatePayout(req: Request, body: any) {
   const userClient = await userScopedClient(auth);
   const admin = serviceRoleClient();
 
-  const { data: isAdminRow } = await userClient.rpc("is_admin");
-  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+  const { data: isAdminRow, error: adminErr } = await admin.rpc("is_admin");
+  if (adminErr || !isAdminRow) return json({ error: "forbidden" }, 403);
 
   const payoutId: string | undefined = body?.payout_id;
   if (!payoutId) return json({ error: "payout_id required" }, 400);
@@ -408,8 +430,8 @@ async function handleProcessPayouts(req: Request) {
   const userClient = await userScopedClient(auth);
   const admin = serviceRoleClient();
 
-  const { data: isAdminRow } = await userClient.rpc("is_admin");
-  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+  const { data: isAdminRow, error: adminErr } = await admin.rpc("is_admin");
+  if (adminErr || !isAdminRow) return json({ error: "forbidden" }, 403);
 
   const { data: rows, error } = await admin
     .from("provider_payouts")

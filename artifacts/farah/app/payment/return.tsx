@@ -91,32 +91,61 @@ export default function PaymentReturnScreen() {
 
     async function check() {
       let attempts = 0;
+      let lastError: string | null = null;
       // Moyasar's invoice settle is usually instant after the redirect, but
       // we retry a couple of times in case the webhook is still in flight.
       while (alive && attempts < 3) {
         try {
-          const s = await verifyMoyasarPayment(paymentId!, moyasarId);
+          console.log(
+            "[payment] verify attempt",
+            attempts + 1,
+            "payment_id=",
+            paymentId,
+          );
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout per attempt
+          const s = await Promise.race([
+            verifyMoyasarPayment(paymentId!, moyasarId),
+            new Promise<string>((_, reject) =>
+              controller.signal.addEventListener("abort", () =>
+                reject(new Error("verify_timeout"))
+              )
+            ),
+          ]);
+          clearTimeout(timeoutId);
           if (!alive) return;
+          console.log("[payment] verify result:", s);
           if (s === "paid" || s === "failed" || s === "voided") {
             setStatus(s);
             return;
           }
+          // If we get "initiated" or other non-terminal, retry
         } catch (e) {
           if (!alive) return;
+          lastError = (e as Error)?.message ?? "verify_failed";
+          console.warn("[payment] verify attempt failed:", lastError);
           // Don't override an optimistic "paid" state with a verify error —
           // the customer's card *was* charged per Moyasar, the DB sync just
           // takes a moment. Show a soft warning if we never reach a
           // terminal state.
           if (initialStatus !== "paid") {
-            setError((e as Error)?.message ?? t("paymentVerifyFailed"));
+            setError(lastError);
           }
         }
         attempts += 1;
-        await new Promise((r) => setTimeout(r, 1500));
+        if (attempts < 3) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
       }
       // If we never confirmed and never had an optimistic state, fall back
       // to "initiated" so the user sees the pending UI with a retry button.
-      if (alive && initialStatus === "loading") setStatus("initiated");
+      if (alive && initialStatus === "loading") {
+        console.log(
+          "[payment] verify exhausted, falling back to initiated. lastError=",
+          lastError
+        );
+        setStatus("initiated");
+      }
     }
     check();
     return () => {
