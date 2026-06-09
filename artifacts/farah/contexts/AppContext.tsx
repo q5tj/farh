@@ -560,7 +560,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Helpers / selectors
   // ----------------------------------------------------------
   const getProvider = useCallback(
-    (id: string) => providers.find((p) => p.id === id),
+    // Accepts UUID or slug — routes pass whichever was in the URL.
+    (idOrSlug: string) =>
+      providers.find((p) => p.id === idOrSlug || p.slug === idOrSlug),
     [providers],
   );
   const getProviderBySlug = useCallback(

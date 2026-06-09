@@ -39,6 +39,25 @@ export async function createBookingDepositPaymentRow(
   return data as string;
 }
 
+/**
+ * v30+: customer creates the FULL service-payment row for their booking.
+ * The payment row is then handed to the moyasar edge function, which
+ * issues an invoice against the PROVIDER's Moyasar account (not the
+ * platform's). The provider receives the money directly; the platform's
+ * commission is settled separately via `createCommissionPaymentRow`
+ * after the provider marks the service completed.
+ */
+export async function createServicePaymentRow(
+  bookingId: string,
+): Promise<string> {
+  const { data, error } = await client().rpc(
+    "create_service_payment_pending",
+    { p_booking_id: bookingId },
+  );
+  if (error) throw error;
+  return data as string;
+}
+
 /** Provider creates the commission row for a booking they own. */
 export async function createCommissionPaymentRow(
   bookingId: string,
@@ -327,6 +346,154 @@ export async function verifyMoyasarPayment(
     throw new Error(error?.message || "verify_failed");
   }
   return data.status;
+}
+
+// ============================================================
+// v30+: provider Moyasar connection
+// ============================================================
+
+export type ProviderMoyasarStatus =
+  | "not_connected"
+  | "pending"
+  | "active"
+  | "failed";
+
+export interface ProviderMoyasarState {
+  status: ProviderMoyasarStatus;
+  publishableKey: string | null;
+  connectedAt: Date | null;
+  lastError: string | null;
+}
+
+export async function fetchProviderMoyasarState(
+  providerId: string,
+): Promise<ProviderMoyasarState> {
+  const { data, error } = await client()
+    .from("providers")
+    .select(
+      "moyasar_status, moyasar_publishable_key, moyasar_connected_at, moyasar_last_error",
+    )
+    .eq("id", providerId)
+    .maybeSingle();
+  if (error) throw error;
+  return {
+    status: (data?.moyasar_status as ProviderMoyasarStatus) ?? "not_connected",
+    publishableKey: data?.moyasar_publishable_key ?? null,
+    connectedAt: data?.moyasar_connected_at
+      ? new Date(data.moyasar_connected_at)
+      : null,
+    lastError: data?.moyasar_last_error ?? null,
+  };
+}
+
+/**
+ * Provider pastes their pk_live + sk_live; we hand them to the edge
+ * function which calls Moyasar with the secret key to verify the
+ * credentials actually work. The edge function updates moyasar_status
+ * on the provider row before returning.
+ */
+export async function verifyProviderMoyasarKeys(input: {
+  providerId: string;
+  publishableKey: string;
+  secretKey: string;
+}): Promise<{ status: ProviderMoyasarStatus; error: string | null }> {
+  const { data, error } = await invokeMoyasar<{
+    status: ProviderMoyasarStatus;
+    error: string | null;
+  }>({
+    action: "verify-provider-keys",
+    provider_id: input.providerId,
+    publishable_key: input.publishableKey,
+    secret_key: input.secretKey,
+  });
+  if (error || !data) throw new Error(error?.message ?? "verify_keys_failed");
+  return data;
+}
+
+// ============================================================
+// v30+: outstanding commission per provider
+// ============================================================
+
+export interface CommissionStatus {
+  outstandingSar: number;
+  oldestDueAt: Date | null;
+  daysOverdue: number | null;
+  isSuspended: boolean;
+}
+
+export async function fetchProviderCommissionStatus(
+  providerId: string,
+): Promise<CommissionStatus> {
+  const { data, error } = await client()
+    .from("provider_commission_status")
+    .select("outstanding_sar, oldest_due_at, days_overdue, is_suspended")
+    .eq("provider_id", providerId)
+    .maybeSingle();
+  if (error) throw error;
+  return {
+    outstandingSar: Number(data?.outstanding_sar ?? 0),
+    oldestDueAt: data?.oldest_due_at ? new Date(data.oldest_due_at) : null,
+    daysOverdue:
+      data?.days_overdue != null ? Math.floor(Number(data.days_overdue)) : null,
+    isSuspended: Boolean(data?.is_suspended),
+  };
+}
+
+/**
+ * Provider opens an invoice on the PLATFORM's Moyasar account to settle
+ * a single outstanding commission row. The verify step on return calls
+ * `maybe_unsuspend_provider` so paying clears any active suspension.
+ */
+export async function fetchPendingProviderCommissions(
+  providerId: string,
+): Promise<PaymentRow[]> {
+  const { data, error } = await client()
+    .from("payments")
+    .select(
+      "id, booking_id, kind, status, amount_halalas, app_share_halalas, provider_net_halalas, refunded_amount_halalas, created_at, paid_at",
+    )
+    .eq("provider_id", providerId)
+    .eq("kind", "provider_commission")
+    .in("status", ["pending", "initiated"])
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => mapPayment(r as PaymentRowDb));
+}
+
+// ============================================================
+// v31: reschedule
+// ============================================================
+
+export async function requestReschedule(input: {
+  bookingId: string;
+  newStart: Date;
+  newEnd: Date;
+}): Promise<string> {
+  const { data, error } = await client().rpc("request_reschedule", {
+    p_booking_id: input.bookingId,
+    p_new_start: input.newStart.toISOString(),
+    p_new_end: input.newEnd.toISOString(),
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function acceptReschedule(rescheduleId: string): Promise<void> {
+  const { error } = await client().rpc("accept_reschedule", {
+    p_reschedule_id: rescheduleId,
+  });
+  if (error) throw error;
+}
+
+export async function rejectReschedule(
+  rescheduleId: string,
+  reason?: string,
+): Promise<void> {
+  const { error } = await client().rpc("reject_reschedule", {
+    p_reschedule_id: rescheduleId,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
 }
 
 /**

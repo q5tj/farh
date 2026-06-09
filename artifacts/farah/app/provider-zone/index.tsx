@@ -19,6 +19,12 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
+import {
+  fetchProviderCommissionStatus,
+  fetchProviderMoyasarState,
+  type CommissionStatus,
+  type ProviderMoyasarStatus,
+} from "@/lib/payments";
 
 interface StatCardProps {
   icon: keyof typeof Feather.glyphMap;
@@ -117,6 +123,31 @@ export default function ProviderHome() {
   const grossEarnings = completed.reduce((sum, b) => sum + b.price, 0);
   const netEarnings = grossEarnings * (1 - commissionRate / 100);
 
+  // Moyasar connection status + outstanding commission. These two cards
+  // gate the provider's ability to operate: without an active connection
+  // they can't be paid by customers; with overdue commission they risk
+  // suspension. We fetch on mount and on every focus.
+  const [moyasarStatus, setMoyasarStatus] =
+    React.useState<ProviderMoyasarStatus>("not_connected");
+  const [commission, setCommission] = React.useState<CommissionStatus | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!providerId) return;
+    let alive = true;
+    Promise.allSettled([
+      fetchProviderMoyasarState(providerId),
+      fetchProviderCommissionStatus(providerId),
+    ]).then(([m, com]) => {
+      if (!alive) return;
+      if (m.status === "fulfilled") setMoyasarStatus(m.value.status);
+      if (com.status === "fulfilled") setCommission(com.value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [providerId]);
+
   if (profile?.role !== "admin") {
     if (!providerId) {
       // Waiting for redirect to onboarding.
@@ -177,7 +208,115 @@ export default function ProviderHome() {
           {t("netEarningsNote", { rate: commissionRate })}
         </Text>
 
+        {/* Moyasar connect call-to-action — top of the page when the
+            provider hasn't connected, so it's impossible to miss. The
+            customer can't pay them until this is `active`. */}
+        {moyasarStatus !== "active" ? (
+          <Pressable
+            onPress={() => router.push("/provider-zone/moyasar-connect" as never)}
+            style={({ pressed }) => [
+              styles.alertBanner,
+              {
+                backgroundColor: "#fff7ed",
+                borderColor: "#fdba74",
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Feather name="credit-card" size={18} color="#c2410c" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.alertTitle, { color: "#9a3412" }]}>
+                {t("moyasarBannerTitle")}
+              </Text>
+              <Text style={[styles.alertBody, { color: "#9a3412" }]}>
+                {t("moyasarBannerBody")}
+              </Text>
+            </View>
+            <Feather name="chevron-left" size={18} color="#c2410c" />
+          </Pressable>
+        ) : null}
+
+        {/* Outstanding commission card — only shown when there is unpaid
+            commission. Tap routes to /provider-zone/financials where the
+            "Pay commission" flow lives. */}
+        {commission && commission.outstandingSar > 0 ? (
+          <Pressable
+            onPress={() => router.push("/provider-zone/financials" as never)}
+            style={({ pressed }) => [
+              styles.alertBanner,
+              {
+                backgroundColor:
+                  commission.daysOverdue != null && commission.daysOverdue >= 14
+                    ? "#fee2e2"
+                    : "#fefce8",
+                borderColor:
+                  commission.daysOverdue != null && commission.daysOverdue >= 14
+                    ? "#fca5a5"
+                    : "#fde68a",
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Feather
+              name="alert-circle"
+              size={18}
+              color={
+                commission.daysOverdue != null && commission.daysOverdue >= 14
+                  ? "#b91c1c"
+                  : "#a16207"
+              }
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.alertTitle,
+                  {
+                    color:
+                      commission.daysOverdue != null &&
+                      commission.daysOverdue >= 14
+                        ? "#7f1d1d"
+                        : "#713f12",
+                  },
+                ]}
+              >
+                {t("commissionOutstandingTitle", {
+                  amount: commission.outstandingSar.toLocaleString(),
+                })}
+              </Text>
+              <Text
+                style={[
+                  styles.alertBody,
+                  {
+                    color:
+                      commission.daysOverdue != null &&
+                      commission.daysOverdue >= 14
+                        ? "#7f1d1d"
+                        : "#713f12",
+                  },
+                ]}
+              >
+                {commission.isSuspended
+                  ? t("commissionSuspendedBody")
+                  : commission.daysOverdue != null && commission.daysOverdue >= 14
+                    ? t("commissionWarningBody", { days: commission.daysOverdue })
+                    : t("commissionDueBody")}
+              </Text>
+            </View>
+            <Feather name="chevron-left" size={18} color="#a16207" />
+          </Pressable>
+        ) : null}
+
         <View style={{ gap: 10 }}>
+          <ActionCard
+            icon="credit-card"
+            title={t("moyasarConnect")}
+            desc={
+              moyasarStatus === "active"
+                ? t("moyasarConnectedDesc")
+                : t("moyasarConnectDesc")
+            }
+            onPress={() => router.push("/provider-zone/moyasar-connect" as never)}
+          />
           <ActionCard
             icon="briefcase"
             title={t("manageStoreInfo")}
@@ -201,6 +340,18 @@ export default function ProviderHome() {
             onPress={() => router.push("/provider-zone/requests")}
             tipTitle={t("tipProviderRequestsTitle")}
             tipBody={t("tipProviderRequestsBody")}
+          />
+          <ActionCard
+            icon="calendar"
+            title={t("providerCalendar")}
+            desc={t("providerCalendarDesc")}
+            onPress={() => router.push("/provider-zone/calendar" as never)}
+          />
+          <ActionCard
+            icon="slash"
+            title={t("manageUnavailable")}
+            desc={t("manageUnavailableDesc")}
+            onPress={() => router.push("/provider-zone/unavailable" as never)}
           />
           <ActionCard
             icon="file-text"
@@ -283,5 +434,25 @@ const styles = StyleSheet.create({
     fontFamily: "Cairo_700Bold",
     fontSize: 16,
     textAlign: "right",
+  },
+  alertBanner: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  alertTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  alertBody: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 19,
+    marginTop: 2,
   },
 });

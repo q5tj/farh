@@ -443,7 +443,7 @@ function UserCard({
               onPress={() =>
                 router.push({
                   pathname: "/provider/[id]",
-                  params: { id: user.providerId! },
+                  params: { id: user.providerId!, from: "/admin/users" },
                 })
               }
               style={[styles.browseBtn, { backgroundColor: c.primary }]}

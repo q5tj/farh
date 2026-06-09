@@ -1128,6 +1128,37 @@ export const en: Strings = {
   paymentFailedDesc: "Your card was declined or the payment didn't complete. You can retry from the booking details.",
   paymentPendingTitle: "Payment pending",
   paymentPendingDesc: "Moyasar hasn't settled the payment yet. Check back in a minute.",
+  paymentCancelledTitle: "Payment not completed",
+  paymentCancelledDesc: "You returned before finishing the Moyasar checkout. Retry now, or finish later from your booking details.",
+  retryPayment: "Retry payment",
+  depositPendingTitle: "Deposit not paid yet",
+  depositPendingDesc:
+    "This booking is still waiting on the deposit. Pay now to confirm it before it is automatically cancelled.",
+  payDepositNow: "Pay deposit now",
+
+  // v30+: full-price service payment
+  servicePaymentPendingTitle: "Payment not completed yet",
+  servicePaymentPendingDesc:
+    "This booking is pending until the full amount is paid. Complete payment now to confirm it before it is automatically cancelled.",
+  payServiceNow: "Pay now",
+
+  // v31: reschedule replaces cancel
+  rescheduleBooking: "Reschedule",
+  rescheduleTitle: "Reschedule booking",
+  rescheduleCurrentTime: "Current booking time",
+  pickNewDate: "Pick a new date",
+  pickNewTime: "Pick a new time",
+  rescheduleNote: "The new time needs the provider's approval. We'll notify you when they respond.",
+  submitReschedule: "Send reschedule request",
+  rescheduleSentTitle: "Reschedule request sent",
+  rescheduleSentBody: "We'll notify you as soon as the provider responds.",
+  rescheduleFailed: "Couldn't send the request",
+  rescheduleSlotConflict: "That slot is not available. Pick another time.",
+  rescheduleTooLate:
+    "Cannot reschedule — less than 48 hours remain before the original time.",
+  rescheduleAlreadyPending: "A previous reschedule request is still pending the provider's response.",
+  reschedulePendingNote: "Reschedule request awaiting provider's response.",
+  bookingNotFound: "Booking not found",
   goToBooking: "Open booking",
   checkAgain: "Check again",
 
@@ -1152,6 +1183,79 @@ export const en: Strings = {
   replaceCoverImage: "Replace cover",
   manageStoreInfo: "Store profile",
   manageStoreInfoDesc: "Store name, logo, cover, description",
+
+  // v30+: Provider Moyasar connect
+  moyasarConnect: "Connect Moyasar",
+  moyasarConnectDesc: "Connect to receive customer payments directly",
+  moyasarConnectedDesc: "Your account is connected and active",
+  moyasarBannerTitle: "Connect your Moyasar account",
+  moyasarBannerBody: "Customers pay you directly. You must connect Moyasar before accepting bookings.",
+  moyasarConnectIntroTitle: "How does the connection work?",
+  moyasarConnectIntroBody:
+    "Every customer's full payment lands in your Moyasar account directly. Farhatukum never holds your money. The 10% platform commission is settled by you from the dashboard after each completed service.",
+  moyasarStep1: "Open a Moyasar merchant account (free; needs a commercial registration and IBAN).",
+  moyasarStep2: "From the Moyasar dashboard, copy your live Publishable Key and Secret Key.",
+  moyasarStep3: "Paste the keys here and tap \"Verify and connect\".",
+  openMoyasarSignup: "Open Moyasar signup",
+  openMoyasarDashboard: "Open Moyasar dashboard",
+  moyasarPasteKeysTitle: "Paste your Moyasar keys",
+  moyasarPasteKeysBody:
+    "We verify the keys by calling the Moyasar API. The secret key is stored encrypted and never exposed to clients.",
+  moyasarPkLabel: "Publishable Key",
+  moyasarSkLabel: "Secret Key",
+  moyasarPkInvalid: "Publishable Key must start with pk_",
+  moyasarSkInvalid: "Secret Key must start with sk_",
+  moyasarSkSecurityNote: "The secret key is stored securely and never shown again.",
+  verifyAndConnect: "Verify and connect",
+  moyasarStatusActive: "Your account is connected",
+  moyasarStatusPending: "Awaiting verification",
+  moyasarStatusFailed: "Verification failed",
+  moyasarStatusNotConnected: "Not connected yet",
+  moyasarVerifiedTitle: "Connected successfully",
+  moyasarVerifiedBody: "Your account is ready to receive customer payments.",
+  moyasarVerifyFailedTitle: "Verification failed",
+  moyasarVerifyFailedBody: "Double-check that you copied your live keys correctly from the Moyasar dashboard.",
+  connectedSince: "Connected since {{date}}",
+
+  // v30+: Provider commission banners
+  commissionOutstandingTitle: "Platform commission due: {{amount}} SAR",
+  commissionDueBody: "Pay from your dashboard to avoid any action.",
+  commissionWarningBody:
+    "Overdue by {{days}} day(s). Settle before your account is suspended.",
+  commissionSuspendedBody:
+    "Your account is suspended due to overdue commission. Pay now to reactivate.",
+
+  // Provider calendar + unavailable manager
+  providerCalendar: "My calendar",
+  providerCalendarDesc: "See your whole schedule; tap any day to drill in",
+  manageUnavailable: "Block times",
+  manageUnavailableDesc: "Block windows so customers can't book during personal events, external bookings, or maintenance",
+  manageUnavailableHelpTitle: "How blocking works",
+  manageUnavailableHelpBody:
+    "Pick \"All services\" to close the whole day, or a specific service (hall, package, etc.) if the external booking only affects one. The rest of your services stay open to customers at the same time.",
+  addBlockedWindow: "Add blocked window",
+  noUnavailableTitle: "No blocked windows yet",
+  noUnavailableBody: "Tap \"Add blocked window\" to take a date off your schedule.",
+  unavailableUpcoming: "Upcoming",
+  unavailablePast: "Past",
+  unavailableDeleteTitle: "Delete this block?",
+  unavailableDeleteBody: "This window will be bookable again immediately.",
+  unavailableDeleteFailed: "Couldn't delete",
+  unavailableSaveFailed: "Couldn't save the window",
+  scopeLabel: "Block scope",
+  allServices: "All services",
+  pickDate: "Pick the date",
+  pickDateFirst: "Pick a date first",
+  fullDayBlock: "Full day",
+  startTime: "From",
+  endTime: "To",
+  timeFormatHelp: "24-hour format, e.g. 18:00",
+  reasonOptional: "Reason (optional)",
+  reasonPlaceholder: "e.g. external booking",
+  invalidTimeRange: "End time must be after the start time",
+  calendarLegend: "Legend",
+  calendarLegendOne: "One booking that day",
+  calendarLegendMany: "Multiple bookings",
 
   // Smart location prompt
   locationPromptTitle: "Find providers near you",

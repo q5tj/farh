@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
-import { StatusBar } from "react-native";
+import { Platform, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -26,6 +26,17 @@ import { addPushTapListener } from "@/lib/push";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+// Sets the "underlying" route for modal screens on cold start. Without
+// this, a hard refresh on /booking-form (modal, no parent in history)
+// makes Expo Router on web pick a fallback screen by directory order —
+// which lands on /about (the first non-grouped route alphabetically).
+// Anchoring the initial route to the tab bar means modals always have
+// the home tab behind them, and direct URL refreshes return the user to
+// the exact route they typed.
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
 
 // Apply default direction (AR) on first load. Will be re-applied below
 // once the user's profile language is known.
@@ -118,9 +129,22 @@ function AuthGate() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="category/[id]" />
         <Stack.Screen name="provider/[id]" />
-        <Stack.Screen name="booking-form" options={{ presentation: "modal" }} />
+        {/*
+          Modal presentation is native-only. On web a "modal" route has no
+          underlying parent on a cold refresh, and Expo Router falls back to
+          the first non-grouped screen alphabetically (which lands on /about).
+          Using the default presentation on web makes refresh deterministic.
+        */}
+        <Stack.Screen
+          name="booking-form"
+          options={Platform.OS === "web" ? undefined : { presentation: "modal" }}
+        />
         <Stack.Screen name="booking/[id]" />
-        <Stack.Screen name="rate/[id]" options={{ presentation: "modal" }} />
+        <Stack.Screen name="reschedule/[id]" />
+        <Stack.Screen
+          name="rate/[id]"
+          options={Platform.OS === "web" ? undefined : { presentation: "modal" }}
+        />
         <Stack.Screen name="provider-zone" />
         <Stack.Screen name="admin" />
         <Stack.Screen name="support" />

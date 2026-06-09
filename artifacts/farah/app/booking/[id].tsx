@@ -40,9 +40,9 @@ import {
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
 import {
-  computeRefundAmount,
-  createFinalPaymentRow,
   createMoyasarInvoice,
+  createServicePaymentRow,
+  fetchBookingPayments,
 } from "@/lib/payments";
 
 export default function BookingDetailScreen() {
@@ -143,6 +143,7 @@ export default function BookingDetailScreen() {
   const [paySettings, setPaySettings] = useState<PaymentSettings | null>(null);
   const [refundPreview, setRefundPreview] = useState<number | null>(null);
   const [payingFinal, setPayingFinal] = useState(false);
+  const [payingDeposit, setPayingDeposit] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -184,11 +185,21 @@ export default function BookingDetailScreen() {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }, [booking?.startAt]);
 
-  const startFinalPayment = async () => {
+  // v30+: customer pays the FULL service price (not just a deposit).
+  // The RPC reuses any in-flight payment row so a bounce out of Moyasar
+  // and back doesn't create a second charge. We trim the deposit/final
+  // split — there's nothing left to settle after this single payment.
+  const startServicePayment = async () => {
     if (!booking) return;
-    setPayingFinal(true);
+    setPayingDeposit(true);
     try {
-      const paymentId = await createFinalPaymentRow(booking.id);
+      const existing = await fetchBookingPayments(booking.id);
+      const pending = existing.find(
+        (p) => p.kind === "service_payment" && p.status === "pending",
+      );
+      const paymentId = pending
+        ? pending.id
+        : await createServicePaymentRow(booking.id);
       const callbackUrl =
         Platform.OS === "web" && typeof window !== "undefined"
           ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
@@ -203,7 +214,7 @@ export default function BookingDetailScreen() {
       const msg = (e as Error)?.message ?? t("paymentInitFailed");
       await infoDialog({ title: t("error"), message: msg });
     } finally {
-      setPayingFinal(false);
+      setPayingDeposit(false);
     }
   };
 
@@ -225,8 +236,18 @@ export default function BookingDetailScreen() {
   };
 
   const canRate = booking.status === "completed" && booking.rating == null;
-  const canCancel =
-    booking.status === "pending" || booking.status === "accepted";
+  // v31: cancel is gone. Reschedule is allowed up until
+  // RESCHEDULE_MIN_HOURS before the original start. The client-side
+  // cutoff matches the server-side check in `request_reschedule`.
+  const RESCHEDULE_MIN_HOURS = 48;
+  const hoursUntilStart = booking.startAt
+    ? (new Date(booking.startAt).getTime() - Date.now()) / (1000 * 60 * 60)
+    : 0;
+  const canReschedule =
+    (booking.status === "pending" || booking.status === "accepted") &&
+    booking.paymentStatus === "paid" &&
+    booking.rescheduleStatus !== "pending" &&
+    hoursUntilStart > RESCHEDULE_MIN_HOURS;
 
   const cancelledByLabel =
     booking.cancelledBy === "customer"
@@ -302,6 +323,42 @@ export default function BookingDetailScreen() {
             </View>
           </View>
         </Card>
+
+        {/* Deposit retry CTA — shown only while the booking is still pending
+            payment and hasn't been cancelled. Gives the customer a way back
+            to Moyasar after they bailed out of the first checkout. */}
+        {booking.paymentStatus === "pending" &&
+        !booking.depositPaidAt &&
+        booking.status === "pending" ? (
+          <Card style={{ marginTop: 14 }}>
+            <View style={styles.cancelInfoHead}>
+              <Feather name="alert-circle" size={18} color="#f59e0b" />
+              <Text style={[styles.cancelInfoTitle, { color: c.foreground }]}>
+                {t("servicePaymentPendingTitle")}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 12,
+                color: c.mutedForeground,
+                marginTop: 6,
+                lineHeight: 20,
+                textAlign: "right",
+              }}
+            >
+              {t("servicePaymentPendingDesc")}
+            </Text>
+            <View style={{ marginTop: 12 }}>
+              <Button
+                label={t("payServiceNow")}
+                onPress={startServicePayment}
+                loading={payingDeposit}
+                icon={<Feather name="credit-card" size={16} color="#ffffff" />}
+              />
+            </View>
+          </Card>
+        ) : null}
 
         {booking.rating ? (
           <Card style={{ marginTop: 14 }}>
@@ -479,12 +536,39 @@ export default function BookingDetailScreen() {
               icon={<Feather name="star" size={16} color="#ffffff" />}
             />
           ) : null}
-          {canCancel ? (
+          {canReschedule ? (
             <Button
-              label={t("cancelBookingTitle")}
-              variant="ghost"
-              onPress={() => setCancelOpen(true)}
+              label={t("rescheduleBooking")}
+              variant="secondary"
+              icon={<Feather name="calendar" size={16} color={c.primary} />}
+              onPress={() => router.push(`/reschedule/${booking.id}`)}
             />
+          ) : booking.rescheduleStatus === "pending" ? (
+            <View
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: "#fefce8",
+                borderWidth: 1,
+                borderColor: "#fde68a",
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Feather name="clock" size={16} color="#a16207" />
+              <Text
+                style={{
+                  flex: 1,
+                  color: "#713f12",
+                  fontFamily: "Cairo_600SemiBold",
+                  fontSize: 12,
+                  textAlign: "right",
+                }}
+              >
+                {t("reschedulePendingNote")}
+              </Text>
+            </View>
           ) : null}
 
           <Button

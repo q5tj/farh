@@ -1121,6 +1121,39 @@ export const ar = {
   paymentFailedDesc: "البطاقة رُفضت أو الدفعة لم تكتمل. تقدر تحاول مرة ثانية من تفاصيل الحجز.",
   paymentPendingTitle: "الدفعة قيد المعالجة",
   paymentPendingDesc: "ميسر لم يؤكد الدفعة بعد. عاود التحقق بعد دقيقة.",
+  paymentCancelledTitle: "لم تكتمل عملية الدفع",
+  paymentCancelledDesc: "رجعت قبل ما تكمل السداد لدى ميسر. تقدر تعيد المحاولة الآن أو تكمل لاحقاً من تفاصيل الحجز.",
+  retryPayment: "إعادة المحاولة",
+  depositPendingTitle: "العربون لم يُسدَّد بعد",
+  depositPendingDesc:
+    "ما زال الحجز معلّقاً بانتظار دفع العربون. أكمل السداد الآن لتأكيد الحجز قبل أن يُلغى تلقائياً.",
+  payDepositNow: "ادفع العربون الآن",
+
+  // v30+: full-price service payment (replaces deposit/final split)
+  servicePaymentPendingTitle: "لم يُسدَّد المبلغ بعد",
+  servicePaymentPendingDesc:
+    "الحجز معلّق بانتظار سداد كامل المبلغ. أكمل السداد الآن لتأكيد الحجز قبل أن يُلغى تلقائياً.",
+  payServiceNow: "ادفع المبلغ الآن",
+
+  // v31: reschedule replaces cancel
+  rescheduleBooking: "إعادة جدولة",
+  rescheduleTitle: "إعادة جدولة الحجز",
+  rescheduleCurrentTime: "الوقت الحالي للحجز",
+  pickNewDate: "اختر تاريخاً جديداً",
+  pickNewTime: "اختر وقتاً جديداً",
+  rescheduleNote:
+    "الموعد الجديد يحتاج موافقة المزود. سيتم تنبيهك فور رده.",
+  submitReschedule: "إرسال طلب إعادة الجدولة",
+  rescheduleSentTitle: "تم إرسال طلب إعادة الجدولة",
+  rescheduleSentBody: "نخطرك فور موافقة المزود أو رفضه.",
+  rescheduleFailed: "تعذّر إرسال الطلب",
+  rescheduleSlotConflict: "الوقت اللي اخترته غير متاح. اختر وقتاً آخر.",
+  rescheduleTooLate:
+    "لا يمكن إعادة الجدولة، المتبقي على الموعد الأصلي أقل من 48 ساعة.",
+  rescheduleAlreadyPending:
+    "يوجد طلب إعادة جدولة سابق بانتظار رد المزود.",
+  reschedulePendingNote: "طلب إعادة الجدولة في انتظار رد المزود.",
+  bookingNotFound: "الحجز غير موجود",
   goToBooking: "الذهاب إلى الحجز",
   checkAgain: "تحقق مرة أخرى",
 
@@ -1145,6 +1178,79 @@ export const ar = {
   replaceCoverImage: "تغيير الغلاف",
   manageStoreInfo: "بيانات المتجر",
   manageStoreInfoDesc: "اسم المتجر، الشعار، الغلاف، الوصف",
+
+  // v30+: Provider Moyasar connect
+  moyasarConnect: "ربط حساب ميسر",
+  moyasarConnectDesc: "اربط حسابك لتستلم مدفوعات العملاء مباشرة",
+  moyasarConnectedDesc: "حسابك مربوط وفعّال",
+  moyasarBannerTitle: "اربط حساب ميسر لاستلام المدفوعات",
+  moyasarBannerBody: "العملاء يدفعون لحسابك مباشرة. لازم تربط ميسر عشان تقبل الحجوزات.",
+  moyasarConnectIntroTitle: "كيف يعمل الربط؟",
+  moyasarConnectIntroBody:
+    "كل حجز عميل يدفع المبلغ كامل لحساب ميسر تبعك مباشرة. منصة فرحتكم لا تستلم فلوسك أبداً. عمولة المنصة (10٪) تُسدَّد منك بعد إكمال الخدمة من لوحة التحكم.",
+  moyasarStep1: "افتح حساب تاجر في موقع ميسر (مجاني، يحتاج سجل تجاري وآيبان).",
+  moyasarStep2: "من لوحة ميسر، انسخ Publishable Key و Secret Key (نوع live).",
+  moyasarStep3: "الصق المفاتيح هنا واضغط «تحقق وربط».",
+  openMoyasarSignup: "افتح صفحة التسجيل في ميسر",
+  openMoyasarDashboard: "افتح لوحة تحكم ميسر",
+  moyasarPasteKeysTitle: "الصق مفاتيح ميسر",
+  moyasarPasteKeysBody:
+    "نتحقق من المفاتيح بمحاولة وصول للـ API. لا نخزّن المفتاح السري إلا مشفّراً، ولا يظهر للعميل أبداً.",
+  moyasarPkLabel: "Publishable Key",
+  moyasarSkLabel: "Secret Key",
+  moyasarPkInvalid: "Publishable Key لازم يبدأ بـ pk_",
+  moyasarSkInvalid: "Secret Key لازم يبدأ بـ sk_",
+  moyasarSkSecurityNote: "المفتاح السري يُحفظ آمناً ولا يُعرض في أي مكان.",
+  verifyAndConnect: "تحقق وربط",
+  moyasarStatusActive: "حسابك مربوط بنجاح",
+  moyasarStatusPending: "في انتظار التحقق",
+  moyasarStatusFailed: "فشل الربط",
+  moyasarStatusNotConnected: "لم يتم الربط بعد",
+  moyasarVerifiedTitle: "تم الربط بنجاح",
+  moyasarVerifiedBody: "حسابك جاهز لاستلام المدفوعات من العملاء.",
+  moyasarVerifyFailedTitle: "فشل التحقق",
+  moyasarVerifyFailedBody: "تأكد من نسخ مفاتيح live من لوحة ميسر بشكل صحيح.",
+  connectedSince: "مربوط منذ {{date}}",
+
+  // v30+: Provider commission banners
+  commissionOutstandingTitle: "عمولة منصة مستحقة: {{amount}} ر.س",
+  commissionDueBody: "ادفع العمولة من لوحة التحكم لتجنّب أي إجراء.",
+  commissionWarningBody:
+    "متأخرة منذ {{days}} يوم. السداد ضروري قبل تعليق حسابك.",
+  commissionSuspendedBody:
+    "تم تعليق حسابك بسبب تأخر العمولة. ادفع الآن لإعادة التفعيل.",
+
+  // Provider calendar + unavailable manager
+  providerCalendar: "جدولي الشهري",
+  providerCalendarDesc: "اعرض جدولك الكامل واضغط على أي يوم لتتصفّح حجوزاته",
+  manageUnavailable: "حجب أوقات",
+  manageUnavailableDesc: "بلوك أوقات ما تقدر تستقبل فيها الحجوزات (مناسبة شخصية، حجز خارجي، صيانة)",
+  manageUnavailableHelpTitle: "كيف يعمل الحجب؟",
+  manageUnavailableHelpBody:
+    "اختر «كل الخدمات» لحجب يومك كله، أو خدمة محددة (صالة، باقة، إلخ) لو الحجز الخارجي يخص خدمة واحدة فقط. باقي خدماتك تظل متاحة للعملاء في نفس الوقت.",
+  addBlockedWindow: "إضافة وقت محجوب",
+  noUnavailableTitle: "لا توجد فترات محجوبة",
+  noUnavailableBody: "اضغط «إضافة وقت محجوب» لتعطيل تاريخ معيّن من الجدول.",
+  unavailableUpcoming: "القادم",
+  unavailablePast: "السابق",
+  unavailableDeleteTitle: "حذف فترة الحجب؟",
+  unavailableDeleteBody: "هذه الفترة ستصير متاحة للحجز فوراً.",
+  unavailableDeleteFailed: "تعذّر الحذف",
+  unavailableSaveFailed: "تعذّر حفظ الفترة",
+  scopeLabel: "نطاق الحجب",
+  allServices: "كل الخدمات",
+  pickDate: "اختر التاريخ",
+  pickDateFirst: "اختر التاريخ أولاً",
+  fullDayBlock: "اليوم كامل",
+  startTime: "من",
+  endTime: "إلى",
+  timeFormatHelp: "بصيغة 24 ساعة، مثال: 18:00",
+  reasonOptional: "السبب (اختياري)",
+  reasonPlaceholder: "مثال: حجز خارجي",
+  invalidTimeRange: "وقت الانتهاء لازم يكون بعد وقت البداية",
+  calendarLegend: "دليل الألوان",
+  calendarLegendOne: "حجز واحد في اليوم",
+  calendarLegendMany: "حجوزات متعددة",
 
   // Smart location prompt
   locationPromptTitle: "نلاقي لك المزودين القريبين",

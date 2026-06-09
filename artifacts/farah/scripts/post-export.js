@@ -17,6 +17,7 @@ const fs = require("fs");
 const path = require("path");
 
 const farahDist = path.resolve(__dirname, "..", "dist");
+const farahPublic = path.resolve(__dirname, "..", "public");
 const repoRootDist = path.resolve(__dirname, "..", "..", "..", "dist");
 
 function fail(msg) {
@@ -34,6 +35,22 @@ if (!fs.existsSync(localIndex)) {
     `expo export did not produce index.html in ${farahDist}. ` +
       `Check the expo-router output mode (should be "single" / default).`,
   );
+}
+
+// SEO/AEO static assets — robots.txt, sitemap.xml, llms.txt, manifest,
+// favicon — live in ./public and need to land at the dist root so Vercel
+// serves them at https://farhatukum.com/robots.txt etc. Expo's web export
+// doesn't auto-copy the public folder in every version, so we mirror it
+// here deterministically.
+if (fs.existsSync(farahPublic)) {
+  for (const entry of fs.readdirSync(farahPublic)) {
+    fs.cpSync(
+      path.join(farahPublic, entry),
+      path.join(farahDist, entry),
+      { recursive: true, force: true },
+    );
+  }
+  console.log(`[post-export] copied public/ contents into ${farahDist}`);
 }
 
 // Mirror to repo-root/dist so Vercel's outputDirectory: "dist" finds it.

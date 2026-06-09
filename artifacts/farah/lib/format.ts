@@ -50,6 +50,17 @@ export function formatTimeRange(start: Date, end: Date, lang: AppLang): string {
   return `${formatTime(start, lang)}${dash}${formatTime(end, lang)}`;
 }
 
+/** Compact "09:00 AM" / "09:00 ص" form — no period word. Used in dense
+ *  pickers where space matters more than precise time-of-day naming. */
+export function formatTimeCompact(d: Date, lang: AppLang): string {
+  const h = d.getHours();
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const hh = String(h12).padStart(2, "0");
+  const suffix = lang === "en" ? (h >= 12 ? "PM" : "AM") : h >= 12 ? "م" : "ص";
+  return `${hh}:${mm} ${suffix}`;
+}
+
 export function formatDate(d: Date, lang: AppLang): string {
   const day = d.getDate();
   const month = lang === "en" ? EN_MONTHS[d.getMonth()] : AR_MONTHS[d.getMonth()];

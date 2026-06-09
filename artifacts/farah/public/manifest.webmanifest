@@ -1,0 +1,28 @@
+{
+  "name": "فرحتكم — منصة حجز خدمات الأفراح والمناسبات",
+  "short_name": "فرحتكم",
+  "description": "احجز قاعات الأفراح، مصوّرين، ضيافة، وتنسيق زهور في السعودية بدفع آمن وحماية للطرفين.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#7b2cbf",
+  "theme_color": "#7b2cbf",
+  "lang": "ar-SA",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "shopping", "events"]
+}

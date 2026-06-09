@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -15,6 +15,19 @@ interface Props {
   variant?: "wide" | "horizontal";
 }
 
+// Carry the originating route so the provider screen can return to the
+// exact page the user opened it from, even when the stack is reset by
+// a Moyasar deep-link redirect or a modal dismiss.
+//
+// Prefer the slug (pretty URL like /provider/elite-events) when available,
+// falling back to the UUID for older rows that haven't been backfilled.
+function openProvider(provider: Provider, from: string) {
+  router.push({
+    pathname: "/provider/[id]",
+    params: { id: provider.slug ?? provider.id, from },
+  });
+}
+
 function pickCover(provider: Provider) {
   if (provider.coverUrl) return { uri: provider.coverUrl };
   return COVER_BY_CATEGORY[provider.categorySlug] ?? DEFAULT_COVER;
@@ -26,6 +39,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
   const { isFavorite, toggleFavorite } = useApp();
   const fav = isFavorite(provider.id);
   const cover = pickCover(provider);
+  const from = usePathname();
 
   const onToggleFav = (e: { stopPropagation?: () => void }) => {
     e.stopPropagation?.();
@@ -35,7 +49,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
   if (variant === "horizontal") {
     return (
       <Pressable
-        onPress={() => router.push(`/provider/${provider.id}`)}
+        onPress={() => openProvider(provider, from)}
         style={({ pressed }) => [
           styles.hCard,
           {
@@ -89,7 +103,7 @@ export function ProviderCard({ provider, variant = "wide" }: Props) {
 
   return (
     <Pressable
-      onPress={() => router.push(`/provider/${provider.id}`)}
+      onPress={() => openProvider(provider, from)}
       style={({ pressed }) => [
         styles.card,
         {

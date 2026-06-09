@@ -1,13 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/lib/i18n";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { verifyMoyasarPayment, type VerifyStatus } from "@/lib/payments";
+import {
+  createMoyasarInvoice,
+  verifyMoyasarPayment,
+  type VerifyStatus,
+} from "@/lib/payments";
 
 /**
  * Moyasar redirects the customer back here after the hosted invoice
@@ -35,22 +39,27 @@ export default function PaymentReturnScreen() {
   const bookingId =
     typeof params.booking_id === "string" ? params.booking_id : null;
   const moyasarId = typeof params.id === "string" ? params.id : undefined;
-  // Moyasar always appends ?status=paid|failed|... to the callback URL.
-  // We trust this for the *initial* UI state so the customer sees their
-  // result instantly. The edge function verify call still runs in the
-  // background and is what actually marks the booking paid in our DB.
+  // Moyasar always appends ?status=paid|failed|... when the customer
+  // completes (or fails) checkout. If we DIDN'T receive a status, the
+  // customer hit the browser/OS back button on the hosted invoice — i.e.
+  // they cancelled. We don't want to spin on `verify` for 30+ seconds in
+  // that case; we treat it as "cancelled" immediately and let them retry.
   const moyasarStatusParam =
     typeof params.status === "string" ? params.status.toLowerCase() : null;
-  const initialStatus: VerifyStatus | "loading" =
+  const initialStatus: VerifyStatus | "loading" | "cancelled" =
     moyasarStatusParam === "paid"
       ? "paid"
       : moyasarStatusParam === "failed" || moyasarStatusParam === "voided"
         ? (moyasarStatusParam as VerifyStatus)
-        : "loading";
+        : moyasarStatusParam === null && !paymentId
+          ? "cancelled" // no params at all → user just landed here somehow
+          : moyasarStatusParam === null
+            ? "cancelled" // payment_id present but no status → user backed out
+            : "loading"; // status is something we don't recognise → verify
 
-  const [status, setStatus] = useState<VerifyStatus | "loading" | "error">(
-    initialStatus,
-  );
+  const [status, setStatus] = useState<
+    VerifyStatus | "loading" | "error" | "cancelled" | "retrying"
+  >(initialStatus);
   const [error, setError] = useState<string | null>(null);
   const verifiedRef = useRef(false);
   // Distinguishes "deposit success" vs "final-payment success" messaging.
@@ -78,86 +87,75 @@ export default function PaymentReturnScreen() {
   useEffect(() => {
     if (verifiedRef.current) return;
     verifiedRef.current = true;
-    if (!paymentId) {
-      if (!moyasarStatusParam) {
-        setError(t("paymentMissingId"));
-        setStatus("error");
-      }
-      // If we have a status from Moyasar but no payment_id, just show
-      // the optimistic state — verify can't run without our internal id.
-      return;
-    }
-    let alive = true;
+    // Only run the verify round-trip when Moyasar told us "paid" (we still
+    // confirm against the DB) — every other initial state is already final
+    // and showing a spinner would just waste the user's time.
+    if (initialStatus !== "paid") return;
+    if (!paymentId) return;
 
-    async function check() {
-      let attempts = 0;
-      let lastError: string | null = null;
-      // Moyasar's invoice settle is usually instant after the redirect, but
-      // we retry a couple of times in case the webhook is still in flight.
-      while (alive && attempts < 3) {
-        try {
-          console.log(
-            "[payment] verify attempt",
-            attempts + 1,
-            "payment_id=",
-            paymentId,
-          );
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout per attempt
-          const s = await Promise.race([
-            verifyMoyasarPayment(paymentId!, moyasarId),
-            new Promise<string>((_, reject) =>
-              controller.signal.addEventListener("abort", () =>
-                reject(new Error("verify_timeout"))
-              )
-            ),
-          ]);
-          clearTimeout(timeoutId);
-          if (!alive) return;
-          console.log("[payment] verify result:", s);
-          if (s === "paid" || s === "failed" || s === "voided") {
-            setStatus(s);
-            return;
-          }
-          // If we get "initiated" or other non-terminal, retry
-        } catch (e) {
-          if (!alive) return;
-          lastError = (e as Error)?.message ?? "verify_failed";
-          console.warn("[payment] verify attempt failed:", lastError);
-          // Don't override an optimistic "paid" state with a verify error —
-          // the customer's card *was* charged per Moyasar, the DB sync just
-          // takes a moment. Show a soft warning if we never reach a
-          // terminal state.
-          if (initialStatus !== "paid") {
-            setError(lastError);
-          }
+    let alive = true;
+    (async () => {
+      try {
+        const s = await verifyMoyasarPayment(paymentId, moyasarId);
+        if (!alive) return;
+        if (s === "paid" || s === "failed" || s === "voided") {
+          setStatus(s);
         }
-        attempts += 1;
-        if (attempts < 3) {
-          await new Promise((r) => setTimeout(r, 1500));
-        }
+        // If Moyasar said "paid" in the URL but the verify still sees
+        // "initiated", keep the optimistic "paid" UI — the webhook will
+        // settle the DB row in seconds and we don't want to flip the
+        // user's screen to an error.
+      } catch (e) {
+        if (!alive) return;
+        const msg = (e as Error)?.message ?? "verify_failed";
+        console.warn("[payment] verify failed (keeping optimistic paid):", msg);
+        setError(msg);
       }
-      // If we never confirmed and never had an optimistic state, fall back
-      // to "initiated" so the user sees the pending UI with a retry button.
-      if (alive && initialStatus === "loading") {
-        console.log(
-          "[payment] verify exhausted, falling back to initiated. lastError=",
-          lastError
-        );
-        setStatus("initiated");
-      }
-    }
-    check();
+    })();
     return () => {
       alive = false;
     };
-  }, [paymentId, moyasarId, t, moyasarStatusParam, initialStatus]);
+  }, [paymentId, moyasarId, initialStatus]);
 
   const goToBooking = () => {
     if (bookingId) router.replace(`/booking/${bookingId}`);
     else router.replace("/(tabs)/bookings");
   };
-  const retry = () => {
+
+  // "Retry" after a cancel/fail re-creates the Moyasar invoice for the
+  // SAME payment row and sends the customer back to checkout. The edge
+  // function reuses an in-flight invoice, so the customer doesn't get
+  // double-charged.
+  const retryPayment = async () => {
+    if (!paymentId || !bookingId) {
+      // No ids → can't retry, just send them to the booking screen.
+      goToBooking();
+      return;
+    }
+    setStatus("retrying");
+    setError(null);
+    try {
+      const callbackUrl =
+        Platform.OS === "web" && typeof window !== "undefined"
+          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${bookingId}`
+          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${bookingId}`;
+      const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.href = invoice_url;
+      } else {
+        await Linking.openURL(invoice_url);
+        // Customer left for Moyasar; reset the screen so a future redirect
+        // back here doesn't show the "retrying" spinner forever.
+        setStatus("cancelled");
+      }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? "retry_failed";
+      setError(msg);
+      setStatus("cancelled");
+    }
+  };
+
+  const retryVerify = () => {
     setStatus("loading");
     setError(null);
     verifiedRef.current = false;
@@ -207,7 +205,31 @@ export default function PaymentReturnScreen() {
           <Text style={[styles.body, { color: c.mutedForeground }]}>
             {t("paymentFailedDesc")}
           </Text>
-          <Button label={t("goToBooking")} onPress={goToBooking} size="lg" />
+          <Button label={t("retryPayment")} onPress={retryPayment} size="lg" />
+          <Button label={t("goToBooking")} onPress={goToBooking} variant="ghost" />
+        </>
+      ) : status === "cancelled" ? (
+        <>
+          <View
+            style={[styles.iconWrap, { backgroundColor: "rgba(245,158,11,0.12)" }]}
+          >
+            <Feather name="alert-circle" size={48} color="#f59e0b" />
+          </View>
+          <Text style={[styles.title, { color: c.foreground }]}>
+            {t("paymentCancelledTitle")}
+          </Text>
+          <Text style={[styles.body, { color: c.mutedForeground }]}>
+            {error ?? t("paymentCancelledDesc")}
+          </Text>
+          <Button label={t("retryPayment")} onPress={retryPayment} size="lg" />
+          <Button label={t("goToBooking")} onPress={goToBooking} variant="ghost" />
+        </>
+      ) : status === "retrying" ? (
+        <>
+          <ActivityIndicator color={c.primary} size="large" />
+          <Text style={[styles.title, { color: c.foreground }]}>
+            {t("paymentVerifying")}
+          </Text>
         </>
       ) : status === "error" ? (
         <>
@@ -222,7 +244,7 @@ export default function PaymentReturnScreen() {
           <Text style={[styles.body, { color: c.mutedForeground }]}>
             {error ?? t("paymentVerifyFailed")}
           </Text>
-          <Button label={t("retry")} onPress={retry} size="lg" />
+          <Button label={t("retry")} onPress={retryVerify} size="lg" />
         </>
       ) : (
         // initiated / pending — Moyasar hasn't settled yet.
@@ -240,7 +262,7 @@ export default function PaymentReturnScreen() {
           </Text>
           <Button
             label={t("checkAgain")}
-            onPress={retry}
+            onPress={retryVerify}
             size="lg"
             variant="secondary"
           />

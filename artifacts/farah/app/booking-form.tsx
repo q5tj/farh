@@ -39,6 +39,7 @@ import {
   type PaymentSettings,
   type Provider,
 } from "@/lib/data";
+import { formatTimeCompact } from "@/lib/format";
 import {
   formatDurationMinutes,
   formatShortDate,
@@ -52,30 +53,9 @@ import {
   isMapUrl,
 } from "@/lib/location";
 import {
-  createBookingDepositPaymentRow,
   createMoyasarInvoice,
+  createServicePaymentRow,
 } from "@/lib/payments";
-
-function getNextDays(
-  count: number,
-  t: (k: import("@/locales/ar").StringKey) => string,
-  lang: string,
-) {
-  const arr: { label: string; sub: string; iso: string; date: Date }[] = [];
-  const today = new Date();
-  for (let i = 1; i <= count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    d.setHours(0, 0, 0, 0);
-    arr.push({
-      label: formatShortDate(d, t, lang),
-      sub: formatWeekday(d, t),
-      iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-      date: d,
-    });
-  }
-  return arr;
-}
 
 export default function BookingFormScreen() {
   const c = useColors();
@@ -157,16 +137,27 @@ export default function BookingFormScreen() {
     };
   }, [service, paySettings]);
 
-  const days = useMemo(() => getNextDays(14, t, lang), [t, lang]);
-  const availableIsoSet = useMemo(
-    () => new Set(days.map((d) => d.iso)),
-    [days],
-  );
-  const [selectedDayIso, setSelectedDayIso] = useState(days[1]?.iso ?? "");
-  const selectedDay = useMemo(
-    () => days.find((d) => d.iso === selectedDayIso) ?? days[0],
-    [days, selectedDayIso],
-  );
+  // The calendar accepts any future date — no upper cap. The earlier
+  // 180-day allow-list pre-generation was fighting the Calendar widget,
+  // which already supports browsing arbitrary months. We just default
+  // the selection to tomorrow so the form has something on first open.
+  const tomorrowIso = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const [selectedDayIso, setSelectedDayIso] = useState(tomorrowIso);
+  const selectedDay = useMemo(() => {
+    if (!selectedDayIso) return null;
+    const [y, m, dd] = selectedDayIso.split("-").map(Number);
+    const date = new Date(y, m - 1, dd);
+    return {
+      iso: selectedDayIso,
+      date,
+      label: formatShortDate(date, t, lang),
+      sub: formatWeekday(date, t),
+    };
+  }, [selectedDayIso, t, lang]);
 
   // Available slots for the selected day
   const [busy, setBusy] = useState<{ start: Date; end: Date }[]>([]);
@@ -183,13 +174,16 @@ export default function BookingFormScreen() {
   // → re-render → new selectedDay → effect runs again → spinner never
   // clears until a hard refresh.
   const providerId_ = provider?.id;
+  const serviceId_ = service?.id;
   useEffect(() => {
     if (!providerId_ || !selectedDayIso) return;
     let alive = true;
     setSlotsLoading(true);
     const [y, m, d] = selectedDayIso.split("-").map(Number);
     const dayDate = new Date(y, m - 1, d);
-    fetchProviderBusyIntervals(providerId_, dayDate)
+    // Scope busy intervals to the chosen service so a venue with multiple
+    // halls doesn't block Hall A just because Hall B is taken.
+    fetchProviderBusyIntervals(providerId_, dayDate, serviceId_)
       .then((intervals) => {
         if (alive) setBusy(intervals);
       })
@@ -202,7 +196,7 @@ export default function BookingFormScreen() {
     return () => {
       alive = false;
     };
-  }, [providerId_, selectedDayIso]);
+  }, [providerId_, serviceId_, selectedDayIso]);
 
   // Reset selected slot when day changes
   useEffect(() => {
@@ -356,13 +350,14 @@ export default function BookingFormScreen() {
       });
       setConfirmOpen(false);
 
-      // Kick off the deposit payment flow. We create a pending DB row
-      // (validates ownership + computes deposit), then ask the edge
-      // function for a Moyasar hosted invoice URL, then send the user
-      // there. Moyasar redirects them back to /payment/return where we
-      // verify the result and route into /booking/:id.
+      // v30+: customer pays the FULL service price into the provider's
+      // own Moyasar account. We create a pending payment row (the RPC
+      // validates ownership + reuses any in-flight row), then ask the
+      // edge function for a Moyasar invoice URL. Moyasar redirects the
+      // customer back to /payment/return where we verify the result and
+      // route into /booking/:id.
       try {
-        const paymentId = await createBookingDepositPaymentRow(booking.id);
+        const paymentId = await createServicePaymentRow(booking.id);
         let callbackUrl: string;
         
         if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -397,10 +392,14 @@ export default function BookingFormScreen() {
         ? t("slotTaken")
         : err?.message ?? t("bookingCreateFailed");
       setConfirmOpen(false);
-      if (isSlotTaken) {
+      if (isSlotTaken && selectedDay) {
         // Refetch busy intervals so the slot is filtered out
         try {
-          const intervals = await fetchProviderBusyIntervals(provider.id, selectedDay.date);
+          const intervals = await fetchProviderBusyIntervals(
+            provider.id,
+            selectedDay.date,
+            service.id,
+          );
           setBusy(intervals);
           setSelectedSlot(null);
         } catch {
@@ -462,7 +461,6 @@ export default function BookingFormScreen() {
           <Calendar
             value={selectedDayIso}
             onChange={(iso) => setSelectedDayIso(iso)}
-            availableDays={availableIsoSet}
           />
 
           <Text
@@ -489,7 +487,8 @@ export default function BookingFormScreen() {
           ) : (
             <View style={styles.timesGrid}>
               {slots.map((slot) => {
-                const active = selectedSlot?.start.getTime() === slot.start.getTime();
+                const active =
+                  selectedSlot?.start.getTime() === slot.start.getTime();
                 return (
                   <Pressable
                     key={slot.start.toISOString()}
@@ -497,9 +496,8 @@ export default function BookingFormScreen() {
                     style={[
                       styles.timeChip,
                       {
-                        backgroundColor: active ? c.primaryBg : c.background,
+                        backgroundColor: active ? c.primary : c.card,
                         borderColor: active ? c.primary : c.border,
-                        borderRadius: 12,
                       },
                     ]}
                   >
@@ -507,14 +505,14 @@ export default function BookingFormScreen() {
                       style={[
                         styles.timeChipText,
                         {
-                          color: active ? c.primary : c.foreground,
+                          color: active ? "#ffffff" : c.foreground,
                           fontFamily: active
                             ? "Cairo_700Bold"
                             : "Cairo_500Medium",
                         },
                       ]}
                     >
-                      {slot.label}
+                      {formatTimeCompact(slot.start, lang as "ar" | "en")}
                     </Text>
                   </Pressable>
                 );
@@ -926,13 +924,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "right",
   },
-  timesGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
-  timeChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1.5,
+  timesGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 6,
   },
-  timeChipText: { fontSize: 13 },
+  timeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    minWidth: 76,
+    alignItems: "center",
+  },
+  timeChipText: { fontSize: 12 },
   cityChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,

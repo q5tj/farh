@@ -36,6 +36,7 @@ interface ProviderRow {
   id: string;
   user_id: string | null;
   category_id: string;
+  slug: string;
   name: string;
   name_ar: string | null;
   name_en: string | null;
@@ -133,6 +134,9 @@ interface BookingRow {
   cancelled_by: string | null;
   cancellation_reason: string | null;
   refund_status: RefundStatus | null;
+  reschedule_status: "none" | "pending" | "accepted" | "rejected" | null;
+  reschedule_count: number | null;
+  rescheduled_from_at: string | null;
   created_at: string;
   user?: { full_name: string | null; phone: string | null; email: string | null } | null;
   provider?: { name: string | null; name_ar: string | null } | null;
@@ -236,6 +240,8 @@ export interface ProviderService {
 
 export interface Provider {
   id: string;
+  /** URL-safe identifier derived from name_en. Use this for routes. */
+  slug: string;
   userId: string | null;
   categoryId: string;
   categorySlug: string; // for COVER_BY_CATEGORY fallback
@@ -312,6 +318,11 @@ export interface Booking {
   cancelledAt: string | null;
   cancelledBy: string | null;
   cancellationReason: string | null;
+  // v31: reschedule lifecycle. Customer can request a new time; provider
+  // accepts/rejects. Only one request can be 'pending' at a time.
+  rescheduleStatus: "none" | "pending" | "accepted" | "rejected";
+  rescheduleCount: number;
+  rescheduledFromAt: string | null;
   providerName: string | null;
   createdAt: number; // ms
   rating: number | null;
@@ -435,6 +446,7 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
 
   return {
     id: row.id,
+    slug: row.slug,
     userId: row.user_id,
     categoryId: row.category_id,
     categorySlug: row.category?.slug ?? "",
@@ -523,6 +535,9 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
       row.commission_amount != null ? Number(row.commission_amount) : 0,
     commissionPaidAt: row.commission_paid_at,
     commissionPaymentNote: row.commission_payment_note,
+    rescheduleStatus: row.reschedule_status ?? "none",
+    rescheduleCount: row.reschedule_count ?? 0,
+    rescheduledFromAt: row.rescheduled_from_at,
   };
 }
 
@@ -664,7 +679,7 @@ export async function fetchCategories(lang: AppLang): Promise<Category[]> {
 // PROVIDERS
 // ============================================================
 const PROVIDER_SELECT = `
-  id, user_id, category_id, name, name_ar, name_en,
+  id, user_id, category_id, slug, name, name_ar, name_en,
   description, description_ar, description_en,
   city, phone, email, iban, iban_document_path, moyasar_seller_id, cover_url,
   logo_url, commercial_registration_path, tax_number_path,
@@ -703,14 +718,19 @@ export async function fetchProviders(lang: AppLang): Promise<Provider[]> {
   );
 }
 
+// UUIDs (8-4-4-4-12 hex). Anything else is treated as a slug. This lets
+// the [id] route accept either form without breaking older deep links.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function fetchProviderById(
-  id: string,
+  idOrSlug: string,
   lang: AppLang,
 ): Promise<Provider | null> {
+  const isUuid = UUID_RE.test(idOrSlug);
   const { data, error } = await client()
     .from("providers")
     .select(PROVIDER_SELECT)
-    .eq("id", id)
+    .eq(isUuid ? "id" : "slug", idOrSlug)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
@@ -953,6 +973,7 @@ const BOOKING_SELECT = `
   commission_rate, commission_status, commission_amount,
   commission_paid_at, commission_payment_note,
   cancelled_at, cancelled_by, cancellation_reason, refund_status,
+  reschedule_status, reschedule_count, rescheduled_from_at,
   created_at,
   user:users!bookings_user_id_fkey ( full_name, phone, email ),
   provider:providers!bookings_provider_id_fkey ( name, name_ar ),
@@ -963,6 +984,15 @@ export async function fetchUserBookings(
   userId: string,
   lang: AppLang,
 ): Promise<Booking[]> {
+  // Best-effort lazy cleanup of abandoned-checkout rows. We don't block
+  // on it — even if pg_cron is enabled and already running it, this is
+  // cheap (empty delete in steady state). If the RPC isn't deployed yet
+  // we silently swallow the error so older clients keep working.
+  client()
+    .rpc("cleanup_unpaid_bookings")
+    .then(() => {})
+    .catch(() => {});
+
   const { data, error } = await client()
     .from("bookings")
     .select(BOOKING_SELECT)
@@ -985,18 +1015,118 @@ export async function fetchProviderBookings(
   return ((data ?? []) as unknown as BookingRow[]).map((r) => mapBooking(r, lang));
 }
 
-/** Fetch the busy intervals for a provider on a given local date, via the
- *  SECURITY DEFINER RPC. Used by the booking form to filter unavailable slots.
+// ============================================================
+// Provider unavailable periods (manual time blocks)
+// ============================================================
+
+export interface UnavailablePeriod {
+  id: string;
+  providerId: string;
+  /** null = blocks every service the provider owns. */
+  serviceId: string | null;
+  /** null = legacy/orphaned row whose service was deleted. */
+  serviceTitle: string | null;
+  startAt: Date;
+  endAt: Date;
+  reason: string | null;
+  createdAt: Date;
+}
+
+interface UnavailableRow {
+  id: string;
+  provider_id: string;
+  service_id: string | null;
+  start_at: string;
+  end_at: string;
+  reason: string | null;
+  created_at: string;
+  service: { title: string | null } | null;
+}
+
+function mapUnavailable(r: UnavailableRow): UnavailablePeriod {
+  return {
+    id: r.id,
+    providerId: r.provider_id,
+    serviceId: r.service_id,
+    serviceTitle: r.service?.title ?? null,
+    startAt: new Date(r.start_at),
+    endAt: new Date(r.end_at),
+    reason: r.reason,
+    createdAt: new Date(r.created_at),
+  };
+}
+
+/** Provider lists their own blocked windows, ordered upcoming-first. */
+export async function fetchProviderUnavailablePeriods(
+  providerId: string,
+): Promise<UnavailablePeriod[]> {
+  const { data, error } = await client()
+    .from("provider_unavailable_periods")
+    .select(
+      "id, provider_id, service_id, start_at, end_at, reason, created_at, service:services(title)",
+    )
+    .eq("provider_id", providerId)
+    .order("start_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as unknown as UnavailableRow[]).map(mapUnavailable);
+}
+
+export async function createUnavailablePeriod(input: {
+  providerId: string;
+  serviceId: string | null;
+  startAt: Date;
+  endAt: Date;
+  reason?: string;
+}): Promise<UnavailablePeriod> {
+  const { data, error } = await client()
+    .from("provider_unavailable_periods")
+    .insert({
+      provider_id: input.providerId,
+      service_id: input.serviceId,
+      start_at: input.startAt.toISOString(),
+      end_at: input.endAt.toISOString(),
+      reason: input.reason?.trim() || null,
+    })
+    .select(
+      "id, provider_id, service_id, start_at, end_at, reason, created_at, service:services(title)",
+    )
+    .single();
+  if (error) throw error;
+  return mapUnavailable(data as unknown as UnavailableRow);
+}
+
+export async function deleteUnavailablePeriod(id: string): Promise<void> {
+  const { error } = await client()
+    .from("provider_unavailable_periods")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Fetch the busy intervals for a service on a given local date.
+ *
+ *  Used by the customer booking form, which now scopes availability to
+ *  the chosen service: a venue with 3 halls can accept bookings on Hall
+ *  A even while Hall B is taken at the same time. When `serviceId` is
+ *  omitted we fall back to the legacy per-provider RPC so older callers
+ *  (admin / calendar views) keep working.
  */
 export async function fetchProviderBusyIntervals(
   providerId: string,
   date: Date,
+  serviceId?: string,
 ): Promise<{ start: Date; end: Date }[]> {
   const day = formatLocalDate(date);
-  const { data, error } = await client().rpc("provider_busy_intervals", {
-    p_id: providerId,
-    day,
-  });
+  const { data, error } = serviceId
+    ? await client().rpc("service_busy_intervals", {
+        p_provider_id: providerId,
+        p_service_id: serviceId,
+        day,
+      })
+    : await client().rpc("provider_busy_intervals", {
+        p_id: providerId,
+        day,
+      });
   if (error) throw error;
   return ((data ?? []) as { start_at: string; end_at: string }[]).map((r) => ({
     start: new Date(r.start_at),

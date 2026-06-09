@@ -40,8 +40,12 @@ export default function ProviderScreen() {
   const { height: vh } = useWindowDimensions();
   // Adapt the hero image to the viewport: 32% of viewport height, clamped 220-320.
   const heroHeight = Math.min(320, Math.max(220, Math.round(vh * 0.32)));
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const providerId = String(id);
+  // `from` is set by whoever pushed us here (ProviderCard, admin, etc.)
+  // so the back arrow can return the user to the exact origin even if the
+  // navigation stack got reset (e.g. by a Moyasar deep-link round trip).
+  const fromPath = typeof from === "string" && from.length > 0 ? from : null;
   const { profile } = useAuth();
   const lang = profile?.language ?? "ar";
   const { getProvider, getCategoryById } = useApp();
@@ -136,7 +140,13 @@ export default function ProviderScreen() {
     if (!selectedServiceId) return;
     router.push({
       pathname: "/booking-form",
-      params: { providerId: provider.id, serviceId: selectedServiceId },
+      params: {
+        // Pretty URL: pass the slug so the address bar reads
+        // /booking-form?providerId=elite-events&serviceId=…
+        // instead of two raw UUIDs. booking-form resolves either.
+        providerId: provider.slug ?? provider.id,
+        serviceId: selectedServiceId,
+      },
     });
   };
 
@@ -162,8 +172,13 @@ export default function ProviderScreen() {
           >
             <Pressable
               onPress={() => {
-                if (router.canGoBack()) router.back();
-                else router.replace("/(tabs)");
+                if (fromPath) {
+                  router.replace(fromPath as never);
+                } else if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)");
+                }
               }}
               style={styles.iconBtn}
             >
