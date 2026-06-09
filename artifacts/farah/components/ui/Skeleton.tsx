@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import Animated, {
-  Easing,
   FadeIn,
   FadeOut,
   useAnimatedStyle,
@@ -97,11 +96,17 @@ export function CategoryPillSkeleton() {
 /**
  * Wrap content that replaces a skeleton — fades it in over 250ms.
  * Use as: `<FadeIntoView>{realContent}</FadeIntoView>`
+ *
+ * We deliberately don't pass `.easing(Easing.out(Easing.cubic))` because
+ * Reanimated's layout-animation runtime on web only supports linear
+ * easing — passing a bezier curve emits a noisy warning on every mount
+ * and silently falls back to linear anyway. The default Reanimated curve
+ * is a good-enough fade-in on both platforms.
  */
 export function FadeIntoView({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return (
     <Animated.View
-      entering={FadeIn.duration(280).easing(Easing.out(Easing.cubic))}
+      entering={FadeIn.duration(280)}
       exiting={FadeOut.duration(180)}
       style={style}
     >
