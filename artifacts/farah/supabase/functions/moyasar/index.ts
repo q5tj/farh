@@ -130,16 +130,27 @@ function serviceRoleClient() {
 // ----------------------------------------------------------------
 
 /**
- * Pick the right Moyasar secret key for a given payment kind. Service
- * payments go to the provider's account; everything else goes to the
- * platform's. Returns null + error when the provider hasn't connected
- * their account yet (the UI must surface "connect Moyasar" first).
+ * Pick the right Moyasar secret key for a given payment kind:
+ *
+ *   • booking_deposit  → PROVIDER's key (provider receives the 10%
+ *                        deposit directly into their account).
+ *   • service_payment  → PROVIDER's key (legacy alias for deposit
+ *                        from v30/v35 — kept so older app builds work).
+ *   • final_payment    → PLATFORM's key (the 90% lands with us; we
+ *                        keep the 10% commission and Payout the rest
+ *                        back to the provider — see auto_queue
+ *                        trigger in v35).
+ *   • provider_commission → PLATFORM's key (kept for old commission
+ *                           settlement flows; unused in the new path).
  */
 async function pickSecretKey(
   admin: ReturnType<typeof serviceRoleClient>,
   payment: { kind: string; provider_id: string },
 ): Promise<{ secretKey: string | null; error?: string }> {
-  if (payment.kind !== "service_payment") {
+  const providerScoped =
+    payment.kind === "booking_deposit" || payment.kind === "service_payment";
+
+  if (!providerScoped) {
     if (!PLATFORM_SECRET_KEY) return { secretKey: null, error: "platform_key_missing" };
     return { secretKey: PLATFORM_SECRET_KEY };
   }
@@ -290,12 +301,20 @@ async function handleVerify(_req: Request, body: any) {
       p_moyasar_status: moyasarPayment.status ?? invoice.status,
       p_source: moyasarPayment.source ?? null,
     });
-    // If this was a commission settlement, try lifting the suspension
-    // (no-op if there's still outstanding commission on the provider).
+    // Side-effects keyed on payment kind:
+    //   • provider_commission → lift any active suspension (no-op if
+    //     there's still outstanding commission).
+    //   • final_payment → v35 trigger has already queued a payout row;
+    //     we immediately try to dispatch it via Moyasar Payouts so the
+    //     provider doesn't have to wait for the next cron tick.
     if (payment.kind === "provider_commission") {
       await admin.rpc("maybe_unsuspend_provider", {
         p_provider_id: payment.provider_id,
       });
+    } else if (payment.kind === "final_payment") {
+      await processQueuedPayouts(admin).catch((e) =>
+        console.warn("[moyasar] auto payout failed (will retry via cron):", e),
+      );
     }
     return json({ status: "paid" });
   }
@@ -369,6 +388,118 @@ async function handleVerifyProviderKeys(req: Request, body: any) {
 }
 
 // ----------------------------------------------------------------
+// Payouts — Moyasar Payouts API
+// ----------------------------------------------------------------
+const PAYOUT_SOURCE_ID = Deno.env.get("MOYASAR_PAYOUT_SOURCE_ID") ?? "";
+
+/**
+ * Process every queued provider_payouts row. Called by the verify
+ * handler immediately after a final_payment is marked paid, and by
+ * an admin button as a manual catch-up. Idempotent — already-processed
+ * rows are skipped via the status check.
+ */
+async function processQueuedPayouts(
+  admin: ReturnType<typeof serviceRoleClient>,
+): Promise<{ processed: number; results: any[] }> {
+  if (!PAYOUT_SOURCE_ID || !PLATFORM_SECRET_KEY) {
+    return { processed: 0, results: [{ error: "payout_config_missing" }] };
+  }
+  const { data: rows } = await admin
+    .from("provider_payouts")
+    .select("id")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(50);
+
+  const results: any[] = [];
+  for (const row of rows ?? []) {
+    const r = await processPayoutRow(admin, row.id);
+    results.push({ id: row.id, ok: !r.error, reason: r.error });
+  }
+  return { processed: results.length, results };
+}
+
+async function processPayoutRow(
+  admin: ReturnType<typeof serviceRoleClient>,
+  payoutId: string,
+): Promise<{ moyasar_id?: string; error?: string }> {
+  const { data: payout } = await admin
+    .from("provider_payouts")
+    .select("id, provider_id, booking_id, amount_halalas, status, payout_type")
+    .eq("id", payoutId)
+    .maybeSingle();
+  if (!payout) return { error: "payout_not_found" };
+  if (payout.status !== "queued") {
+    return { error: `payout_not_queued_${payout.status}` };
+  }
+
+  const { data: provider } = await admin
+    .from("providers")
+    .select("id, name, name_ar, iban, phone")
+    .eq("id", payout.provider_id)
+    .maybeSingle();
+  if (!provider) return { error: "provider_not_found" };
+  if (!provider.iban) return { error: "provider_has_no_iban" };
+
+  const created = await moyasarFetch(PLATFORM_SECRET_KEY, "/payouts", {
+    method: "POST",
+    jsonBody: {
+      source_id: PAYOUT_SOURCE_ID,
+      amount: payout.amount_halalas,
+      purpose: "payment_to_merchant",
+      comment: `Farah booking ${payout.booking_id ?? "(none)"} — ${payout.payout_type}`,
+      destination: {
+        type: "bank",
+        iban: provider.iban,
+        name: provider.name_ar ?? provider.name ?? "Provider",
+        mobile: provider.phone ?? undefined,
+        country: "SA",
+      },
+      metadata: {
+        farah_payout_id: payout.id,
+        farah_booking_id: payout.booking_id,
+        farah_provider_id: payout.provider_id,
+      },
+    },
+  });
+
+  if (!created.ok) {
+    const reason =
+      created.data?.message ??
+      created.data?.errors?.[0]?.message ??
+      `http_${created.status}`;
+    await admin
+      .from("provider_payouts")
+      .update({ status: "failed", failure_reason: reason })
+      .eq("id", payout.id);
+    return { error: reason };
+  }
+
+  const moyasarId = created.data?.id as string | undefined;
+  const moyasarStatus = (created.data?.status as string) ?? "initiated";
+  await admin
+    .from("provider_payouts")
+    .update({
+      status: moyasarStatus === "completed" ? "completed" : "initiated",
+      moyasar_payout_id: moyasarId,
+      initiated_at: new Date().toISOString(),
+      completed_at:
+        moyasarStatus === "completed" ? new Date().toISOString() : null,
+    })
+    .eq("id", payout.id);
+
+  return { moyasar_id: moyasarId };
+}
+
+async function handleProcessPayouts(_req: Request) {
+  const admin = serviceRoleClient();
+  const { data: isAdminRow } = await admin.rpc("is_admin");
+  if (!isAdminRow) return json({ error: "forbidden" }, 403);
+  const result = await processQueuedPayouts(admin);
+  return json(result);
+}
+
+// ----------------------------------------------------------------
 // Router
 // ----------------------------------------------------------------
 serve(async (req: Request) => {
@@ -394,6 +525,8 @@ serve(async (req: Request) => {
         return await handleVerify(req, body);
       case "verify-provider-keys":
         return await handleVerifyProviderKeys(req, body);
+      case "process-payouts":
+        return await handleProcessPayouts(req);
       default:
         return json({ error: "unknown_action" }, 400);
     }

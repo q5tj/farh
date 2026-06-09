@@ -40,8 +40,9 @@ import {
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
 import {
+  createBookingDepositPaymentRow,
+  createFinalPaymentRow,
   createMoyasarInvoice,
-  createServicePaymentRow,
   fetchBookingPayments,
 } from "@/lib/payments";
 
@@ -185,21 +186,20 @@ export default function BookingDetailScreen() {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }, [booking?.startAt]);
 
-  // v30+: customer pays the FULL service price (not just a deposit).
-  // The RPC reuses any in-flight payment row so a bounce out of Moyasar
-  // and back doesn't create a second charge. We trim the deposit/final
-  // split — there's nothing left to settle after this single payment.
-  const startServicePayment = async () => {
+  // v35: deposit (10% of price) — paid to the PROVIDER's account.
+  // Reuses any in-flight payment row so a bounce out of Moyasar and
+  // back doesn't create a second charge.
+  const startDepositPayment = async () => {
     if (!booking) return;
     setPayingDeposit(true);
     try {
       const existing = await fetchBookingPayments(booking.id);
       const pending = existing.find(
-        (p) => p.kind === "service_payment" && p.status === "pending",
+        (p) => p.kind === "booking_deposit" && p.status === "pending",
       );
       const paymentId = pending
         ? pending.id
-        : await createServicePaymentRow(booking.id);
+        : await createBookingDepositPaymentRow(booking.id);
       const callbackUrl =
         Platform.OS === "web" && typeof window !== "undefined"
           ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
@@ -215,6 +215,33 @@ export default function BookingDetailScreen() {
       await infoDialog({ title: t("error"), message: msg });
     } finally {
       setPayingDeposit(false);
+    }
+  };
+
+  // v35: final 90% — paid to the PLATFORM's account. After Moyasar
+  // confirms paid, a DB trigger queues a Moyasar Payout for the
+  // provider's share (final - 10% commission of full price), and the
+  // edge function dispatches it automatically.
+  const startFinalPayment = async () => {
+    if (!booking) return;
+    setPayingFinal(true);
+    try {
+      const paymentId = await createFinalPaymentRow(booking.id);
+      const callbackUrl =
+        Platform.OS === "web" && typeof window !== "undefined"
+          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
+          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+      const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
+      if (Platform.OS === "web") {
+        window.location.href = invoice_url;
+      } else {
+        Linking.openURL(invoice_url).catch(() => {});
+      }
+    } catch (e) {
+      const msg = (e as Error)?.message ?? t("paymentInitFailed");
+      await infoDialog({ title: t("error"), message: msg });
+    } finally {
+      setPayingFinal(false);
     }
   };
 
@@ -334,7 +361,7 @@ export default function BookingDetailScreen() {
             <View style={styles.cancelInfoHead}>
               <Feather name="alert-circle" size={18} color="#f59e0b" />
               <Text style={[styles.cancelInfoTitle, { color: c.foreground }]}>
-                {t("servicePaymentPendingTitle")}
+                {t("depositPendingTitle")}
               </Text>
             </View>
             <Text
@@ -347,12 +374,12 @@ export default function BookingDetailScreen() {
                 textAlign: "right",
               }}
             >
-              {t("servicePaymentPendingDesc")}
+              {t("depositPendingDesc")}
             </Text>
             <View style={{ marginTop: 12 }}>
               <Button
-                label={t("payServiceNow")}
-                onPress={startServicePayment}
+                label={t("payDepositNow")}
+                onPress={startDepositPayment}
                 loading={payingDeposit}
                 icon={<Feather name="credit-card" size={16} color="#ffffff" />}
               />

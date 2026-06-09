@@ -53,8 +53,8 @@ import {
   isMapUrl,
 } from "@/lib/location";
 import {
+  createBookingDepositPaymentRow,
   createMoyasarInvoice,
-  createServicePaymentRow,
 } from "@/lib/payments";
 
 export default function BookingFormScreen() {
@@ -350,14 +350,13 @@ export default function BookingFormScreen() {
       });
       setConfirmOpen(false);
 
-      // v30+: customer pays the FULL service price into the provider's
-      // own Moyasar account. We create a pending payment row (the RPC
-      // validates ownership + reuses any in-flight row), then ask the
-      // edge function for a Moyasar invoice URL. Moyasar redirects the
-      // customer back to /payment/return where we verify the result and
-      // route into /booking/:id.
+      // v35: customer pays the DEPOSIT (10% of price) into the
+      // provider's own Moyasar account. The remaining 90% lands later
+      // in the platform's account when the customer pays at completion,
+      // and a v35 trigger auto-queues a Moyasar Payout that forwards
+      // the provider's share back to them (minus the 10% commission).
       try {
-        const paymentId = await createServicePaymentRow(booking.id);
+        const paymentId = await createBookingDepositPaymentRow(booking.id);
         let callbackUrl: string;
         
         if (Platform.OS === "web" && typeof window !== "undefined") {
