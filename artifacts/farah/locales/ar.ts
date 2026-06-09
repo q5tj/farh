@@ -1154,6 +1154,14 @@ export const ar = {
     "يوجد طلب إعادة جدولة سابق بانتظار رد المزود.",
   reschedulePendingNote: "طلب إعادة الجدولة في انتظار رد المزود.",
   bookingNotFound: "الحجز غير موجود",
+
+  // v36: booking-form stepper
+  stepDateTime: "الموعد",
+  stepLocation: "الموقع",
+  stepReview: "المراجعة",
+  stepBack: "السابق",
+  stepNext: "التالي",
+  reviewBookingTitle: "راجع تفاصيل الحجز قبل التأكيد",
   goToBooking: "الذهاب إلى الحجز",
   checkAgain: "تحقق مرة أخرى",
 

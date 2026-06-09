@@ -1110,6 +1110,13 @@ export async function deleteUnavailablePeriod(id: string): Promise<void> {
  *  A even while Hall B is taken at the same time. When `serviceId` is
  *  omitted we fall back to the legacy per-provider RPC so older callers
  *  (admin / calendar views) keep working.
+ *
+ *  The 8s timeout is a defensive measure — a hanging RPC (Supabase
+ *  network blip, slow cold start, stale auth session) used to leave the
+ *  booking form spinning indefinitely on "available times". After the
+ *  timeout we fall back to an empty busy list rather than blocking the
+ *  customer; if the result is wrong it'll fail on submit and the
+ *  no-overlap constraint will protect the provider.
  */
 export async function fetchProviderBusyIntervals(
   providerId: string,
@@ -1117,17 +1124,48 @@ export async function fetchProviderBusyIntervals(
   serviceId?: string,
 ): Promise<{ start: Date; end: Date }[]> {
   const day = formatLocalDate(date);
-  const { data, error } = serviceId
-    ? await client().rpc("service_busy_intervals", {
+  const rpcCall = serviceId
+    ? client().rpc("service_busy_intervals", {
         p_provider_id: providerId,
         p_service_id: serviceId,
         day,
       })
-    : await client().rpc("provider_busy_intervals", {
+    : client().rpc("provider_busy_intervals", {
         p_id: providerId,
         day,
       });
-  if (error) throw error;
+
+  const timeoutMs = 8000;
+  const { data, error } = await Promise.race([
+    rpcCall,
+    new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(
+        () => resolve({ data: null, error: { message: "busy_intervals_timeout" } }),
+        timeoutMs,
+      ),
+    ),
+  ]);
+  if (error) {
+    // If the new service-scoped RPC isn't deployed yet, fall back to the
+    // provider-wide one so the customer can still see slots.
+    if (serviceId && /service_busy_intervals|function .* does not exist/i.test(error.message)) {
+      console.warn("[busy] service_busy_intervals missing, falling back to provider_busy_intervals");
+      const fallback = await client().rpc("provider_busy_intervals", {
+        p_id: providerId,
+        day,
+      });
+      if (fallback.error) {
+        console.warn("[busy] fallback also failed:", fallback.error.message);
+        return [];
+      }
+      return ((fallback.data ?? []) as { start_at: string; end_at: string }[]).map((r) => ({
+        start: new Date(r.start_at),
+        end: new Date(r.end_at),
+      }));
+    }
+    console.warn("[busy] fetch failed:", error.message);
+    return [];
+  }
   return ((data ?? []) as { start_at: string; end_at: string }[]).map((r) => ({
     start: new Date(r.start_at),
     end: new Date(r.end_at),

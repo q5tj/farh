@@ -3,9 +3,16 @@ import {
   Animated,
   Easing,
   Image,
+  Platform,
   StyleSheet,
   View,
 } from "react-native";
+
+// React Native Web doesn't ship the native animated module, so any
+// `useNativeDriver: true` spams a console warning even though animations
+// still run via the JS fallback. Flip the flag off on web to keep dev
+// consoles quiet. On iOS/Android we keep the GPU-accelerated path.
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
 /**
  * App boot screen — shown while AuthContext bootstraps the session.
@@ -32,13 +39,13 @@ export function BootSplash() {
           toValue: 1,
           duration: 900,
           easing: Easing.inOut(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(pulse, {
           toValue: 0,
           duration: 900,
           easing: Easing.inOut(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );
@@ -46,7 +53,7 @@ export function BootSplash() {
       toValue: 1,
       duration: 700,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     });
     pulseLoop.start();
     fadeIn.start();
@@ -128,13 +135,13 @@ function Dot({ delay }: { delay: number }) {
           toValue: 1,
           duration: 450,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(v, {
           toValue: 0,
           duration: 450,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     );

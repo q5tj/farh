@@ -222,6 +222,10 @@ export default function BookingFormScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // v36: wizard step state. Splits the long form into three focused
+  // screens so the customer never sees the whole form at once. 0 =
+  // pick date + slot, 1 = location, 2 = notes + review.
+  const [step, setStep] = useState(0);
   const [locationWarning, setLocationWarning] = useState<{
     kind: "mismatch" | "outsideAreas";
     selected: string;
@@ -417,9 +421,75 @@ export default function BookingFormScreen() {
     return provider.workingHours[weekdayKey(selectedDay.date)] !== null;
   }, [provider, selectedDay]);
 
+  // Validation gates per step. Disables the "next" button until the
+  // required input for the current step is filled. We intentionally do
+  // NOT block the user from going backward — they can always revisit.
+  const stepValid =
+    step === 0 ? !!selectedSlot
+    : step === 1 ? mapUrl.trim().length > 0 && isMapUrl(mapUrl.trim())
+    : true;
+
+  const stepLabels = [t("stepDateTime"), t("stepLocation"), t("stepReview")];
+
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader title={t("newBooking")} subtitle={provider.name} />
+
+      {/* Stepper — three dots with the current label. Tapping a completed
+          step jumps back to it; future steps stay disabled until earlier
+          ones pass their validation. */}
+      <View style={styles.stepperRow}>
+        {stepLabels.map((label, i) => {
+          const isActive = i === step;
+          const isDone = i < step;
+          const isReachable = i <= step;
+          return (
+            <Pressable
+              key={label}
+              onPress={() => isReachable && setStep(i)}
+              style={styles.stepItem}
+              disabled={!isReachable}
+            >
+              <View
+                style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor: isActive || isDone ? c.primary : c.muted,
+                    borderColor: isActive ? c.primary : "transparent",
+                  },
+                ]}
+              >
+                {isDone ? (
+                  <Feather name="check" size={12} color="#ffffff" />
+                ) : (
+                  <Text
+                    style={{
+                      color: isActive ? "#ffffff" : c.mutedForeground,
+                      fontFamily: "Cairo_700Bold",
+                      fontSize: 12,
+                    }}
+                  >
+                    {i + 1}
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  {
+                    color: isActive ? c.primary : c.mutedForeground,
+                    fontFamily: isActive ? "Cairo_700Bold" : "Cairo_500Medium",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <KeyboardAwareScrollView
         contentContainerStyle={{
           padding: 16,
@@ -452,6 +522,7 @@ export default function BookingFormScreen() {
           </View>
         </Card>
 
+        {step === 0 ? (
         <View style={{ marginTop: 8 }}>
           <Text style={[styles.label, { color: c.foreground, marginBottom: 10 }]}>
             {t("pickDateAndTime")}
@@ -519,7 +590,10 @@ export default function BookingFormScreen() {
             </View>
           )}
         </View>
+        ) : null}
 
+        {step === 1 ? (
+        <>
         <View style={{ marginTop: 8 }}>
           <CityPicker
             label={t("cityLabel")}
@@ -591,6 +665,33 @@ export default function BookingFormScreen() {
             </Pressable>
           ) : null}
         </View>
+        </>
+        ) : null}
+
+        {step === 2 ? (
+        <>
+        {/* Summary card so the customer sees what they've picked before
+            tapping confirm. Pulls the values from earlier steps. */}
+        <Card style={{ marginTop: 8 }}>
+          <Text style={[styles.label, { color: c.foreground, marginTop: 0 }]}>
+            {t("reviewBookingTitle")}
+          </Text>
+          <View style={{ marginTop: 10, gap: 8 }}>
+            <ReviewRow
+              icon="calendar"
+              label={t("dateLabel")}
+              value={`${selectedDay?.label ?? ""} ${selectedDay?.sub ?? ""}`}
+            />
+            {selectedSlot ? (
+              <ReviewRow
+                icon="clock"
+                label={t("timeLabel")}
+                value={`${formatTimeCompact(selectedSlot.start, lang as "ar" | "en")} – ${formatTimeCompact(selectedSlot.end, lang as "ar" | "en")}`}
+              />
+            ) : null}
+            <ReviewRow icon="map-pin" label={t("cityLabel")} value={city} />
+          </View>
+        </Card>
 
         <Text style={[styles.label, { color: c.foreground }]}>{t("notes")}</Text>
         <View
@@ -612,6 +713,8 @@ export default function BookingFormScreen() {
             style={{ height: 100, textAlignVertical: "top" }}
           />
         </View>
+        </>
+        ) : null}
       </KeyboardAwareScrollView>
 
       <View
@@ -632,12 +735,34 @@ export default function BookingFormScreen() {
             {service.price.toLocaleString()} {t("sar")}
           </Text>
         </View>
-        <Button
-          label={t("submitBooking")}
-          onPress={validateAndOpenConfirm}
-          size="lg"
-          disabled={!selectedSlot}
-        />
+        {/* Step navigation: back + next/submit. Step 2 swaps "next" for
+            the actual submit handler which opens the confirm dialog. */}
+        <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+          {step > 0 ? (
+            <View style={{ flex: 1 }}>
+              <Button
+                label={t("stepBack")}
+                onPress={() => setStep((s) => s - 1)}
+                variant="secondary"
+                size="lg"
+              />
+            </View>
+          ) : null}
+          <View style={{ flex: step > 0 ? 1.6 : 1 }}>
+            <Button
+              label={step === 2 ? t("submitBooking") : t("stepNext")}
+              onPress={() => {
+                if (step === 2) {
+                  validateAndOpenConfirm();
+                } else {
+                  setStep((s) => s + 1);
+                }
+              }}
+              size="lg"
+              disabled={!stepValid}
+            />
+          </View>
+        </View>
       </View>
 
       {/* Confirmation modal */}
@@ -847,6 +972,57 @@ export default function BookingFormScreen() {
   );
 }
 
+function ReviewRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  value: string;
+}) {
+  const c = useColors();
+  return (
+    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: c.primaryBg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Feather name={icon} size={14} color={c.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: "Cairo_400Regular",
+            fontSize: 11,
+            color: c.mutedForeground,
+            textAlign: "right",
+          }}
+        >
+          {label}
+        </Text>
+        <Text
+          style={{
+            fontFamily: "Cairo_600SemiBold",
+            fontSize: 13,
+            color: c.foreground,
+            textAlign: "right",
+            marginTop: 2,
+          }}
+        >
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function SummaryRow({
   label,
   value,
@@ -879,6 +1055,28 @@ function SummaryRow({
 }
 
 const styles = StyleSheet.create({
+  stepperRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  stepItem: {
+    flex: 1,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+  },
+  stepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  stepLabel: { fontSize: 12, flex: 1, textAlign: "right" },
   headRow: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
   avatar: {
     width: 44,

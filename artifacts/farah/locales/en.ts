@@ -1159,6 +1159,14 @@ export const en: Strings = {
   rescheduleAlreadyPending: "A previous reschedule request is still pending the provider's response.",
   reschedulePendingNote: "Reschedule request awaiting provider's response.",
   bookingNotFound: "Booking not found",
+
+  // v36: booking-form stepper
+  stepDateTime: "When",
+  stepLocation: "Where",
+  stepReview: "Review",
+  stepBack: "Back",
+  stepNext: "Next",
+  reviewBookingTitle: "Review your booking before confirming",
   goToBooking: "Open booking",
   checkAgain: "Check again",
 
