@@ -107,36 +107,12 @@ export default function BookingDetailScreen() {
     };
   }, [bookingId, cachedBooking, getProvider, lang]);
 
-  if (loading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: c.background,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator color={c.primary} />
-      </View>
-    );
-  }
-
-  if (!booking) {
-    return (
-      <View style={{ flex: 1, backgroundColor: c.background }}>
-        <ScreenHeader title={t("bookingDetails")} />
-        <View style={{ padding: 24 }}>
-          <Text style={{ color: c.foreground }}>الحجز غير موجود</Text>
-        </View>
-      </View>
-    );
-  }
-
-  const cover = provider?.coverUrl
-    ? { uri: provider.coverUrl }
-    : COVER_BY_CATEGORY[provider?.categorySlug ?? ""] ?? DEFAULT_COVER;
-
+  // All useState/useEffect/useMemo MUST live above the early returns
+  // to satisfy the rules of hooks (https://react.dev/link/rules-of-hooks).
+  // Letting them sit below the loading/not-found guards used to be
+  // tolerated by React in lenient builds but Strict Mode + the React
+  // Compiler in v36 turn it into a hard crash with "Rendered more
+  // hooks than during the previous render".
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -185,6 +161,36 @@ export default function BookingDetailScreen() {
     if (diffMs <= 0) return 0;
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }, [booking?.startAt]);
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: c.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator color={c.primary} />
+      </View>
+    );
+  }
+
+  if (!booking) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.background }}>
+        <ScreenHeader title={t("bookingDetails")} />
+        <View style={{ padding: 24 }}>
+          <Text style={{ color: c.foreground }}>الحجز غير موجود</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const cover = provider?.coverUrl
+    ? { uri: provider.coverUrl }
+    : COVER_BY_CATEGORY[provider?.categorySlug ?? ""] ?? DEFAULT_COVER;
 
   // v35: deposit (10% of price) — paid to the PROVIDER's account.
   // Reuses any in-flight payment row so a bounce out of Moyasar and

@@ -243,6 +243,15 @@ export default function BookingFormScreen() {
     if (provider?.city) setCity(provider.city);
   }, [provider?.city]);
 
+  // `dayHasHours` lives ABOVE the early returns so the hook-order rule
+  // (https://react.dev/link/rules-of-hooks) holds across the loading
+  // transition. When provider is null we just return false; this is
+  // harmless because the early-return below skips rendering anyway.
+  const dayHasHours = useMemo(() => {
+    if (!selectedDay || !provider) return false;
+    return provider.workingHours[weekdayKey(selectedDay.date)] !== null;
+  }, [provider, selectedDay]);
+
   if (loading) {
     return (
       <View
@@ -415,11 +424,6 @@ export default function BookingFormScreen() {
       submitLock.current = false;
     }
   };
-
-  const dayHasHours = useMemo(() => {
-    if (!selectedDay) return false;
-    return provider.workingHours[weekdayKey(selectedDay.date)] !== null;
-  }, [provider, selectedDay]);
 
   // Validation gates per step. Disables the "next" button until the
   // required input for the current step is filled. We intentionally do
