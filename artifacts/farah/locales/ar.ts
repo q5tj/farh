@@ -1155,6 +1155,21 @@ export const ar = {
   reschedulePendingNote: "طلب إعادة الجدولة في انتظار رد المزود.",
   bookingNotFound: "الحجز غير موجود",
 
+  // v37: account deletion (Apple/Google compliance)
+  deleteAccount: "حذف حسابي",
+  deleteAccountConfirmTitle: "حذف الحساب نهائياً",
+  deleteAccountConfirmBody:
+    "سيتم حذف حسابك وبياناتك الشخصية بشكل دائم. الحجوزات القديمة المكتملة تبقى للسجل المالي لكن بياناتك تختفي. لا يمكن التراجع.",
+  deleteAccountTypeToConfirm: "اكتب الكلمة التالية للتأكيد:",
+  deleteAccountConfirmWord: "حذف",
+  deleteBlockedActiveBookings:
+    "لا يمكن حذف الحساب — لديك حجوزات قيد التنفيذ. أكملها أو ألغها أولاً.",
+  deleteBlockedCommission:
+    "لا يمكن حذف الحساب — عليك عمولة منصة مستحقة. سدّدها من لوحة التحكم أولاً.",
+  deleteBlockedProviderBookings:
+    "لا يمكن حذف الحساب — عندك حجوزات نشطة على متجرك. أكملها أو ألغها أولاً احتراماً للعملاء.",
+  deleteFailedGeneric: "تعذّر حذف الحساب. حاول مرة ثانية أو راسل الدعم.",
+
   // v36: booking-form stepper
   stepDateTime: "الموعد",
   stepLocation: "الموقع",

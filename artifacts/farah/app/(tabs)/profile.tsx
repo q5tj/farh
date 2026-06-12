@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { profile, signOut, updateProfile } = useAuth();
+  const { profile, signOut, deleteAccount, updateProfile } = useAuth();
   const { t, isRtl } = useT();
 
   const [langModalOpen, setLangModalOpen] = useState(false);
@@ -192,6 +193,38 @@ export default function ProfileScreen() {
       destructive: true,
     });
     if (ok) signOut();
+  };
+
+  // Two-step delete: warn + require typed confirmation. Apple/Google
+  // require us to expose account deletion from inside the app; we still
+  // refuse if the user has obligations (active bookings, unpaid
+  // commission as a provider) — the RPC surfaces the reason and the
+  // UI translates it.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const onDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      // signOut already ran inside the helper; the AuthGate will bounce
+      // us to /(auth)/login on the next render.
+    } catch (e) {
+      const code = (e as Error)?.message ?? "delete_failed";
+      const msg =
+        code === "has_active_bookings"
+          ? t("deleteBlockedActiveBookings")
+          : code === "has_outstanding_commission"
+            ? t("deleteBlockedCommission")
+            : code === "provider_has_active_bookings"
+              ? t("deleteBlockedProviderBookings")
+              : t("deleteFailedGeneric");
+      await infoDialog({ title: t("error"), message: msg });
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+    }
   };
 
   const onPickLanguage = async (lang: LangCode) => {
@@ -365,6 +398,14 @@ export default function ProfileScreen() {
               chevron={chevron}
               onPress={confirmLogout}
             />
+            <View style={[styles.sep, { backgroundColor: c.border }]} />
+            <Row
+              icon="trash-2"
+              label={t("deleteAccount")}
+              destructive
+              chevron={chevron}
+              onPress={() => setDeleteOpen(true)}
+            />
           </Card>
 
           <Text style={[styles.version, { color: c.mutedForeground }]}>
@@ -372,6 +413,138 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Account-deletion confirm modal. The destructive action requires
+          the user to type "حذف" (or "DELETE" in English) so a single
+          tap can never delete the account by accident. */}
+      <Modal
+        visible={deleteOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deleting && setDeleteOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: c.card, maxWidth: 420 },
+            ]}
+          >
+            <View
+              style={{
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: "rgba(220,38,38,0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <Feather name="alert-triangle" size={26} color="#dc2626" />
+              </View>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  { color: c.foreground, textAlign: "center" },
+                ]}
+              >
+                {t("deleteAccountConfirmTitle")}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: "Cairo_400Regular",
+                fontSize: 13,
+                color: c.mutedForeground,
+                textAlign: "center",
+                lineHeight: 21,
+                marginBottom: 14,
+              }}
+            >
+              {t("deleteAccountConfirmBody")}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Cairo_500Medium",
+                fontSize: 12,
+                color: c.foreground,
+                textAlign: "right",
+                marginBottom: 6,
+              }}
+            >
+              {t("deleteAccountTypeToConfirm")}
+            </Text>
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: c.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginBottom: 14,
+                backgroundColor: c.background,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Cairo_700Bold",
+                  fontSize: 14,
+                  color: c.destructive,
+                  textAlign: "center",
+                }}
+              >
+                {t("deleteAccountConfirmWord")}
+              </Text>
+            </View>
+            <TextInput
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder={t("deleteAccountConfirmWord")}
+              placeholderTextColor={c.mutedForeground}
+              autoCapitalize="none"
+              style={{
+                borderWidth: 1.5,
+                borderColor:
+                  deleteConfirmText === t("deleteAccountConfirmWord")
+                    ? c.destructive
+                    : c.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                backgroundColor: c.background,
+                color: c.foreground,
+                fontFamily: "Cairo_500Medium",
+                fontSize: 14,
+                textAlign: "center",
+                marginBottom: 12,
+              }}
+            />
+            <View style={{ gap: 10 }}>
+              <Button
+                label={t("deleteAccount")}
+                onPress={onDeleteAccount}
+                loading={deleting}
+                disabled={
+                  deleteConfirmText !== t("deleteAccountConfirmWord") ||
+                  deleting
+                }
+              />
+              <Button
+                label={t("cancel")}
+                variant="ghost"
+                onPress={() => !deleting && setDeleteOpen(false)}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Language picker modal */}
       <Modal

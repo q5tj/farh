@@ -59,6 +59,9 @@ interface AuthContextValue {
   /** Create account with email + password and auto sign-in. Throws on failure. */
   signup: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Permanent account deletion (Apple/Google compliance). Throws if
+   *  the user has active bookings or outstanding provider commission. */
+  deleteAccount: () => Promise<void>;
   /** Update profile fields and persist; sets profile_completed=true when all required fields are present. */
   updateProfile: (patch: ProfileUpdate) => Promise<void>;
   /** Refetch the public.users row for the current session. */
@@ -291,6 +294,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [loadProfile],
   );
 
+  // Permanent account deletion — Apple guideline 5.1.1(v) and Google
+  // Play account-deletion policy. Calls the SECURITY DEFINER RPC
+  // `delete_my_account` which anonymises the user row and detaches
+  // the auth.users credential, then signs out locally. Errors thrown
+  // by the RPC (e.g. 'has_active_bookings') propagate up so the UI
+  // can show a meaningful message.
+  const deleteAccount = useCallback(async () => {
+    if (!supabase) throw new Error("not_configured");
+    if (profile?.id) {
+      await deactivatePushAsync(profile.id).catch(() => {});
+    }
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) throw error;
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }, [profile?.id]);
+
   const signOut = useCallback(async () => {
     // Best-effort: deactivate this device's push token before clearing the
     // session. RLS only allows the authenticated user to update their own
@@ -359,6 +380,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       signup,
       signOut,
+      deleteAccount,
       updateProfile,
       refreshProfile,
     }),
@@ -369,6 +391,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       signup,
       signOut,
+      deleteAccount,
       updateProfile,
       refreshProfile,
     ],

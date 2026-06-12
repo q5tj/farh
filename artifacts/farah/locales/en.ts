@@ -1160,6 +1160,21 @@ export const en: Strings = {
   reschedulePendingNote: "Reschedule request awaiting provider's response.",
   bookingNotFound: "Booking not found",
 
+  // v37: account deletion (Apple/Google compliance)
+  deleteAccount: "Delete my account",
+  deleteAccountConfirmTitle: "Delete account permanently",
+  deleteAccountConfirmBody:
+    "Your account and personal data will be permanently deleted. Completed bookings stay for financial records but your details disappear. This cannot be undone.",
+  deleteAccountTypeToConfirm: "Type the following word to confirm:",
+  deleteAccountConfirmWord: "DELETE",
+  deleteBlockedActiveBookings:
+    "Cannot delete account — you have active bookings. Complete or cancel them first.",
+  deleteBlockedCommission:
+    "Cannot delete account — there is outstanding platform commission. Settle it from the dashboard first.",
+  deleteBlockedProviderBookings:
+    "Cannot delete account — your store has active bookings. Honour or cancel them first out of respect for your customers.",
+  deleteFailedGeneric: "Couldn't delete the account. Try again or contact support.",
+
   // v36: booking-form stepper
   stepDateTime: "When",
   stepLocation: "Where",
