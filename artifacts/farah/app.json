@@ -24,13 +24,29 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.farhatukum.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "ExpoLocalization_supportsRTL": true
+        "ExpoLocalization_supportsRTL": true,
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "نحتاج الوصول للصور لاختيار شعار المتجر وصور الخدمات والوثائق الرسمية.",
+        "NSCameraUsageDescription": "نحتاج الكاميرا لتصوير وثائق المتجر مباشرة عند التسجيل كمزود.",
+        "NSLocationWhenInUseUsageDescription": "نستخدم موقعك لتعبئة عنوان المناسبة في الحجز وعرض المزودين القريبين منك."
       }
     },
     "android": {
       "package": "com.farhatukum.app",
-      "googleServicesFile": "./google-services.json"
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#7b2cbf"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
