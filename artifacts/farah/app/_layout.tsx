@@ -151,6 +151,7 @@ function AuthGate() {
         <Stack.Screen name="about" />
         <Stack.Screen name="favorites" />
         <Stack.Screen name="legal/[key]" />
+        <Stack.Screen name="legal/delete-account" />
         <Stack.Screen name="payment/return" />
       </Stack>
       {!bootDone ? <BootSplash /> : null}
