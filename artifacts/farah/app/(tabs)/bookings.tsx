@@ -17,6 +17,7 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { BookingItemSkeleton } from "@/components/ui/Skeleton";
 import { BookingStatus, useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useT } from "@/lib/i18n";
 
 export default function BookingsScreen() {
@@ -26,6 +27,9 @@ export default function BookingsScreen() {
   const { bookings, loading } = useApp();
   const { t, isRtl } = useT();
   const [filter, setFilter] = useState<"all" | BookingStatus>("all");
+  // Bookings tab is account-only. Apple guideline 5.1.1(v) lets us keep
+  // it gated because it's directly tied to having a user account.
+  const ready = useRequireAuth();
 
   const FILTERS = useMemo<
     { id: "all" | BookingStatus; label: string }[]
@@ -51,6 +55,10 @@ export default function BookingsScreen() {
   };
 
   const flexDir = isRtl ? ("row-reverse" as const) : ("row" as const);
+
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>

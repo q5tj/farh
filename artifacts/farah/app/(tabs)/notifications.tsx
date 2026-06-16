@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useT } from "@/lib/i18n";
 
 export default function NotificationsScreen() {
@@ -24,6 +25,8 @@ export default function NotificationsScreen() {
   const { notifications, markNotificationsRead } = useApp();
   const { t, isRtl, lang } = useT();
   const hasUnread = notifications.some((n) => !n.read);
+  // Notifications target a logged-in user — gate behind auth.
+  const ready = useRequireAuth();
 
   const onBack = () => {
     if (router.canGoBack()) router.back();
@@ -51,6 +54,10 @@ export default function NotificationsScreen() {
 
   const align = isRtl ? ("right" as const) : ("left" as const);
   const flexDir = isRtl ? ("row-reverse" as const) : ("row" as const);
+
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>

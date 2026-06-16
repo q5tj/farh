@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LangCode, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { setAppLanguage, useT } from "@/lib/i18n";
 import {
   deactivatePushAsync,
@@ -139,6 +140,9 @@ export default function ProfileScreen() {
   const isWeb = Platform.OS === "web";
   const { profile, signOut, deleteAccount, updateProfile } = useAuth();
   const { t, isRtl } = useT();
+  // Profile is account-only — Apple lets us require login here, just
+  // not on the home tab. Guests bounce to /(auth)/login.
+  const ready = useRequireAuth();
 
   const [langModalOpen, setLangModalOpen] = useState(false);
   const [langSaving, setLangSaving] = useState(false);
@@ -266,6 +270,12 @@ export default function ProfileScreen() {
   const chevron: keyof typeof Feather.glyphMap = isRtl
     ? "chevron-left"
     : "chevron-right";
+
+  // Wait for auth bootstrap. `useRequireAuth` redirects guests to login
+  // for us — we just need to skip rendering until the redirect lands.
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>

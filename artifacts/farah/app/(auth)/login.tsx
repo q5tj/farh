@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -27,6 +27,9 @@ export default function LoginScreen() {
   const isWeb = Platform.OS === "web";
   const { login } = useAuth();
   const { t, isRtl } = useT();
+  // Honour the ?next=… query string set by useRequireAuth when a guest
+  // hit an account-only screen. Falls back to the home tab.
+  const { next } = useLocalSearchParams<{ next?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,6 +55,12 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       await login(trimmed, password);
+      // Send the user back to wherever they were trying to go. The
+      // AuthGate also has a default redirect to /(tabs), so this just
+      // hijacks it for the `?next=` case.
+      if (typeof next === "string" && next.startsWith("/")) {
+        router.replace(next as never);
+      }
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       if (msg.toLowerCase().includes("email not confirmed")) {

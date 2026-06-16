@@ -101,12 +101,22 @@ function AuthGate() {
     const inAuth = segments[0] === "(auth)";
     const onProfileSetup =
       segments[0] === "(auth)" && segments[1] === "profile-setup";
-    // Public routes that don't require a session — terms, privacy, etc.
-    // /legal/* and /payment/return are reachable without an auth gate —
-    // the latter handles the Moyasar redirect even if the session isn't
-    // restored yet on cold start.
+    // Apple guideline 5.1.1(v) — apps may not gate non-account-based
+    // content behind a login. Customers must be able to browse the
+    // provider catalogue without registering. The public surface is
+    // the home tab, category drill-downs, provider profiles, the
+    // hosted-checkout return, and the static legal pages. Booking,
+    // bookings list, favourites and profile screens still require a
+    // session; they call the auth guard themselves (`useRequireAuth`).
     const firstSegment = segments[0] as string | undefined;
-    const isPublic = firstSegment === "legal" || firstSegment === "payment";
+    const isPublic =
+      firstSegment === "legal" ||
+      firstSegment === "payment" ||
+      firstSegment === "about" ||
+      firstSegment === "support" ||
+      firstSegment === "category" ||
+      firstSegment === "provider" ||
+      firstSegment === "(tabs)"; // tab screens self-gate (see useRequireAuth)
 
     if (!session) {
       if (!inAuth && !isPublic) router.replace("/(auth)/login");

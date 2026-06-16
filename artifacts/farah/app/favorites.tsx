@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useColors } from "@/hooks/useColors";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useT } from "@/lib/i18n";
 
 export default function FavoritesScreen() {
@@ -22,12 +23,18 @@ export default function FavoritesScreen() {
   const { t } = useT();
   const { favoriteIds, providers } = useApp();
   const isWeb = Platform.OS === "web";
+  // Favourites are stored per-account on the server, so gate behind login.
+  const ready = useRequireAuth();
 
   // Resolve favorite ids to provider objects (only those still in catalog).
   const favoriteProviders = useMemo(
     () => providers.filter((p) => favoriteIds.has(p.id)),
     [providers, favoriteIds],
   );
+
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>

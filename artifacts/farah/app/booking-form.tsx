@@ -25,6 +25,7 @@ import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { CITIES, localizedCityName } from "@/constants/seedData";
 import { checkBookingLocation } from "@/lib/cities-geo";
 import { useApp } from "@/contexts/AppContext";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useColors } from "@/hooks/useColors";
 import {
   AvailableSlot,
@@ -66,6 +67,10 @@ export default function BookingFormScreen() {
     serviceId: string;
   }>();
   const { getProvider, addBooking } = useApp();
+  // Booking IS the account-only action — Apple explicitly approves of
+  // gating this behind login. Guests get bounced to the login screen
+  // and can come back via `?next=` redirect.
+  const authed = useRequireAuth();
   const cached = getProvider(String(providerId));
   const [provider, setProvider] = useState<Provider | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
@@ -251,6 +256,10 @@ export default function BookingFormScreen() {
     if (!selectedDay || !provider) return false;
     return provider.workingHours[weekdayKey(selectedDay.date)] !== null;
   }, [provider, selectedDay]);
+
+  if (!authed) {
+    return <View style={{ flex: 1, backgroundColor: c.background }} />;
+  }
 
   if (loading) {
     return (
