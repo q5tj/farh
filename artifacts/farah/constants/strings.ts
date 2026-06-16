@@ -17,6 +17,7 @@ export const STRINGS = {
   noAccount: "ليس لديك حساب؟",
   goToLogin: "تسجيل الدخول",
   goToSignup: "أنشئ حساباً",
+  browseAsGuest: "تصفّح كزائر",
   invalidEmail: "البريد الإلكتروني غير صحيح",
   invalidPassword: "كلمة المرور يجب أن تكون ٨ أحرف على الأقل",
   passwordsMismatch: "كلمتا المرور غير متطابقتين",

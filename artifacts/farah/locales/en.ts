@@ -24,6 +24,7 @@ export const en: Strings = {
   noAccount: "Don't have an account?",
   goToLogin: "Sign in",
   goToSignup: "Create one",
+  browseAsGuest: "Continue as guest",
   invalidEmail: "Invalid email address",
   invalidPassword: "Password must be at least 8 characters",
   passwordsMismatch: "Passwords do not match",

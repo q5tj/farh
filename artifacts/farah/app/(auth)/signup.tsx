@@ -240,6 +240,22 @@ export default function SignupScreen() {
             />
           </View>
 
+          <Pressable
+            onPress={() => router.replace("/(tabs)")}
+            style={({ pressed }) => [
+              styles.guestBtn,
+              {
+                borderColor: c.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather name="eye" size={16} color={c.foreground} />
+            <Text style={[styles.guestBtnText, { color: c.foreground }]}>
+              {t("browseAsGuest")}
+            </Text>
+          </Pressable>
+
           <View
             style={[
               styles.footerRow,
@@ -359,5 +375,19 @@ const styles = StyleSheet.create({
   legalLink: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 12,
+  },
+  guestBtn: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  guestBtnText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 15,
   },
 });
