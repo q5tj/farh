@@ -1280,8 +1280,7 @@ export const ar = {
   locationPromptTitle: "نلاقي لك المزودين القريبين",
   locationPromptBody:
     "اسمح بالوصول لموقعك ونرشّح لك المزودين في مدينتك تلقائياً. بإمكانك إلغاء التصفية في أي وقت من زر الفلترة.",
-  locationPromptAllow: "سماح",
-  locationPromptDeny: "ليس الآن",
+  locationPromptAllow: "متابعة",
   locationDetectedCity: "تم اختيار مدينة {{city}} تلقائياً",
 };
 

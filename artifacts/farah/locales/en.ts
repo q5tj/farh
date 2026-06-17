@@ -1285,7 +1285,6 @@ export const en: Strings = {
   locationPromptTitle: "Find providers near you",
   locationPromptBody:
     "Allow access to your location and we'll auto-filter providers in your city. You can clear the filter anytime from the filter button.",
-  locationPromptAllow: "Allow",
-  locationPromptDeny: "Not now",
+  locationPromptAllow: "Continue",
   locationDetectedCity: "Auto-selected city: {{city}}",
 };

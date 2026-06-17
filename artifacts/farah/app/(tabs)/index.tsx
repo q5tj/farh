@@ -114,15 +114,6 @@ export default function HomeScreen() {
     }
   };
 
-  const onDenyLocation = async () => {
-    try {
-      await AsyncStorage.setItem(LOCATION_PROMPT_KEY, "denied");
-    } catch {
-      /* ignore */
-    }
-    setLocPromptOpen(false);
-  };
-
   const filtered = useMemo(
     () => filterProviders(providers, { ...filters, query }),
     [providers, filters, query],
@@ -357,7 +348,6 @@ export default function HomeScreen() {
         visible={locPromptOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => !locBusy && setLocPromptOpen(false)}
       >
         <View style={locStyles.backdrop}>
           <View style={[locStyles.card, { backgroundColor: c.background }]}>
@@ -376,13 +366,6 @@ export default function HomeScreen() {
                   label={t("locationPromptAllow")}
                   onPress={onAllowLocation}
                   loading={locBusy}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  label={t("locationPromptDeny")}
-                  variant="ghost"
-                  onPress={onDenyLocation}
                 />
               </View>
             </View>
