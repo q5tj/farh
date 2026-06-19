@@ -40,6 +40,7 @@ import {
 } from "@/lib/data";
 import { isMapUrl, parseLocation } from "@/lib/location";
 import {
+  computeRefundAmount,
   createBookingDepositPaymentRow,
   createFinalPaymentRow,
   createMoyasarInvoice,
@@ -269,6 +270,9 @@ export default function BookingDetailScreen() {
   };
 
   const canRate = booking.status === "completed" && booking.rating == null;
+  const canCancel =
+    (booking.status === "pending" || booking.status === "accepted") &&
+    !!booking.depositPaidAt;
   // v31: cancel is gone. Reschedule is allowed up until
   // RESCHEDULE_MIN_HOURS before the original start. The client-side
   // cutoff matches the server-side check in `request_reschedule`.

@@ -53,6 +53,7 @@ export default function HomeScreen() {
   const [locPromptOpen, setLocPromptOpen] = useState(false);
   const [autoCityToast, setAutoCityToast] = useState<string | null>(null);
   const [locBusy, setLocBusy] = useState(false);
+  const [showAllCats, setShowAllCats] = useState(false);
   const isWeb = Platform.OS === "web";
   const locInitRef = useRef(false);
 
@@ -236,19 +237,30 @@ export default function HomeScreen() {
           </View>
         ) : (
           <FadeIntoView>
-            {/* Featured categories — always visible, even when filtering by
-                city, so customers don't lose the page chrome and can browse
-                by category alongside their filter. */}
-            <Section title={t("featured")} icon="grid" pullUp>
-              <View style={styles.catsGrid}>
-                {featured.map((cat) => (
-                  <CategoryPill key={cat.id} category={cat} />
+            {isFiltering ? (
+              <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
+                <Text style={[styles.searchTitle, { color: c.foreground }]}>
+                  {t("filterResultsCount", { count: filtered.length })}
+                </Text>
+                {filtered.map((p) => (
+                  <ProviderCard key={p.id} provider={p} />
                 ))}
+                {filtered.length === 0 ? (
+                  <Text style={[styles.noResults, { color: c.mutedForeground }]}>
+                    {t("homeNoSearchResults")}
+                  </Text>
+                ) : null}
               </View>
-            </Section>
-
-            {!isFiltering ? (
+            ) : (
               <>
+                <Section title={t("featured")} icon="grid" pullUp>
+                  <View style={styles.catsGrid}>
+                    {featured.map((cat) => (
+                      <CategoryPill key={cat.id} category={cat} />
+                    ))}
+                  </View>
+                </Section>
+
                 <View style={[styles.banner, { backgroundColor: c.primaryBg }]}>
                   <Image
                     source={require("../../assets/images/hero-hall.png")}
@@ -293,45 +305,46 @@ export default function HomeScreen() {
                     </ScrollView>
                   </>
                 ) : null}
-              </>
-            ) : null}
 
-            <Section title={t("allCategories")} icon="layers">
-              <View style={styles.catsGrid}>
-                {categories.map((cat) => (
-                  <CategoryPill key={cat.id} category={cat} />
-                ))}
-              </View>
-            </Section>
+                <Section title={t("allCategories")} icon="layers">
+                  <View style={styles.catsGrid}>
+                    {(showAllCats ? categories : categories.slice(0, 8)).map((cat) => (
+                      <CategoryPill key={cat.id} category={cat} />
+                    ))}
+                  </View>
+                  {categories.length > 8 ? (
+                    <Pressable
+                      onPress={() => setShowAllCats((s) => !s)}
+                      style={[styles.moreBtn, { borderColor: c.border }]}
+                    >
+                      <Text style={[styles.moreBtnText, { color: c.primary }]}>
+                        {showAllCats ? t("showLess") : t("showMore")}
+                      </Text>
+                      <Feather
+                        name={showAllCats ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={c.primary}
+                      />
+                    </Pressable>
+                  ) : null}
+                </Section>
 
-            {isFiltering ? (
-              <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
-                <Text style={[styles.searchTitle, { color: c.foreground }]}>
-                  {t("filterResultsCount", { count: filtered.length })}
-                </Text>
-                {filtered.map((p) => (
-                  <ProviderCard key={p.id} provider={p} />
-                ))}
-                {filtered.length === 0 ? (
-                  <Text style={[styles.noResults, { color: c.mutedForeground }]}>
-                    {t("homeNoSearchResults")}
-                  </Text>
+                {topPicks.length > 0 ? (
+                  <>
+                    <SectionHeader
+                      title={t("featuredForYou")}
+                      icon="award"
+                      color={c.foreground}
+                    />
+                    <View style={{ paddingHorizontal: 16, gap: 14 }}>
+                      {topPicks.map((p) => (
+                        <ProviderCard key={p.id} provider={p} />
+                      ))}
+                    </View>
+                  </>
                 ) : null}
-              </View>
-            ) : topPicks.length > 0 ? (
-              <>
-                <SectionHeader
-                  title={t("featuredForYou")}
-                  icon="award"
-                  color={c.foreground}
-                />
-                <View style={{ paddingHorizontal: 16, gap: 14 }}>
-                  {topPicks.map((p) => (
-                    <ProviderCard key={p.id} provider={p} />
-                  ))}
-                </View>
               </>
-            ) : null}
+            )}
 
             {!isFiltering && providers.length === 0 ? (
               <View style={styles.emptyHint}>
@@ -825,6 +838,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     marginTop: 30,
+  },
+  moreBtn: {
+    marginTop: 14,
+    marginHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  moreBtnText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
   },
   loadingWrap: {
     paddingTop: 60,

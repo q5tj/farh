@@ -54,3 +54,6 @@ Thumbs.db
 # package id at the FCM level).
 firebase-service-account*.json
 *-firebase-adminsdk-*.json
+
+# Google Play Store service account — for EAS submit
+google-service-account.json

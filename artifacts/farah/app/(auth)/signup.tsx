@@ -4,6 +4,7 @@ import { Link, router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   StyleSheet,
@@ -91,12 +92,17 @@ export default function SignupScreen() {
       keyboardShouldPersistTaps="handled"
       bottomOffset={24}
     >
-        <LinearGradient
-          colors={["#7b2cbf", "#5a189a"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <ImageBackground
+          source={require("../../assets/images/hero-hall.png")}
           style={styles.hero}
+          imageStyle={styles.heroImage}
         >
+          <LinearGradient
+            colors={["rgba(123,44,191,0.55)", "rgba(90,24,154,0.92)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.languageToggleAnchor}>
             <LanguageToggle onSurface="dark" />
           </View>
@@ -108,7 +114,7 @@ export default function SignupScreen() {
           </View>
           <Text style={styles.appName}>{t("appName")}</Text>
           <Text style={styles.tagline}>{t("tagline")}</Text>
-        </LinearGradient>
+        </ImageBackground>
 
         <View style={styles.formWrap}>
           <Text style={[styles.title, { color: c.foreground, textAlign: align }]}>
@@ -283,10 +289,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 30,
     paddingBottom: 50,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
     alignItems: "center",
     position: "relative",
+    overflow: "hidden",
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  heroImage: {
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   languageToggleAnchor: {
     position: "absolute",

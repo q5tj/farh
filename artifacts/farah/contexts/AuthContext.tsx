@@ -59,6 +59,8 @@ interface AuthContextValue {
   /** Create account with email + password and auto sign-in. Throws on failure. */
   signup: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Send password reset email via Supabase. Throws on failure. */
+  resetPassword: (email: string) => Promise<void>;
   /** Permanent account deletion (Apple/Google compliance). Throws if
    *  the user has active bookings or outstanding provider commission. */
   deleteAccount: () => Promise<void>;
@@ -334,6 +336,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadProfile(session.user.id, session.user.email ?? null);
   }, [loadProfile, session?.user.id, session?.user.email]);
 
+  const resetPassword = useCallback(async (email: string) => {
+    const client = ensureClient();
+    const trimmed = email.trim().toLowerCase();
+    if (!isEmail(trimmed)) throw new Error("invalid_email");
+    const redirectTo =
+      typeof window !== "undefined" && window.location?.origin
+        ? `${window.location.origin}/reset-password`
+        : "farhatukum://reset-password";
+    const { error } = await client.auth.resetPasswordForEmail(trimmed, {
+      redirectTo,
+    });
+    if (error) throw error;
+  }, []);
+
   // Auto-register the current device for push as soon as we have a profile.
   // `registerPushAsync` is a no-op on web/simulators and when permission was
   // not granted — so this is safe to run unconditionally; the OS won't
@@ -380,6 +396,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       signup,
       signOut,
+      resetPassword,
       deleteAccount,
       updateProfile,
       refreshProfile,
@@ -391,6 +408,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       signup,
       signOut,
+      resetPassword,
       deleteAccount,
       updateProfile,
       refreshProfile,

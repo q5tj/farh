@@ -4,6 +4,7 @@ import { Link, router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
+  ImageBackground,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import { Input } from "@/components/ui/Input";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { isEmail, useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
@@ -25,7 +27,7 @@ export default function LoginScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   const { t, isRtl } = useT();
   // Honour the ?next=… query string set by useRequireAuth when a guest
   // hit an account-only screen. Falls back to the home tab.
@@ -36,6 +38,33 @@ export default function LoginScreen() {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const onForgotPassword = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!isEmail(trimmed)) {
+      await infoDialog({
+        title: t("resetPasswordTitle"),
+        message: t("invalidEmail"),
+      });
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetPassword(trimmed);
+      await infoDialog({
+        title: t("resetPasswordTitle"),
+        message: t("resetPasswordSent"),
+      });
+    } catch {
+      await infoDialog({
+        title: t("resetPasswordTitle"),
+        message: t("resetPasswordFailed"),
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const onSubmit = async () => {
     setError("");
@@ -86,12 +115,17 @@ export default function LoginScreen() {
       keyboardShouldPersistTaps="handled"
       bottomOffset={24}
     >
-        <LinearGradient
-          colors={["#7b2cbf", "#5a189a"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <ImageBackground
+          source={require("../../assets/images/hero-hall.png")}
           style={styles.hero}
+          imageStyle={styles.heroImage}
         >
+          <LinearGradient
+            colors={["rgba(123,44,191,0.55)", "rgba(90,24,154,0.92)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.languageToggleAnchor}>
             <LanguageToggle onSurface="dark" />
           </View>
@@ -103,7 +137,7 @@ export default function LoginScreen() {
           </View>
           <Text style={styles.appName}>{t("appName")}</Text>
           <Text style={styles.tagline}>{t("tagline")}</Text>
-        </LinearGradient>
+        </ImageBackground>
 
         <View style={styles.formWrap}>
           <Text style={[styles.title, { color: c.foreground, textAlign: isRtl ? "right" : "left" }]}>
@@ -156,7 +190,20 @@ export default function LoginScreen() {
             />
           </View>
 
-          <View style={{ marginTop: 24 }}>
+          <Pressable
+            onPress={onForgotPassword}
+            disabled={resetting}
+            style={({ pressed }) => [
+              styles.forgotPwdBtn,
+              { opacity: pressed || resetting ? 0.6 : 1 },
+            ]}
+          >
+            <Text style={[styles.forgotPwdText, { color: c.primary }]}>
+              {resetting ? t("loggingIn") : t("forgotPassword")}
+            </Text>
+          </Pressable>
+
+          <View style={{ marginTop: 16 }}>
             <Button
               label={submitting ? t("loggingIn") : t("loginAction")}
               onPress={onSubmit}
@@ -235,10 +282,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 30,
     paddingBottom: 50,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
     alignItems: "center",
     position: "relative",
+    overflow: "hidden",
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  heroImage: {
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   languageToggleAnchor: {
     position: "absolute",
@@ -327,5 +379,14 @@ const styles = StyleSheet.create({
   guestBtnText: {
     fontFamily: "Cairo_600SemiBold",
     fontSize: 15,
+  },
+  forgotPwdBtn: {
+    marginTop: 14,
+    alignSelf: "flex-end",
+    paddingVertical: 4,
+  },
+  forgotPwdText: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 13,
   },
 });
