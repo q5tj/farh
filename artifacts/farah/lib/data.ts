@@ -701,11 +701,15 @@ const PROVIDER_SELECT = `
 `;
 
 export async function fetchProviders(lang: AppLang): Promise<Provider[]> {
+  // Hide providers without an active Moyasar connection. Without it,
+  // deposit checkout returns "provider_not_connected" from the Edge
+  // Function — so showing the listing is a dead end for the customer.
   const { data, error } = await client()
     .from("providers")
     .select(PROVIDER_SELECT)
     .eq("is_active", true)
-    .eq("verification_status", "approved");
+    .eq("verification_status", "approved")
+    .eq("moyasar_status", "active");
   if (error) throw error;
   return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
     mapProvider(
