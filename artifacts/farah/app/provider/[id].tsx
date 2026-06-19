@@ -82,9 +82,13 @@ export default function ProviderScreen() {
   const [reviews, setReviews] = useState<ProviderReview[]>([]);
 
   // Fetch ALL reviews for the provider (not just the viewer's bookings).
+  // Reviews are looked up by UUID — the `providerId` param may be a slug
+  // (pretty URL), so we must wait until the provider row resolves and use
+  // its real UUID.
   useEffect(() => {
+    if (!provider?.id) return;
     let alive = true;
-    fetchProviderReviews(providerId)
+    fetchProviderReviews(provider.id)
       .then((rs) => {
         if (alive) setReviews(rs);
       })
@@ -92,7 +96,7 @@ export default function ProviderScreen() {
     return () => {
       alive = false;
     };
-  }, [providerId]);
+  }, [provider?.id]);
 
   if (loading) {
     return (
