@@ -158,7 +158,7 @@ export default function HomeScreen() {
         }
       >
         <LinearGradient
-          colors={["#7b2cbf", "#5a189a"]}
+          colors={["#9333ea", "#7b2cbf", "#5a189a"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -166,10 +166,13 @@ export default function HomeScreen() {
             { paddingTop: (isWeb ? Math.max(insets.top, 30) : insets.top) + 20 },
           ]}
         >
+          <View style={styles.heroDecorA} />
+          <View style={styles.heroDecorB} />
+
           <View style={styles.greetRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.greet}>
-                {t("greeting")} {displayName ? `، ${displayName}` : ""}
+                {t("greeting")} {displayName ? `، ${displayName}` : ""} 👋
               </Text>
               <Text style={styles.tagline}>{t("tagline")}</Text>
             </View>
@@ -198,7 +201,7 @@ export default function HomeScreen() {
                   styles.filterBtn,
                   activeFilterCount > 0
                     ? { backgroundColor: "#ffffff" }
-                    : { backgroundColor: "rgba(255,255,255,0.18)" },
+                    : { backgroundColor: "rgba(255,255,255,0.22)" },
                 ]}
               >
                 <Feather
@@ -214,6 +217,22 @@ export default function HomeScreen() {
                   </View>
                 ) : null}
               </Pressable>
+            </View>
+          </View>
+
+          {/* Quick stats chips for modern feel */}
+          <View style={styles.quickStatsRow}>
+            <View style={styles.statChip}>
+              <Feather name="users" size={12} color="#ffffff" />
+              <Text style={styles.statChipText}>
+                {providers.length}+ {t("homeStatProviders")}
+              </Text>
+            </View>
+            <View style={styles.statChip}>
+              <Feather name="grid" size={12} color="#ffffff" />
+              <Text style={styles.statChipText}>
+                {categories.length} {t("homeStatCategories")}
+              </Text>
             </View>
           </View>
         </LinearGradient>
@@ -261,16 +280,19 @@ export default function HomeScreen() {
                   </View>
                 </Section>
 
-                <View style={[styles.banner, { backgroundColor: c.primaryBg }]}>
-                  <Image
-                    source={require("../../assets/images/hero-hall.png")}
-                    style={styles.bannerImage}
-                  />
-                  <LinearGradient
-                    colors={["rgba(123,44,191,0)", "rgba(90,24,154,0.85)"]}
-                    style={styles.bannerOverlay}
-                  />
+                <LinearGradient
+                  colors={["#ec4899", "#a855f7", "#7b2cbf"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.banner}
+                >
+                  <View style={styles.bannerDecorA} />
+                  <View style={styles.bannerDecorB} />
                   <View style={styles.bannerContent}>
+                    <View style={styles.bannerSparkle}>
+                      <Feather name="star" size={11} color="#7b2cbf" />
+                      <Text style={styles.bannerSparkleText}>{t("featured")}</Text>
+                    </View>
                     <Text style={styles.bannerTitle}>{t("heroBannerTitle")}</Text>
                     <Text style={styles.bannerDesc}>{t("heroBannerDesc")}</Text>
                     <Pressable
@@ -281,7 +303,7 @@ export default function HomeScreen() {
                       <Feather name="arrow-left" size={14} color="#7b2cbf" />
                     </Pressable>
                   </View>
-                </View>
+                </LinearGradient>
 
                 {topRated.length > 0 ? (
                   <>
@@ -690,9 +712,49 @@ function SectionHeader({
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: 16,
-    paddingBottom: 70,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: 80,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    position: "relative",
+    overflow: "hidden",
+  },
+  heroDecorA: {
+    position: "absolute",
+    top: -50,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  heroDecorB: {
+    position: "absolute",
+    bottom: -30,
+    left: -30,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(236,72,153,0.15)",
+  },
+  quickStatsRow: {
+    flexDirection: "row-reverse",
+    gap: 8,
+    marginTop: 14,
+    flexWrap: "wrap",
+  },
+  statChip: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  statChipText: {
+    fontFamily: "Cairo_600SemiBold",
+    color: "#ffffff",
+    fontSize: 11,
   },
   greetRow: {
     flexDirection: "row-reverse",
@@ -768,8 +830,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 16,
+    fontSize: 17,
     textAlign: "right",
+    letterSpacing: -0.2,
   },
   catsGrid: {
     flexDirection: "row-reverse",
@@ -783,20 +846,55 @@ const styles = StyleSheet.create({
   banner: {
     marginTop: 24,
     marginHorizontal: 16,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: "hidden",
-    height: 160,
+    minHeight: 170,
+    position: "relative",
+    shadowColor: "#7b2cbf",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  bannerImage: { width: "100%", height: "100%" },
-  bannerOverlay: { ...StyleSheet.absoluteFillObject },
-  bannerContent: {
+  bannerDecorA: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    left: 0,
-    top: 0,
-    padding: 18,
+    top: -40,
+    right: -30,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  bannerDecorB: {
+    position: "absolute",
+    bottom: -20,
+    left: -20,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  bannerContent: {
+    padding: 20,
     justifyContent: "flex-end",
+    flex: 1,
+  },
+  bannerSparkle: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-end",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  bannerSparkleText: {
+    fontFamily: "Cairo_700Bold",
+    color: "#7b2cbf",
+    fontSize: 10,
+    letterSpacing: 0.3,
   },
   bannerTitle: {
     fontFamily: "Cairo_700Bold",

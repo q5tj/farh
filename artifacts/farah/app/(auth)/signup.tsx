@@ -4,7 +4,6 @@ import { Link, router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
-  ImageBackground,
   Platform,
   Pressable,
   StyleSheet,
@@ -86,23 +85,24 @@ export default function SignupScreen() {
       style={{ flex: 1, backgroundColor: c.background }}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingTop: isWeb ? 70 : insets.top + 20,
         paddingBottom: isWeb ? 50 : insets.bottom + 30,
       }}
       keyboardShouldPersistTaps="handled"
       bottomOffset={24}
     >
-        <ImageBackground
-          source={require("../../assets/images/hero-hall.png")}
-          style={styles.hero}
-          imageStyle={styles.heroImage}
+        <LinearGradient
+          colors={["#9333ea", "#7b2cbf", "#5a189a"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.hero,
+            { paddingTop: (isWeb ? 30 : insets.top) + 30 },
+          ]}
         >
-          <LinearGradient
-            colors={["rgba(123,44,191,0.55)", "rgba(90,24,154,0.92)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
+          <View style={styles.decorCircleA} />
+          <View style={styles.decorCircleB} />
+          <View style={styles.decorCircleC} />
+
           <View style={styles.languageToggleAnchor}>
             <LanguageToggle onSurface="dark" />
           </View>
@@ -114,7 +114,7 @@ export default function SignupScreen() {
           </View>
           <Text style={styles.appName}>{t("appName")}</Text>
           <Text style={styles.tagline}>{t("tagline")}</Text>
-        </ImageBackground>
+        </LinearGradient>
 
         <View style={styles.formWrap}>
           <Text style={[styles.title, { color: c.foreground, textAlign: align }]}>
@@ -287,17 +287,39 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: 24,
-    paddingTop: 30,
-    paddingBottom: 50,
+    paddingBottom: 60,
     alignItems: "center",
     position: "relative",
     overflow: "hidden",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
-  heroImage: {
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+  decorCircleA: {
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  decorCircleB: {
+    position: "absolute",
+    bottom: -40,
+    left: -50,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(236,72,153,0.18)",
+  },
+  decorCircleC: {
+    position: "absolute",
+    top: "40%",
+    left: -30,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   languageToggleAnchor: {
     position: "absolute",
@@ -305,15 +327,17 @@ const styles = StyleSheet.create({
     right: 16,
   },
   logoCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: "rgba(255,255,255,0.22)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 18,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)",
   },
-  logo: { width: 72, height: 72, borderRadius: 36 },
+  logo: { width: 78, height: 78, borderRadius: 39 },
   appName: {
     fontFamily: "Cairo_700Bold",
     fontSize: 32,

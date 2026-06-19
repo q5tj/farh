@@ -33,6 +33,8 @@ export const ar = {
   resetPasswordFailed: "تعذّر إرسال رابط الاستعادة. تحقق من البريد وحاول مرة أخرى.",
   showMore: "عرض المزيد",
   showLess: "عرض أقل",
+  homeStatProviders: "مزوّد",
+  homeStatCategories: "فئة",
   invalidEmail: "البريد الإلكتروني غير صحيح",
   invalidPassword: "كلمة المرور يجب أن تكون ٨ أحرف على الأقل",
   passwordsMismatch: "كلمتا المرور غير متطابقتين",

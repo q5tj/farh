@@ -15,17 +15,22 @@ export function CategoryPill({ category }: { category: Category }) {
         styles.wrap,
         {
           backgroundColor: c.card,
-          borderColor: c.border,
-          borderRadius: c.radius,
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.97 : 1 }],
+          borderColor: pressed ? category.color + "55" : c.border,
+          borderRadius: 18,
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.96 : 1 }],
+          shadowColor: category.color,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: pressed ? 0.18 : 0.06,
+          shadowRadius: 8,
+          elevation: pressed ? 3 : 1,
         },
       ]}
     >
       <View
         style={[styles.iconWrap, { backgroundColor: category.color + "1A" }]}
       >
-        <Feather name={category.icon} size={22} color={category.color} />
+        <Feather name={category.icon} size={24} color={category.color} />
       </View>
       <Text
         style={[styles.label, { color: c.foreground }]}
@@ -40,7 +45,7 @@ export function CategoryPill({ category }: { category: Category }) {
 const styles = StyleSheet.create({
   wrap: {
     width: "31%",
-    minHeight: 110,
+    minHeight: 112,
     alignItems: "center",
     justifyContent: "center",
     padding: 12,
@@ -48,9 +53,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },

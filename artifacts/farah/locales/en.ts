@@ -33,6 +33,8 @@ export const en: Strings = {
   resetPasswordFailed: "Couldn't send reset link. Check the email and try again.",
   showMore: "Show more",
   showLess: "Show less",
+  homeStatProviders: "providers",
+  homeStatCategories: "categories",
   invalidEmail: "Invalid email address",
   invalidPassword: "Password must be at least 8 characters",
   passwordsMismatch: "Passwords do not match",
