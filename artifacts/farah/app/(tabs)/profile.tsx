@@ -286,7 +286,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={["#7b2cbf", "#5a189a"]}
+          colors={["#9333ea", "#7b2cbf", "#5a189a"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
@@ -297,68 +297,101 @@ export default function ProfileScreen() {
             },
           ]}
         >
-          <View style={styles.avatar}>
-            {profile?.avatarUrl ? (
-              <Image
-                source={{ uri: profile.avatarUrl }}
-                style={{ width: "100%", height: "100%" }}
-              />
-            ) : (
-              <Text style={styles.avatarText}>
-                {displayName.charAt(0) || t("defaultUserInitial")}
-              </Text>
-            )}
-          </View>
-          <Text style={styles.userName}>{displayName}</Text>
+          <View style={styles.heroDecorA} />
+          <View style={styles.heroDecorB} />
+
+          <Pressable
+            onPress={() => router.push("/(auth)/profile-setup")}
+            style={({ pressed }) => [
+              styles.avatarWrap,
+              { opacity: pressed ? 0.92 : 1 },
+            ]}
+          >
+            <View style={styles.avatar}>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {displayName.charAt(0) || t("defaultUserInitial")}
+                </Text>
+              )}
+            </View>
+            <View style={styles.avatarEditBadge}>
+              <Feather name="edit-2" size={11} color="#ffffff" />
+            </View>
+          </Pressable>
+          <Text style={styles.userName} numberOfLines={1}>
+            {displayName}
+          </Text>
           <View style={styles.userMeta}>
             <Feather name="mail" size={12} color="rgba(255,255,255,0.85)" />
-            <Text style={styles.userPhone}>{profile?.email ?? ""}</Text>
+            <Text style={styles.userPhone} numberOfLines={1}>
+              {profile?.email ?? ""}
+            </Text>
           </View>
           <View style={styles.rolePill}>
+            <Feather
+              name={
+                profile?.role === "admin"
+                  ? "shield"
+                  : profile?.role === "provider"
+                    ? "briefcase"
+                    : "user"
+              }
+              size={12}
+              color="#ffffff"
+            />
             <Text style={styles.rolePillText}>{roleLabel}</Text>
           </View>
         </LinearGradient>
 
         <View style={styles.body}>
-          {(profile?.role === "provider" || profile?.role === "admin") && (
-            <Card style={{ marginBottom: 14 }} padded={false}>
-              <Row
-                icon={profile.role === "admin" ? "shield" : "briefcase"}
-                label={
-                  profile.role === "admin"
-                    ? t("switchToAdmin")
-                    : t("switchToProvider")
-                }
-                chevron={chevron}
-                onPress={() => {
-                  if (profile.role === "admin") router.push("/admin");
-                  else router.push("/provider-zone");
-                }}
-              />
-            </Card>
-          )}
+          {(profile?.role === "provider" || profile?.role === "admin") ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+                {t("profileSectionWorkspace")}
+              </Text>
+              <Card style={styles.sectionCard} padded={false}>
+                <Row
+                  icon={profile.role === "admin" ? "shield" : "briefcase"}
+                  label={
+                    profile.role === "admin"
+                      ? t("switchToAdmin")
+                      : t("switchToProvider")
+                  }
+                  chevron={chevron}
+                  onPress={() => {
+                    if (profile.role === "admin") router.push("/admin");
+                    else router.push("/provider-zone");
+                  }}
+                />
+              </Card>
+            </>
+          ) : null}
 
-          {profile?.role === "customer" && profile?.profileCompleted && (
-            <Card style={{ marginBottom: 14 }} padded={false}>
-              <Row
-                icon="briefcase"
-                label={t("becomeProviderCta")}
-                chevron={chevron}
-                onPress={() => router.push("/provider-zone/onboarding")}
-              />
-            </Card>
-          )}
+          {profile?.role === "customer" && profile?.profileCompleted ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+                {t("profileSectionWorkspace")}
+              </Text>
+              <Card style={styles.sectionCard} padded={false}>
+                <Row
+                  icon="briefcase"
+                  label={t("becomeProviderCta")}
+                  chevron={chevron}
+                  onPress={() => router.push("/provider-zone/onboarding")}
+                />
+              </Card>
+            </>
+          ) : null}
 
-          <Card style={{ marginBottom: 14 }} padded={false}>
-            <Row
-              icon="heart"
-              label={t("favorites")}
-              chevron={chevron}
-              onPress={() => router.push("/favorites")}
-            />
-          </Card>
-
-          <Card padded={false}>
+          <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+            {t("profileSectionAccount")}
+          </Text>
+          <Card style={styles.sectionCard} padded={false}>
             <Row
               icon="user"
               label={t("myAccount")}
@@ -367,6 +400,18 @@ export default function ProfileScreen() {
               onPress={() => router.push("/(auth)/profile-setup")}
             />
             <View style={[styles.sep, { backgroundColor: c.border }]} />
+            <Row
+              icon="heart"
+              label={t("favorites")}
+              chevron={chevron}
+              onPress={() => router.push("/favorites")}
+            />
+          </Card>
+
+          <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+            {t("profileSectionPreferences")}
+          </Text>
+          <Card style={styles.sectionCard} padded={false}>
             <Row
               icon="globe"
               label={t("language")}
@@ -384,7 +429,12 @@ export default function ProfileScreen() {
                 />
               </>
             ) : null}
-            <View style={[styles.sep, { backgroundColor: c.border }]} />
+          </Card>
+
+          <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+            {t("profileSectionSupport")}
+          </Text>
+          <Card style={styles.sectionCard} padded={false}>
             <Row
               icon="help-circle"
               label={t("support")}
@@ -400,7 +450,10 @@ export default function ProfileScreen() {
             />
           </Card>
 
-          <Card style={{ marginTop: 14 }} padded={false}>
+          <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+            {t("profileSectionDanger")}
+          </Text>
+          <Card style={styles.sectionCard} padded={false}>
             <Row
               icon="log-out"
               label={t("logout")}
@@ -626,38 +679,76 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: 16,
-    paddingBottom: 30,
+    paddingBottom: 44,
     alignItems: "center",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+    position: "relative",
+    overflow: "hidden",
+  },
+  heroDecorA: {
+    position: "absolute",
+    top: -50,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  heroDecorB: {
+    position: "absolute",
+    bottom: -30,
+    left: -30,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(236,72,153,0.18)",
+  },
+  avatarWrap: {
+    position: "relative",
+    marginBottom: 14,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.4)",
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.45)",
     overflow: "hidden",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#ec4899",
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 36,
+    fontSize: 38,
     color: "#ffffff",
   },
   userName: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 20,
+    fontSize: 22,
     color: "#ffffff",
+    letterSpacing: -0.3,
   },
   userMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 6,
+    maxWidth: "85%",
   },
   userPhone: {
     fontFamily: "Cairo_400Regular",
@@ -667,18 +758,40 @@ const styles = StyleSheet.create({
   rolePill: {
     marginTop: 14,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    paddingVertical: 7,
+    backgroundColor: "rgba(255,255,255,0.22)",
     borderRadius: 100,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
   },
   rolePillText: {
-    fontFamily: "Cairo_600SemiBold",
+    fontFamily: "Cairo_700Bold",
     fontSize: 12,
     color: "#ffffff",
   },
   body: {
     padding: 16,
-    marginTop: -12,
+    marginTop: -20,
+  },
+  sectionLabel: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    letterSpacing: 0.5,
+    textAlign: "right",
+    marginTop: 16,
+    marginBottom: 8,
+    marginHorizontal: 4,
+    textTransform: "uppercase",
+  },
+  sectionCard: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
   row: {
     paddingVertical: 14,

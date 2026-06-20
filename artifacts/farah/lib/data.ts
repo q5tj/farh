@@ -706,16 +706,56 @@ const PROVIDER_SELECT = `
   )
 `;
 
-export async function fetchProviders(lang: AppLang): Promise<Provider[]> {
-  // Hide providers without an active Moyasar connection. Without it,
-  // deposit checkout returns "provider_not_connected" from the Edge
-  // Function — so showing the listing is a dead end for the customer.
+const SHOW_UNCONNECTED_KEY = "show_unconnected_providers";
+
+/**
+ * Read the admin toggle that allows unconnected (no-Moyasar) providers
+ * to surface in the public catalog. Default is `false` so the live
+ * checkout path stays consistent — the soft-launch / demo phase opts in
+ * explicitly via /admin/moyasar-status.
+ */
+export async function fetchShowUnconnectedProviders(): Promise<boolean> {
   const { data, error } = await client()
+    .from("app_settings")
+    .select("value")
+    .eq("key", SHOW_UNCONNECTED_KEY)
+    .maybeSingle();
+  if (error) return false;
+  if (!data) return false;
+  const raw = (data as { value: unknown }).value;
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "string") return raw === "true";
+  return false;
+}
+
+export async function adminSetShowUnconnectedProviders(
+  enabled: boolean,
+): Promise<void> {
+  const { error } = await client()
+    .from("app_settings")
+    .upsert(
+      [{ key: SHOW_UNCONNECTED_KEY, value: enabled }],
+      { onConflict: "key" },
+    );
+  if (error) throw error;
+}
+
+export async function fetchProviders(lang: AppLang): Promise<Provider[]> {
+  // Hide providers without an active Moyasar connection by default —
+  // booking checkout would otherwise return provider_not_connected.
+  // But the admin can flip `show_unconnected_providers` in app_settings
+  // to "true" during the soft-launch phase so they can demo the catalog
+  // to prospective merchants who haven't onboarded with Moyasar yet.
+  const showUnconnected = await fetchShowUnconnectedProviders().catch(() => false);
+  let q = client()
     .from("providers")
     .select(PROVIDER_SELECT)
     .eq("is_active", true)
-    .eq("verification_status", "approved")
-    .eq("moyasar_status", "active");
+    .eq("verification_status", "approved");
+  if (!showUnconnected) {
+    q = q.eq("moyasar_status", "active");
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
     mapProvider(

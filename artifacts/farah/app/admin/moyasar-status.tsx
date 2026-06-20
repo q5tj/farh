@@ -20,8 +20,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import {
   adminFetchAllApprovedProviders,
+  adminSetShowUnconnectedProviders,
+  fetchShowUnconnectedProviders,
   type Provider,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 
 type TabKind = "pending" | "active" | "all";
@@ -87,16 +90,41 @@ export default function AdminMoyasarStatusScreen() {
   const [tab, setTab] = useState<TabKind>("pending");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUnconnected, setShowUnconnected] = useState(false);
+  const [togglingShow, setTogglingShow] = useState(false);
 
   const load = async () => {
     try {
-      const list = await adminFetchAllApprovedProviders(lang);
+      const [list, flag] = await Promise.all([
+        adminFetchAllApprovedProviders(lang),
+        fetchShowUnconnectedProviders().catch(() => false),
+      ]);
       setProviders(list);
+      setShowUnconnected(flag);
     } catch (e) {
       console.warn("[admin moyasar-status] load failed", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const onToggleShow = async () => {
+    if (togglingShow) return;
+    const next = !showUnconnected;
+    setTogglingShow(true);
+    setShowUnconnected(next);
+    try {
+      await adminSetShowUnconnectedProviders(next);
+    } catch (e) {
+      // Revert UI and surface the error.
+      setShowUnconnected(!next);
+      await infoDialog({
+        title: t("error"),
+        message: (e as Error)?.message ?? "Failed to update setting",
+      });
+    } finally {
+      setTogglingShow(false);
     }
   };
 
@@ -141,6 +169,57 @@ export default function AdminMoyasarStatusScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader title={t("moyasarStatusTitle")} />
+
+      <Pressable
+        onPress={onToggleShow}
+        disabled={togglingShow}
+        style={({ pressed }) => [
+          styles.toggleCard,
+          {
+            backgroundColor: showUnconnected ? "#fef3c7" : c.card,
+            borderColor: showUnconnected ? "#f59e0b" : c.border,
+            opacity: pressed || togglingShow ? 0.85 : 1,
+          },
+        ]}
+      >
+        <View style={styles.toggleIcon}>
+          <Feather
+            name={showUnconnected ? "eye" : "eye-off"}
+            size={20}
+            color={showUnconnected ? "#b45309" : c.primary}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.toggleTitle, { color: c.foreground }]}>
+            {t("moyasarShowUnconnectedTitle")}
+          </Text>
+          <Text
+            style={[styles.toggleBody, { color: c.mutedForeground }]}
+            numberOfLines={3}
+          >
+            {showUnconnected
+              ? t("moyasarShowUnconnectedOn")
+              : t("moyasarShowUnconnectedOff")}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.switchTrack,
+            {
+              backgroundColor: showUnconnected ? "#16a34a" : "#cbd5e1",
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.switchThumb,
+              {
+                alignSelf: showUnconnected ? "flex-end" : "flex-start",
+              },
+            ]}
+          />
+        </View>
+      </Pressable>
 
       <View style={[styles.tabsRow, { borderBottomColor: c.border }]}>
         {tabs.map((tb) => {
@@ -302,9 +381,53 @@ export default function AdminMoyasarStatusScreen() {
 }
 
 const styles = StyleSheet.create({
+  toggleCard: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 12,
+    margin: 16,
+    marginBottom: 0,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  toggleIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toggleTitle: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 14,
+    textAlign: "right",
+  },
+  toggleBody: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 12,
+    textAlign: "right",
+    marginTop: 4,
+    lineHeight: 17,
+  },
+  switchTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: "center",
+  },
+  switchThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+  },
   tabsRow: {
     flexDirection: "row-reverse",
     borderBottomWidth: 1,
+    marginTop: 14,
   },
   tabBtn: {
     flex: 1,

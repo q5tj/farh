@@ -207,6 +207,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row-reverse",
     gap: 6,
+    // Critical: stop the horizontal ScrollView from collapsing chips —
+    // without this, switching from "all" to a narrower track causes
+    // RN-web to recompute widths and the label text gets squeezed to 0.
+    flexShrink: 0,
   },
   chipText: {
     fontFamily: "Cairo_600SemiBold",
@@ -214,6 +218,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     includeFontPadding: false,
     textAlignVertical: "center",
+    flexShrink: 0,
   },
   chipBadge: {
     minWidth: 22,
