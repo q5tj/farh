@@ -147,7 +147,7 @@ begin
   insert into public.notifications (user_id, title, body)
   values (
     new.id,
-    'أهلاً بك في فرح',
+    'أهلاً بك في فرحتكم',
     'تصفّح أفضل مزودي الخدمات لتنظيم مناسبتك المثالية'
   );
   return new;

@@ -3,7 +3,7 @@ export const STRINGS = {
   tagline: "كل ما تحتاجه لمناسبتك في مكان واحد",
 
   // Auth
-  welcome: "أهلاً بك في فرح",
+  welcome: "أهلاً بك في فرحتكم",
   loginTitle: "تسجيل الدخول",
   signupTitle: "إنشاء حساب جديد",
   emailLabel: "البريد الإلكتروني",

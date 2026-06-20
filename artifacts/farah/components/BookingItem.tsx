@@ -29,8 +29,14 @@ export function BookingItem({ booking }: { booking: Booking }) {
         {
           backgroundColor: c.card,
           borderColor: c.border,
-          borderRadius: c.radius,
-          opacity: pressed ? 0.9 : 1,
+          borderRadius: 18,
+          opacity: pressed ? 0.93 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2,
         },
       ]}
     >
@@ -53,18 +59,23 @@ export function BookingItem({ booking }: { booking: Booking }) {
             {booking.serviceTitle}
           </Text>
           <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Feather name="calendar" size={12} color={c.mutedForeground} />
-              <Text style={[styles.meta, { color: c.mutedForeground }]}>
+            <View style={[styles.metaItem, { backgroundColor: c.muted }]}>
+              <Feather name="calendar" size={11} color={c.mutedForeground} />
+              <Text style={[styles.meta, { color: c.foreground }]}>
                 {booking.date}
               </Text>
             </View>
-            <View style={styles.metaItem}>
-              <Feather name="clock" size={12} color={c.mutedForeground} />
-              <Text style={[styles.meta, { color: c.mutedForeground }]}>
+            <View style={[styles.metaItem, { backgroundColor: c.muted }]}>
+              <Feather name="clock" size={11} color={c.mutedForeground} />
+              <Text style={[styles.meta, { color: c.foreground }]}>
                 {booking.time}
               </Text>
             </View>
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={[styles.priceLabel, { color: c.mutedForeground }]}>
+              {t("priceLabel")}
+            </Text>
             <Text style={[styles.price, { color: c.primary }]}>
               {booking.price.toLocaleString()} {t("sar")}
             </Text>
@@ -76,9 +87,13 @@ export function BookingItem({ booking }: { booking: Booking }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { borderWidth: 1, padding: 10, marginBottom: 10 },
+  wrap: {
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 12,
+  },
   row: { flexDirection: "row-reverse", gap: 12 },
-  image: { width: 88, height: 88, borderRadius: 12 },
+  image: { width: 92, height: 92, borderRadius: 14 },
   content: { flex: 1, gap: 6 },
   headRow: {
     flexDirection: "row-reverse",
@@ -86,24 +101,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 6,
   },
-  title: { fontFamily: "Cairo_700Bold", fontSize: 14, flex: 1, textAlign: "right" },
+  title: { fontFamily: "Cairo_700Bold", fontSize: 15, flex: 1, textAlign: "right" },
   service: { fontFamily: "Cairo_400Regular", fontSize: 12, textAlign: "right" },
   metaRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 12,
-    marginTop: 2,
+    gap: 6,
+    marginTop: 4,
     flexWrap: "wrap",
   },
   metaItem: {
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  meta: { fontFamily: "Cairo_400Regular", fontSize: 11 },
+  meta: { fontFamily: "Cairo_600SemiBold", fontSize: 11 },
+  priceRow: {
+    flexDirection: "row-reverse",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  priceLabel: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 11,
+  },
   price: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 13,
-    marginRight: "auto",
+    fontSize: 15,
   },
 });

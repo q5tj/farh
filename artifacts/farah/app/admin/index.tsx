@@ -117,6 +117,15 @@ export default function AdminHome() {
       tipBody: t("tipAdminVerificationsBody"),
     },
     {
+      icon: "link",
+      title: t("adminMoyasarStatus"),
+      desc: t("adminMoyasarStatusDesc"),
+      route: "/admin/moyasar-status",
+      color: "#25D366",
+      tipTitle: t("adminMoyasarStatus"),
+      tipBody: t("adminMoyasarStatusDesc"),
+    },
+    {
       icon: "file-text",
       title: t("adminAuditLog"),
       desc: t("adminAuditLogDesc"),

@@ -31,17 +31,35 @@ export default function BookingsScreen() {
   // it gated because it's directly tied to having a user account.
   const ready = useRequireAuth();
 
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: bookings.length };
+    for (const b of bookings) c[b.status] = (c[b.status] ?? 0) + 1;
+    return c;
+  }, [bookings]);
+
   const FILTERS = useMemo<
-    { id: "all" | BookingStatus; label: string }[]
+    { id: "all" | BookingStatus; label: string; count: number }[]
   >(
     () => [
-      { id: "all", label: t("all") },
-      { id: "pending", label: t("statusPending") },
-      { id: "accepted", label: t("statusAccepted") },
-      { id: "completed", label: t("statusCompleted") },
-      { id: "rejected", label: t("statusRejected") },
+      { id: "all", label: t("all"), count: counts.all ?? 0 },
+      { id: "pending", label: t("statusPending"), count: counts.pending ?? 0 },
+      {
+        id: "accepted",
+        label: t("statusAccepted"),
+        count: counts.accepted ?? 0,
+      },
+      {
+        id: "completed",
+        label: t("statusCompleted"),
+        count: counts.completed ?? 0,
+      },
+      {
+        id: "rejected",
+        label: t("statusRejected"),
+        count: counts.rejected ?? 0,
+      },
     ],
-    [t],
+    [t, counts],
   );
 
   const filtered = useMemo(() => {
@@ -64,8 +82,10 @@ export default function BookingsScreen() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader title={t("myBookings")} onBack={onBack} />
 
-      <View
-        style={[
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[
           styles.filterRow,
           { flexDirection: isRtl ? "row-reverse" : "row" },
         ]}
@@ -94,10 +114,32 @@ export default function BookingsScreen() {
               >
                 {f.label}
               </Text>
+              {f.count > 0 ? (
+                <View
+                  style={[
+                    styles.chipBadge,
+                    {
+                      backgroundColor: active
+                        ? "rgba(255,255,255,0.28)"
+                        : c.background,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipBadgeText,
+                      { color: active ? "#ffffff" : c.foreground },
+                    ]}
+                    allowFontScaling={false}
+                  >
+                    {f.count}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {loading && bookings.length === 0 ? (
         <ScrollView
@@ -154,16 +196,17 @@ const styles = StyleSheet.create({
   backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
   filterRow: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     gap: 8,
     alignItems: "center",
-    flexWrap: "wrap",
   },
   chip: {
-    height: 36,
+    height: 38,
     paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row-reverse",
+    gap: 6,
   },
   chipText: {
     fontFamily: "Cairo_600SemiBold",
@@ -171,5 +214,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     includeFontPadding: false,
     textAlignVertical: "center",
+  },
+  chipBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 7,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chipBadgeText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 11,
+    lineHeight: 14,
+    includeFontPadding: false,
   },
 });

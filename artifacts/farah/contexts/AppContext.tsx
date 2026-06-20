@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   useCallback,
@@ -168,10 +169,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const list = await fetchNotifications(userDbId);
-      if (mountedRef.current) setNotifications(list);
+      // Apply locally-stored read receipts as a last-resort fallback. The
+      // RPC `fetch_user_notifications` already returns `effective_read=true`
+      // for broadcasts dismissed via `notification_reads`, but if the
+      // migration isn't deployed (or the INSERT silently failed under RLS)
+      // this keeps the UX promise — a tap on "mark all read" sticks for
+      // the next mount instead of bouncing back to unread.
+      const localReadKey = `farh.broadcast_read.${userDbId}`;
+      const raw = await AsyncStorage.getItem(localReadKey).catch(() => null);
+      const localReadIds = new Set<string>(raw ? JSON.parse(raw) : []);
+      const merged = list.map((n) =>
+        localReadIds.has(n.id) ? { ...n, read: true } : n,
+      );
+      if (mountedRef.current) setNotifications(merged);
     } catch (err) {
-      // Log + leave the existing list intact. Surfacing this as a thrown
-      // error blanked the entire app shell on the previous code path.
       console.warn("[notifications] load failed", err);
     }
   }, [userDbId]);
@@ -442,9 +453,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationsRead = useCallback(async () => {
     if (!userDbId) return;
-    await markAllReadDb(userDbId);
+    // Persist read receipts locally FIRST so the UI sticks even if the
+    // server call fails. Broadcasts especially depend on this when
+    // notification_reads isn't writable for the caller.
+    const localReadKey = `farh.broadcast_read.${userDbId}`;
+    const allIds = notifications.map((n) => n.id);
+    try {
+      await AsyncStorage.setItem(localReadKey, JSON.stringify(allIds));
+    } catch {
+      /* AsyncStorage is best-effort */
+    }
+    // Then call the RPC to update server-side state (so other devices
+    // see the same read state). Failures here are non-fatal because the
+    // local cache already covers this device.
+    try {
+      await markAllReadDb(userDbId);
+    } catch (e) {
+      console.warn("[notifications] markAllRead RPC failed", e);
+    }
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, [userDbId]);
+  }, [userDbId, notifications]);
 
   const upsertProviderService = useCallback(
     async (

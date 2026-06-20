@@ -62,6 +62,7 @@ interface ProviderRow {
   rating_count: number | null;
   is_active: boolean | null;
   verification_status: VerificationStatus | null;
+  moyasar_status: string | null;
   working_hours: WorkingHoursRow | null;
   category?: { slug: string } | null;
   provider_images?: GalleryItemRow[] | null;
@@ -270,6 +271,10 @@ export interface Provider {
   priceFrom: number;
   isActive: boolean;
   verificationStatus: VerificationStatus;
+  /** Moyasar connection status. Catalog only shows 'active' providers
+   *  (booking deposit would otherwise fail). Admin can list non-active
+   *  ones via adminFetchProvidersForMoyasar. */
+  moyasarStatus: string | null;
   /** First N URLs only — for backwards compatibility with existing screens. */
   gallery: string[];
   galleryItems: GalleryItem[];
@@ -483,6 +488,7 @@ function mapProvider(row: ProviderRow, lang: AppLang): Provider {
     priceFrom,
     isActive: row.is_active ?? true,
     verificationStatus: row.verification_status ?? "pending",
+    moyasarStatus: row.moyasar_status ?? null,
     gallery,
     galleryItems,
     services,
@@ -687,7 +693,7 @@ const PROVIDER_SELECT = `
   verification_rejection_reason,
   lat, lng,
   rating_avg, rating_count, is_active,
-  verification_status, working_hours,
+  verification_status, moyasar_status, working_hours,
   category:categories ( slug ),
   provider_images (
     id, provider_id, kind, url, storage_path, mime_type,
@@ -1948,6 +1954,28 @@ export async function adminFetchProvidersByStatus(
     .from("providers")
     .select(PROVIDER_SELECT)
     .eq("verification_status", status)
+    .order("created_at" as never, { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
+    mapProvider(
+      { ...r, services: (r.services ?? []).filter((s) => s.is_active !== false) },
+      lang,
+    ),
+  );
+}
+
+/**
+ * Admin report: all approved providers regardless of Moyasar status,
+ * so the operator can see who still needs to connect their Moyasar
+ * account and follow up with them via WhatsApp.
+ */
+export async function adminFetchAllApprovedProviders(
+  lang: AppLang,
+): Promise<Provider[]> {
+  const { data, error } = await client()
+    .from("providers")
+    .select(PROVIDER_SELECT)
+    .eq("verification_status", "approved")
     .order("created_at" as never, { ascending: false });
   if (error) throw error;
   return ((data ?? []) as unknown as ProviderRow[]).map((r) =>
