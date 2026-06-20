@@ -1,4 +1,3 @@
-import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -82,15 +81,23 @@ export default function BookingsScreen() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader title={t("myBookings")} onBack={onBack} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // IMPORTANT: keep contentContainerStyle as plain `row` and reverse
-        // the FILTERS array instead. RN-web's ScrollView miscalculates
-        // child positions when row-reverse is set on a horizontal
-        // scroller — chips end up overlapping the active one at offset 0
-        // instead of laying out side-by-side.
-        contentContainerStyle={styles.filterRow}
+      {/*
+        Tabs row — fixed 5 segments, NO horizontal ScrollView. We tried a
+        ScrollView previously but RN-web miscalculates child positions
+        when chip backgrounds change on press: the inner flex layout
+        recomputes and chips collapse on top of the active one. A plain
+        View with flex:1 per tab + bottom underline is simpler and
+        completely deterministic.
+
+        We reverse the FILTERS array on RTL so the visual order matches
+        the typed order (الكل أولاً على اليمين). Each Pressable wraps an
+        inner View so we can render the count badge inline reliably.
+      */}
+      <View
+        style={[
+          styles.tabsRow,
+          { borderBottomColor: c.border, flexDirection: flexDir },
+        ]}
       >
         {(isRtl ? [...FILTERS].reverse() : FILTERS).map((f) => {
           const active = filter === f.id;
@@ -98,50 +105,55 @@ export default function BookingsScreen() {
             <Pressable
               key={f.id}
               onPress={() => setFilter(f.id)}
-              style={[
-                styles.chip,
+              style={({ pressed }) => [
+                styles.tabBtn,
                 {
-                  backgroundColor: active ? c.primary : c.muted,
-                  borderRadius: 100,
+                  opacity: pressed ? 0.7 : 1,
+                  borderBottomColor: active ? c.primary : "transparent",
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: active ? "#ffffff" : c.foreground },
-                ]}
-                numberOfLines={1}
-                allowFontScaling={false}
-              >
-                {f.label}
-              </Text>
-              {f.count > 0 ? (
-                <View
+              <View style={[styles.tabContent, { flexDirection: flexDir }]}>
+                <Text
                   style={[
-                    styles.chipBadge,
+                    styles.tabLabel,
                     {
-                      backgroundColor: active
-                        ? "rgba(255,255,255,0.28)"
-                        : c.background,
+                      color: active ? c.primary : c.mutedForeground,
+                      fontFamily: active
+                        ? "Cairo_700Bold"
+                        : "Cairo_600SemiBold",
                     },
                   ]}
+                  numberOfLines={1}
+                  allowFontScaling={false}
                 >
-                  <Text
+                  {f.label}
+                </Text>
+                {f.count > 0 ? (
+                  <View
                     style={[
-                      styles.chipBadgeText,
-                      { color: active ? "#ffffff" : c.foreground },
+                      styles.tabBadge,
+                      {
+                        backgroundColor: active ? c.primary : c.muted,
+                      },
                     ]}
-                    allowFontScaling={false}
                   >
-                    {f.count}
-                  </Text>
-                </View>
-              ) : null}
+                    <Text
+                      style={[
+                        styles.tabBadgeText,
+                        { color: active ? "#ffffff" : c.foreground },
+                      ]}
+                      allowFontScaling={false}
+                    >
+                      {f.count}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {loading && bookings.length === 0 ? (
         <ScrollView
@@ -196,50 +208,42 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   backText: { fontFamily: "Cairo_600SemiBold", fontSize: 13 },
-  filterRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-    alignItems: "center",
-    flexDirection: "row",
+  tabsRow: {
+    borderBottomWidth: 1,
+    paddingHorizontal: 4,
   },
-  chip: {
-    height: 38,
-    paddingHorizontal: 16,
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 6,
-    // Critical: stop the horizontal ScrollView from collapsing chips —
-    // without this, switching from "all" to a narrower track causes
-    // RN-web to recompute widths and the label text gets squeezed to 0.
-    flexShrink: 0,
-    // Belt-and-braces: prevent any parent flex container from collapsing
-    // the chip width (RN-web sometimes ignores flexShrink:0 inside a
-    // horizontal ScrollView).
-    flexGrow: 0,
-    flexBasis: "auto",
   },
-  chipText: {
-    fontFamily: "Cairo_600SemiBold",
-    fontSize: 13,
-    lineHeight: 20,
+  tabContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  tabLabel: {
+    fontSize: 12,
+    lineHeight: 17,
     includeFontPadding: false,
     textAlignVertical: "center",
-    flexShrink: 0,
   },
-  chipBadge: {
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 7,
-    borderRadius: 11,
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
-  chipBadgeText: {
+  tabBadgeText: {
     fontFamily: "Cairo_700Bold",
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10,
+    lineHeight: 13,
     includeFontPadding: false,
   },
 });

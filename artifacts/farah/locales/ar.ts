@@ -208,7 +208,7 @@ export const ar = {
   restartRequired: "أعد تشغيل التطبيق لتطبيق التغيير",
   support: "الدعم الفني",
   aboutApp: "حول التطبيق",
-  logout: "تسجيل الخروج",
+  logout: "تسجيل خروج",
   logoutConfirmTitle: "تسجيل الخروج",
   logoutConfirmMsg: "هل تريد فعلاً تسجيل الخروج؟",
   comingSoon: "قريباً",
