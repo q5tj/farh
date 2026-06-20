@@ -85,12 +85,14 @@ export default function BookingsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.filterRow,
-          { flexDirection: isRtl ? "row-reverse" : "row" },
-        ]}
+        // IMPORTANT: keep contentContainerStyle as plain `row` and reverse
+        // the FILTERS array instead. RN-web's ScrollView miscalculates
+        // child positions when row-reverse is set on a horizontal
+        // scroller — chips end up overlapping the active one at offset 0
+        // instead of laying out side-by-side.
+        contentContainerStyle={styles.filterRow}
       >
-        {FILTERS.map((f) => {
+        {(isRtl ? [...FILTERS].reverse() : FILTERS).map((f) => {
           const active = filter === f.id;
           return (
             <Pressable
@@ -199,18 +201,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     alignItems: "center",
+    flexDirection: "row",
   },
   chip: {
     height: 38,
     paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     gap: 6,
     // Critical: stop the horizontal ScrollView from collapsing chips —
     // without this, switching from "all" to a narrower track causes
     // RN-web to recompute widths and the label text gets squeezed to 0.
     flexShrink: 0,
+    // Belt-and-braces: prevent any parent flex container from collapsing
+    // the chip width (RN-web sometimes ignores flexShrink:0 inside a
+    // horizontal ScrollView).
+    flexGrow: 0,
+    flexBasis: "auto",
   },
   chipText: {
     fontFamily: "Cairo_600SemiBold",
