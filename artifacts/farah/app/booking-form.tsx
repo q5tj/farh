@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -395,7 +396,30 @@ export default function BookingFormScreen() {
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.location.href = invoice_url;
         } else {
-          await Linking.openURL(invoice_url);
+          // openAuthSessionAsync uses SFSafariViewController on iOS /
+          // Chrome Custom Tabs on Android — catches the farhatukum://
+          // redirect directly without needing OS-level deep-link handling.
+          const result = await WebBrowser.openAuthSessionAsync(
+            invoice_url,
+            "farhatukum://",
+          );
+          if (result.type === "success") {
+            // Parse the redirect URL and navigate to the return screen
+            const afterScheme = result.url.replace(/^[a-z]+:\/\//, "");
+            const [path, query] = afterScheme.split("?");
+            const params: Record<string, string> = {};
+            (query ?? "").split("&").filter(Boolean).forEach((seg) => {
+              const [k, v] = seg.split("=");
+              if (k) params[k] = decodeURIComponent(v ?? "");
+            });
+            router.replace({ pathname: `/${path}` as never, params });
+          } else {
+            // User closed the browser without paying
+            router.replace({
+              pathname: "/payment/return",
+              params: { payment_id: paymentId, booking_id: booking.id },
+            } as never);
+          }
         }
       } catch (payErr) {
         console.warn("[booking] deposit payment init failed", payErr);

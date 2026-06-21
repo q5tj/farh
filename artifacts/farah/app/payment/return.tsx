@@ -1,7 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { useColors } from "@/hooks/useColors";
@@ -143,10 +144,22 @@ export default function PaymentReturnScreen() {
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.href = invoice_url;
       } else {
-        await Linking.openURL(invoice_url);
-        // Customer left for Moyasar; reset the screen so a future redirect
-        // back here doesn't show the "retrying" spinner forever.
-        setStatus("cancelled");
+        const result = await WebBrowser.openAuthSessionAsync(
+          invoice_url,
+          "farhatukum://",
+        );
+        if (result.type === "success") {
+          const afterScheme = result.url.replace(/^[a-z]+:\/\//, "");
+          const [path, query] = afterScheme.split("?");
+          const params: Record<string, string> = {};
+          (query ?? "").split("&").filter(Boolean).forEach((seg) => {
+            const [k, v] = seg.split("=");
+            if (k) params[k] = decodeURIComponent(v ?? "");
+          });
+          router.replace({ pathname: `/${path}` as never, params });
+        } else {
+          setStatus("cancelled");
+        }
       }
     } catch (e) {
       const msg = (e as Error)?.message ?? "retry_failed";

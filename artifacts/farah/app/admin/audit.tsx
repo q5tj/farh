@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Card } from "@/components/ui/Card";
@@ -61,35 +62,38 @@ export default function AdminAuditScreen() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <ScreenHeader title={t("adminAuditLog")} subtitle={t("adminAuditLogDesc")} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ maxHeight: 56 }}
-        contentContainerStyle={styles.filterRow}
-      >
+      <View style={[styles.filterRow, { borderBottomColor: c.border }]}>
         {filterChips.map((f) => {
           const active = filter === f.id;
           return (
             <Pressable
               key={f.id}
               onPress={() => setFilter(f.id)}
-              style={[
-                styles.chip,
-                { backgroundColor: active ? c.primary : c.muted },
+              style={({ pressed }) => [
+                styles.filterTab,
+                {
+                  opacity: pressed ? 0.7 : 1,
+                  borderBottomColor: active ? c.primary : "transparent",
+                },
               ]}
             >
               <Text
                 style={[
-                  styles.chipText,
-                  { color: active ? "#ffffff" : c.foreground },
+                  styles.filterTabText,
+                  {
+                    color: active ? c.primary : c.mutedForeground,
+                    fontFamily: active ? "Cairo_700Bold" : "Cairo_600SemiBold",
+                  },
                 ]}
+                numberOfLines={2}
+                allowFontScaling={false}
               >
                 {t(f.labelKey)}
               </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       {loading ? (
         <View style={{ paddingTop: 60, alignItems: "center" }}>
@@ -207,16 +211,26 @@ function AuditCard({ entry }: { entry: AuditLogEntry }) {
 
 const styles = StyleSheet.create({
   filterRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    flexDirection: "row-reverse",
+    borderBottomWidth: 1,
   },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 100,
+  filterTab: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  chipText: { fontFamily: "Cairo_600SemiBold", fontSize: 12 },
+  filterTabText: {
+    fontSize: 12,
+    lineHeight: 16,
+    includeFontPadding: false,
+    textAlign: "center",
+  },
   row: { flexDirection: "row-reverse", alignItems: "center", gap: 12 },
   iconWrap: {
     width: 40,
