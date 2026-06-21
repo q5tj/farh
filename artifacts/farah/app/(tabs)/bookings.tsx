@@ -113,43 +113,41 @@ export default function BookingsScreen() {
                 },
               ]}
             >
-              <View style={[styles.tabContent, { flexDirection: flexDir }]}>
-                <Text
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: active ? c.primary : c.mutedForeground,
+                    fontFamily: active
+                      ? "Cairo_700Bold"
+                      : "Cairo_600SemiBold",
+                  },
+                ]}
+                numberOfLines={2}
+                allowFontScaling={false}
+              >
+                {f.label}
+              </Text>
+              {f.count > 0 ? (
+                <View
                   style={[
-                    styles.tabLabel,
+                    styles.tabBadge,
                     {
-                      color: active ? c.primary : c.mutedForeground,
-                      fontFamily: active
-                        ? "Cairo_700Bold"
-                        : "Cairo_600SemiBold",
+                      backgroundColor: active ? c.primary : c.muted,
                     },
                   ]}
-                  numberOfLines={1}
-                  allowFontScaling={false}
                 >
-                  {f.label}
-                </Text>
-                {f.count > 0 ? (
-                  <View
+                  <Text
                     style={[
-                      styles.tabBadge,
-                      {
-                        backgroundColor: active ? c.primary : c.muted,
-                      },
+                      styles.tabBadgeText,
+                      { color: active ? "#ffffff" : c.foreground },
                     ]}
+                    allowFontScaling={false}
                   >
-                    <Text
-                      style={[
-                        styles.tabBadgeText,
-                        { color: active ? "#ffffff" : c.foreground },
-                      ]}
-                      allowFontScaling={false}
-                    >
-                      {f.count}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
+                    {f.count}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
@@ -214,23 +212,21 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
+    minWidth: 0,
+    paddingTop: 10,
+    paddingBottom: 8,
+    paddingHorizontal: 2,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
     alignItems: "center",
-    justifyContent: "center",
-  },
-  tabContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
+    justifyContent: "flex-end",
+    gap: 4,
   },
   tabLabel: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 14,
     includeFontPadding: false,
-    textAlignVertical: "center",
+    textAlign: "center",
   },
   tabBadge: {
     minWidth: 18,
