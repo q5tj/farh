@@ -25,7 +25,7 @@ export function useRequireAuth(): boolean {
     if (session && profile) return;
     if (session && !profile) return; // wait one more tick
     router.replace(
-      `/(auth)/login?next=${encodeURIComponent(pathname)}` as never,
+      `/(auth)/signup?next=${encodeURIComponent(pathname)}` as never,
     );
   }, [loading, session, profile, pathname]);
 

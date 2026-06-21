@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -35,25 +35,25 @@ export default function AdminAuditScreen() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const load = async () => {
-    try {
-      const list = await adminFetchAuditLog(
-        filter === "all" ? { limit: 200 } : { action: filter, limit: 200 },
-      );
-      setEntries(list);
-    } catch (e) {
-      console.warn("[admin audit] load failed", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const firstLoadRef = useRef(true);
 
   useEffect(() => {
-    setLoading(true);
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let alive = true;
+    // Show the full spinner only on the very first load; subsequent filter
+    // changes silently swap the list so the tab row never disappears.
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false;
+      setLoading(true);
+    }
+    adminFetchAuditLog(
+      filter === "all" ? { limit: 200 } : { action: filter, limit: 200 },
+    )
+      .then((list) => { if (alive) setEntries(list); })
+      .catch((e) => console.warn("[admin audit] load failed", e))
+      .finally(() => {
+        if (alive) { setLoading(false); setRefreshing(false); }
+      });
+    return () => { alive = false; };
   }, [filter]);
 
   const filterChips = useMemo(() => ACTION_FILTERS, []);

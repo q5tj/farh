@@ -380,15 +380,16 @@ export default function BookingFormScreen() {
       // the provider's share back to them (minus the 10% commission).
       try {
         const paymentId = await createBookingDepositPaymentRow(booking.id);
-        let callbackUrl: string;
-        
-        if (Platform.OS === "web" && typeof window !== "undefined") {
-          callbackUrl = `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
-        } else {
-          // Native app deep link
-          callbackUrl = `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
-        }
-        
+        // Moyasar requires an http/https callback URL — custom schemes
+        // (farhatukum://) are rejected by their API. We always use the
+        // HTTPS domain; on native, openAuthSessionAsync intercepts the
+        // redirect before the browser actually navigates there.
+        const webOrigin =
+          Platform.OS === "web" && typeof window !== "undefined"
+            ? window.location.origin
+            : "https://farhatukum.com";
+        const callbackUrl = `${webOrigin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+
         const { invoice_url } = await createMoyasarInvoice(
           paymentId,
           callbackUrl,
@@ -396,25 +397,19 @@ export default function BookingFormScreen() {
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.location.href = invoice_url;
         } else {
-          // openAuthSessionAsync uses SFSafariViewController on iOS /
-          // Chrome Custom Tabs on Android — catches the farhatukum://
-          // redirect directly without needing OS-level deep-link handling.
           const result = await WebBrowser.openAuthSessionAsync(
             invoice_url,
-            "farhatukum://",
+            "https://farhatukum.com/payment/return",
           );
           if (result.type === "success") {
-            // Parse the redirect URL and navigate to the return screen
-            const afterScheme = result.url.replace(/^[a-z]+:\/\//, "");
-            const [path, query] = afterScheme.split("?");
+            const q = result.url.split("?")[1] ?? "";
             const params: Record<string, string> = {};
-            (query ?? "").split("&").filter(Boolean).forEach((seg) => {
+            q.split("&").filter(Boolean).forEach((seg) => {
               const [k, v] = seg.split("=");
               if (k) params[k] = decodeURIComponent(v ?? "");
             });
-            router.replace({ pathname: `/${path}` as never, params });
+            router.replace({ pathname: "/payment/return", params } as never);
           } else {
-            // User closed the browser without paying
             router.replace({
               pathname: "/payment/return",
               params: { payment_id: paymentId, booking_id: booking.id },

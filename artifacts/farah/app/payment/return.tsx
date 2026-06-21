@@ -136,27 +136,27 @@ export default function PaymentReturnScreen() {
     setStatus("retrying");
     setError(null);
     try {
-      const callbackUrl =
+      const webOrigin =
         Platform.OS === "web" && typeof window !== "undefined"
-          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${bookingId}`
-          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${bookingId}`;
+          ? window.location.origin
+          : "https://farhatukum.com";
+      const callbackUrl = `${webOrigin}/payment/return?payment_id=${paymentId}&booking_id=${bookingId}`;
       const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.href = invoice_url;
       } else {
         const result = await WebBrowser.openAuthSessionAsync(
           invoice_url,
-          "farhatukum://",
+          "https://farhatukum.com/payment/return",
         );
         if (result.type === "success") {
-          const afterScheme = result.url.replace(/^[a-z]+:\/\//, "");
-          const [path, query] = afterScheme.split("?");
+          const q = result.url.split("?")[1] ?? "";
           const params: Record<string, string> = {};
-          (query ?? "").split("&").filter(Boolean).forEach((seg) => {
+          q.split("&").filter(Boolean).forEach((seg) => {
             const [k, v] = seg.split("=");
             if (k) params[k] = decodeURIComponent(v ?? "");
           });
-          router.replace({ pathname: `/${path}` as never, params });
+          router.replace({ pathname: "/payment/return", params } as never);
         } else {
           setStatus("cancelled");
         }

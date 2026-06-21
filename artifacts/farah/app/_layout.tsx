@@ -119,7 +119,7 @@ function AuthGate() {
       firstSegment === "(tabs)"; // tab screens self-gate (see useRequireAuth)
 
     if (!session) {
-      if (!inAuth && !isPublic) router.replace("/(auth)/login");
+      if (!inAuth && !isPublic) router.replace("/(auth)/signup");
       return;
     }
     if (!profile) return;

@@ -125,21 +125,31 @@ export default function HomeScreen() {
     (filters.minPrice != null || filters.maxPrice != null ? 1 : 0) +
     (filters.minRating != null ? 1 : 0);
 
-  const isFiltering = activeFilterCount > 0 || query.trim().length > 0;
+  // City is a location context — it scopes the results shown in sections
+  // (topRated, topPicks) but does NOT replace the category sections with a
+  // flat search list. Only an active text query or price/rating filters
+  // trigger the search-results view.
+  const isSearching =
+    query.trim().length > 0 ||
+    filters.minPrice != null ||
+    filters.maxPrice != null ||
+    filters.minRating != null;
 
   const featured = useMemo(
     () => categories.filter((cat) => FEATURED_CATEGORY_SLUGS.includes(cat.slug)),
     [categories],
   );
 
+  // Use `filtered` (which already applies the city filter) so sections
+  // respect the selected city without hiding the category grid.
   const topRated = useMemo(
-    () => [...providers].sort((a, b) => b.rating - a.rating).slice(0, 5),
-    [providers],
+    () => [...filtered].sort((a, b) => b.rating - a.rating).slice(0, 5),
+    [filtered],
   );
 
   const topPicks = useMemo(
-    () => [...providers].sort((a, b) => b.reviews - a.reviews).slice(0, 3),
-    [providers],
+    () => [...filtered].sort((a, b) => b.reviews - a.reviews).slice(0, 3),
+    [filtered],
   );
 
   return (
@@ -256,7 +266,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <FadeIntoView>
-            {isFiltering ? (
+            {isSearching ? (
               <View style={{ paddingHorizontal: 16, paddingTop: 22, gap: 12 }}>
                 <Text style={[styles.searchTitle, { color: c.foreground }]}>
                   {t("filterResultsCount", { count: filtered.length })}
@@ -368,7 +378,7 @@ export default function HomeScreen() {
               </>
             )}
 
-            {!isFiltering && providers.length === 0 ? (
+            {!isSearching && providers.length === 0 ? (
               <View style={styles.emptyHint}>
                 <Text style={[styles.emptyHintText, { color: c.mutedForeground }]}>
                   {t("homeEmptyBody")}
