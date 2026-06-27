@@ -265,7 +265,14 @@ export default function LoginScreen() {
             <Text style={[styles.footerText, { color: c.mutedForeground }]}>
               {t("noAccount")}{" "}
             </Text>
-            <Link href="/(auth)/signup" asChild>
+            <Link
+              href={
+                typeof next === "string" && next.startsWith("/")
+                  ? (`/(auth)/signup?next=${encodeURIComponent(next)}` as never)
+                  : "/(auth)/signup"
+              }
+              asChild
+            >
               <Pressable>
                 <Text style={[styles.footerLink, { color: c.primary }]}>
                   {t("goToSignup")}

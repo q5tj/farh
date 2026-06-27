@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -27,6 +27,9 @@ export default function SignupScreen() {
   const isWeb = Platform.OS === "web";
   const { signup } = useAuth();
   const { t, isRtl } = useT();
+  // Forwarded by useRequireAuth — the URL the guest tried to open.
+  // We pass it on to profile-setup so the final redirect honours it.
+  const { next } = useLocalSearchParams<{ next?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,7 +68,11 @@ export default function SignupScreen() {
       // signup() now force-syncs session+profile in AuthContext, so by
       // the time we reach this line the session is guaranteed live.
       // Route explicitly so AuthGate doesn't have to detect the change.
-      router.replace("/(auth)/profile-setup");
+      const nextParam =
+        typeof next === "string" && next.startsWith("/")
+          ? `?next=${encodeURIComponent(next)}`
+          : "";
+      router.replace(`/(auth)/profile-setup${nextParam}` as never);
     } catch (e) {
       const msg = (e as Error)?.message ?? "";
       if (msg.toLowerCase().includes("already registered")) {
@@ -271,7 +278,14 @@ export default function SignupScreen() {
             <Text style={[styles.footerText, { color: c.mutedForeground }]}>
               {t("haveAccount")}{" "}
             </Text>
-            <Link href="/(auth)/login" asChild>
+            <Link
+              href={
+                typeof next === "string" && next.startsWith("/")
+                  ? (`/(auth)/login?next=${encodeURIComponent(next)}` as never)
+                  : "/(auth)/login"
+              }
+              asChild
+            >
               <Pressable>
                 <Text style={[styles.footerLink, { color: c.primary }]}>
                   {t("goToLogin")}

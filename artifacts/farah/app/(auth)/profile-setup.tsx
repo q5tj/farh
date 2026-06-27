@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
@@ -42,6 +42,9 @@ export default function ProfileSetupScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const { profile, session, updateProfile, signOut } = useAuth();
+  // Forwarded from signup/login when a guest tried to open an
+  // account-only screen. Used by goHomeIfFirstTime to bounce back.
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const { t, isRtl } = useT();
 
   const [fullName, setFullName] = useState(profile?.fullName ?? "");
@@ -121,7 +124,9 @@ export default function ProfileSetupScreen() {
   const goHomeIfFirstTime = () => {
     if (wasIncompleteRef.current) {
       wasIncompleteRef.current = false;
-      router.replace("/(tabs)");
+      const dest =
+        typeof next === "string" && next.startsWith("/") ? next : "/(tabs)";
+      router.replace(dest as never);
     }
   };
 
