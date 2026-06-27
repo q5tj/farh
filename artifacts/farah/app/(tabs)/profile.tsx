@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -472,7 +473,7 @@ export default function ProfileScreen() {
           </Card>
 
           <Text style={[styles.version, { color: c.mutedForeground }]}>
-            {t("appName")} • 1.0.0
+            {t("appName")} • {Constants.expoConfig?.version ?? "1.0.0"}
           </Text>
         </View>
       </ScrollView>

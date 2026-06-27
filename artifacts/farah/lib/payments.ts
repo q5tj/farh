@@ -16,6 +16,17 @@
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
+/**
+ * Raw edge-function error codes the UI knows how to translate into an
+ * actionable message (see `paymentProviderNotConnected` /
+ * `paymentProviderKeysUnverified` in the locale files). Any other error
+ * message is shown to the user as-is.
+ */
+export const MOYASAR_ERROR_CODES = {
+  providerNotConnected: "provider_not_connected",
+  providerKeysUnverified: "provider_keys_unverified",
+} as const;
+
 function client() {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("Supabase ليس مهيأً");
@@ -272,13 +283,36 @@ interface InvokeResult<T> {
   error: { message: string; details?: unknown } | null;
 }
 
+/**
+ * supabase-js's `FunctionsHttpError.message` is a generic
+ * "Edge Function returned a non-2xx status code" — it does NOT include
+ * the JSON body our function actually returned (e.g. "provider_not_connected").
+ * The real body lives on `error.context`, a Response we have to read
+ * ourselves. Without this, every edge-function failure shows the same
+ * useless message no matter the real cause.
+ */
+async function readFunctionErrorDetail(error: unknown): Promise<string | null> {
+  const ctx = (error as { context?: Response })?.context;
+  if (!ctx || typeof ctx.clone !== "function") return null;
+  try {
+    const body = await ctx.clone().json();
+    if (body && typeof body === "object" && "error" in body) {
+      return String((body as Record<string, unknown>).error);
+    }
+  } catch {
+    /* response wasn't JSON */
+  }
+  return null;
+}
+
 async function invokeMoyasar<T>(
   body: Record<string, unknown>,
 ): Promise<InvokeResult<T>> {
   const c = client();
   const { data, error } = await c.functions.invoke("moyasar", { body });
   if (error) {
-    return { data: null, error: { message: error.message } };
+    const detail = await readFunctionErrorDetail(error);
+    return { data: null, error: { message: detail ?? error.message } };
   }
   if (data && typeof data === "object" && "error" in data) {
     return {

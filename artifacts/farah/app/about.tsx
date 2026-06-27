@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
@@ -94,7 +95,7 @@ export default function AboutScreen() {
           </View>
           <Text style={styles.appName}>{t("appName")}</Text>
           <Text style={styles.version}>
-            {t("version")} 1.0.0
+            {t("version")} {Constants.expoConfig?.version ?? "1.0.0"}
           </Text>
         </LinearGradient>
 

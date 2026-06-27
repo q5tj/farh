@@ -10,6 +10,7 @@ import { useT } from "@/lib/i18n";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import {
   createMoyasarInvoice,
+  MOYASAR_ERROR_CODES,
   verifyMoyasarPayment,
   type VerifyStatus,
 } from "@/lib/payments";
@@ -162,7 +163,13 @@ export default function PaymentReturnScreen() {
         }
       }
     } catch (e) {
-      const msg = (e as Error)?.message ?? "retry_failed";
+      const raw = (e as Error)?.message;
+      const msg =
+        raw === MOYASAR_ERROR_CODES.providerNotConnected
+          ? t("paymentProviderNotConnected")
+          : raw === MOYASAR_ERROR_CODES.providerKeysUnverified
+            ? t("paymentProviderKeysUnverified")
+            : raw ?? "retry_failed";
       setError(msg);
       setStatus("cancelled");
     }

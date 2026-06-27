@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -45,7 +46,22 @@ import {
   createFinalPaymentRow,
   createMoyasarInvoice,
   fetchBookingPayments,
+  MOYASAR_ERROR_CODES,
 } from "@/lib/payments";
+
+function paymentErrorMessage(
+  e: unknown,
+  t: (key: "paymentProviderNotConnected" | "paymentProviderKeysUnverified" | "paymentInitFailed") => string,
+): string {
+  const raw = (e as Error)?.message;
+  if (raw === MOYASAR_ERROR_CODES.providerNotConnected) {
+    return t("paymentProviderNotConnected");
+  }
+  if (raw === MOYASAR_ERROR_CODES.providerKeysUnverified) {
+    return t("paymentProviderKeysUnverified");
+  }
+  return raw ?? t("paymentInitFailed");
+}
 
 export default function BookingDetailScreen() {
   const c = useColors();
@@ -207,18 +223,31 @@ export default function BookingDetailScreen() {
       const paymentId = pending
         ? pending.id
         : await createBookingDepositPaymentRow(booking.id);
-      const callbackUrl =
+      const webOrigin =
         Platform.OS === "web" && typeof window !== "undefined"
-          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
-          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+          ? window.location.origin
+          : "https://farhatukum.com";
+      const callbackUrl = `${webOrigin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
       const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
-      if (Platform.OS === "web") {
+      if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.href = invoice_url;
       } else {
-        Linking.openURL(invoice_url).catch(() => {});
+        const result = await WebBrowser.openAuthSessionAsync(
+          invoice_url,
+          "https://farhatukum.com/payment/return",
+        );
+        if (result.type === "success") {
+          const q = result.url.split("?")[1] ?? "";
+          const params: Record<string, string> = {};
+          q.split("&").filter(Boolean).forEach((seg) => {
+            const [k, v] = seg.split("=");
+            if (k) params[k] = decodeURIComponent(v ?? "");
+          });
+          router.replace({ pathname: "/payment/return", params } as never);
+        }
       }
     } catch (e) {
-      const msg = (e as Error)?.message ?? t("paymentInitFailed");
+      const msg = paymentErrorMessage(e, t);
       await infoDialog({ title: t("error"), message: msg });
     } finally {
       setPayingDeposit(false);
@@ -234,18 +263,31 @@ export default function BookingDetailScreen() {
     setPayingFinal(true);
     try {
       const paymentId = await createFinalPaymentRow(booking.id);
-      const callbackUrl =
+      const webOrigin =
         Platform.OS === "web" && typeof window !== "undefined"
-          ? `${window.location.origin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`
-          : `farhatukum://payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
+          ? window.location.origin
+          : "https://farhatukum.com";
+      const callbackUrl = `${webOrigin}/payment/return?payment_id=${paymentId}&booking_id=${booking.id}`;
       const { invoice_url } = await createMoyasarInvoice(paymentId, callbackUrl);
-      if (Platform.OS === "web") {
+      if (Platform.OS === "web" && typeof window !== "undefined") {
         window.location.href = invoice_url;
       } else {
-        Linking.openURL(invoice_url).catch(() => {});
+        const result = await WebBrowser.openAuthSessionAsync(
+          invoice_url,
+          "https://farhatukum.com/payment/return",
+        );
+        if (result.type === "success") {
+          const q = result.url.split("?")[1] ?? "";
+          const params: Record<string, string> = {};
+          q.split("&").filter(Boolean).forEach((seg) => {
+            const [k, v] = seg.split("=");
+            if (k) params[k] = decodeURIComponent(v ?? "");
+          });
+          router.replace({ pathname: "/payment/return", params } as never);
+        }
       }
     } catch (e) {
-      const msg = (e as Error)?.message ?? t("paymentInitFailed");
+      const msg = paymentErrorMessage(e, t);
       await infoDialog({ title: t("error"), message: msg });
     } finally {
       setPayingFinal(false);

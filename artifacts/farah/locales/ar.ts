@@ -1046,6 +1046,10 @@ export const ar = {
 
   // Payment / Moyasar
   paymentInitFailed: "تعذّر بدء عملية الدفع",
+  paymentProviderNotConnected:
+    "لا يمكن الدفع الآن — مزود الخدمة لم يربط حساب ميسر الخاص به بعد. تواصل مع الدعم.",
+  paymentProviderKeysUnverified:
+    "لا يمكن الدفع الآن — حساب ميسر لمزود الخدمة قيد التحقق. تواصل مع الدعم.",
   contactProviderLockedAfterPayment: "رقم المزود يظهر بعد دفع العربون.",
 
   // Booking confirm — deposit & cancellation transparency (§9 of T&C)

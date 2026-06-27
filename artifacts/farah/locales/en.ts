@@ -1052,6 +1052,10 @@ export const en: Strings = {
 
   // Payment / Moyasar
   paymentInitFailed: "Couldn't start the payment",
+  paymentProviderNotConnected:
+    "Payment isn't available yet — this provider hasn't connected their Moyasar account. Contact support.",
+  paymentProviderKeysUnverified:
+    "Payment isn't available yet — this provider's Moyasar account is being verified. Contact support.",
   contactProviderLockedAfterPayment: "Provider's phone unlocks after the deposit is paid.",
 
   // Booking confirm — deposit & cancellation transparency (§9 of T&C)

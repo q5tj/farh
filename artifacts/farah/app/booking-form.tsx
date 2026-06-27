@@ -57,6 +57,7 @@ import {
 import {
   createBookingDepositPaymentRow,
   createMoyasarInvoice,
+  MOYASAR_ERROR_CODES,
 } from "@/lib/payments";
 
 export default function BookingFormScreen() {
@@ -420,7 +421,13 @@ export default function BookingFormScreen() {
         console.warn("[booking] deposit payment init failed", payErr);
         // Booking already exists; surface the failure but still let the
         // user open the booking detail to retry payment from there.
-        const msg = (payErr as Error)?.message ?? t("paymentInitFailed");
+        const rawMsg = (payErr as Error)?.message;
+        const msg =
+          rawMsg === MOYASAR_ERROR_CODES.providerNotConnected
+            ? t("paymentProviderNotConnected")
+            : rawMsg === MOYASAR_ERROR_CODES.providerKeysUnverified
+              ? t("paymentProviderKeysUnverified")
+              : rawMsg ?? t("paymentInitFailed");
         await infoDialog({ title: t("error"), message: msg });
         successTargetRef.current = `/booking/${booking.id}`;
         setSuccessOpen(true);
