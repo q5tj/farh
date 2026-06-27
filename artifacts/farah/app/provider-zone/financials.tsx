@@ -1,8 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,9 +25,14 @@ import {
   type CommissionStatus,
   type ProviderFinancialSummary,
 } from "@/lib/data";
+import { infoDialog } from "@/lib/dialog";
 import { useT } from "@/lib/i18n";
 import {
+  createMoyasarInvoice,
+  fetchPendingProviderCommissions,
   fetchProviderWalletBreakdown,
+  MOYASAR_ERROR_CODES,
+  type PaymentRow,
   type ProviderWalletBreakdown,
 } from "@/lib/payments";
 
@@ -39,24 +47,68 @@ export default function ProviderFinancialsScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [summary, setSummary] = useState<ProviderFinancialSummary | null>(null);
   const [wallet, setWallet] = useState<ProviderWalletBreakdown | null>(null);
+  const [pendingCommissions, setPendingCommissions] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
 
   const load = async () => {
     if (!providerId) return;
     try {
-      const [statement, walletBreakdown] = await Promise.all([
+      const [statement, walletBreakdown, owed] = await Promise.all([
         fetchOwnProviderStatement(providerId, lang),
         fetchProviderWalletBreakdown(providerId).catch(() => null),
+        fetchPendingProviderCommissions(providerId).catch(() => []),
       ]);
       setBookings(statement.bookings);
       setSummary(statement.summary);
       setWallet(walletBreakdown);
+      setPendingCommissions(owed);
     } catch (e) {
       console.warn("[provider financials] load failed", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const payCommission = async (row: PaymentRow) => {
+    setPayingId(row.id);
+    try {
+      const webOrigin =
+        Platform.OS === "web" && typeof window !== "undefined"
+          ? window.location.origin
+          : "https://farhatukum.com";
+      const callbackUrl = `${webOrigin}/payment/return?payment_id=${row.id}&booking_id=${row.bookingId}`;
+      const { invoice_url } = await createMoyasarInvoice(row.id, callbackUrl);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.href = invoice_url;
+        return;
+      }
+      const result = await WebBrowser.openAuthSessionAsync(
+        invoice_url,
+        "https://farhatukum.com/payment/return",
+      );
+      if (result.type === "success") {
+        const q = result.url.split("?")[1] ?? "";
+        const params: Record<string, string> = {};
+        q.split("&").filter(Boolean).forEach((seg) => {
+          const [k, v] = seg.split("=");
+          if (k) params[k] = decodeURIComponent(v ?? "");
+        });
+        router.replace({ pathname: "/payment/return", params } as never);
+      }
+    } catch (e) {
+      const raw = (e as Error)?.message;
+      const msg =
+        raw === MOYASAR_ERROR_CODES.providerNotConnected
+          ? t("paymentProviderNotConnected")
+          : raw === MOYASAR_ERROR_CODES.providerKeysUnverified
+            ? t("paymentProviderKeysUnverified")
+            : t("completionFailed");
+      await infoDialog({ title: t("error"), message: msg });
+    } finally {
+      setPayingId(null);
     }
   };
 
@@ -185,6 +237,57 @@ export default function ProviderFinancialsScreen() {
                   </Text>
                 </View>
               ) : null}
+            </View>
+          ) : null}
+
+          {pendingCommissions.length > 0 ? (
+            <View
+              style={[
+                styles.walletCard,
+                {
+                  backgroundColor: c.card,
+                  borderRadius: c.radius,
+                  borderColor: "#fde68a",
+                },
+              ]}
+            >
+              <Text style={[styles.walletTitle, { color: c.foreground }]}>
+                {t("commissionDueTitle")}
+              </Text>
+              <Text
+                style={[
+                  styles.holdBody,
+                  { color: c.mutedForeground, marginBottom: 10 },
+                ]}
+              >
+                {t("commissionDueIntro")}
+              </Text>
+              {pendingCommissions.map((row) => (
+                <View key={row.id} style={styles.commissionRow}>
+                  <Text
+                    style={[styles.commissionRowLabel, { color: c.foreground }]}
+                  >
+                    {row.amountSar.toLocaleString()} {t("sar")}
+                  </Text>
+                  <Pressable
+                    disabled={payingId === row.id}
+                    onPress={() => payCommission(row)}
+                    style={({ pressed }) => [
+                      styles.payNowBtn,
+                      {
+                        backgroundColor: c.primary,
+                        opacity: pressed || payingId === row.id ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    {payingId === row.id ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.payNowBtnText}>{t("payNow")}</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ))}
             </View>
           ) : null}
 
@@ -484,6 +587,28 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     marginBottom: 4,
+  },
+  commissionRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#fde68a",
+  },
+  commissionRowLabel: {
+    fontFamily: "Cairo_600SemiBold",
+    fontSize: 14,
+  },
+  payNowBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  payNowBtnText: {
+    color: "#ffffff",
+    fontFamily: "Cairo_700Bold",
+    fontSize: 12,
   },
   walletTitle: {
     fontFamily: "Cairo_700Bold",

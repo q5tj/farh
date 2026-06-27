@@ -1084,17 +1084,22 @@ export const en: Strings = {
     "Customer paid the deposit — your share is already credited to your wallet. The remaining amount is settled when you complete the service using the method you pick.",
   walletHeldNoticeTitle: "How you get paid",
   walletHeldNoticeBody:
-    "Your share of the deposit is credited to your wallet as soon as the customer pays. When you complete the service you pick how the remaining amount is settled (online / cash / bank), and the total commission is deducted automatically.",
+    "The deposit and the remaining amount both land directly in your own Moyasar account — whether the customer pays online, in cash, or by bank transfer. Farhatukum never receives or forwards any part of the service price. After you complete the service, you owe the platform's commission, payable from your statement below.",
+  commissionDueTitle: "Outstanding platform commission",
+  commissionDueIntro:
+    "These are commissions owed on services you've already been paid in full for. Settle them here directly via Moyasar.",
+  payNow: "Pay now",
 
   // Completion-method modal (provider closes booking)
   completeServiceTitle: "Complete service",
   completeServiceDesc:
     "Pick how you received (or will receive) the remaining amount from the customer. This determines how the commission is settled.",
+  customerEmailLabel: "Customer email",
   remainingAmountLabel: "Remaining due from customer",
   commissionDueLabel: "Commission you still owe",
   methodOnlineTitle: "Pay in app",
   methodOnlineDesc:
-    "We notify the customer to pay the remainder by card. The platform deducts the commission automatically and credits the rest to your wallet.",
+    "We notify the customer to pay the remainder by card directly into your own Moyasar account. Once paid, you owe platform commission on the full price — it'll show up in your statement.",
   methodCashTitle: "Cash",
   methodCashDesc:
     "Customer pays the remainder in cash directly. Booking is completed and you'll see a notice to settle the platform commission.",
@@ -1219,7 +1224,10 @@ export const en: Strings = {
   stepNext: "Next",
   reviewBookingTitle: "Review your booking before confirming",
   goToBooking: "Open booking",
+  goToStatement: "Go to my statement",
   checkAgain: "Check again",
+  commissionPaymentSuccessTitle: "Commission settled",
+  commissionPaymentSuccessDesc: "Thank you! The platform commission was paid successfully.",
 
   // Provider store-data editor (in profile-setup)
   storeDataSection: "Store profile",

@@ -301,6 +301,7 @@ export interface Booking {
   userId: string;
   userName: string;
   userPhone: string;
+  userEmail: string | null;
   providerId: string;
   serviceId: string;
   serviceTitle: string;
@@ -505,6 +506,7 @@ function mapBooking(row: BookingRow, lang: AppLang): Booking {
     userId: row.user_id,
     userName: row.user?.full_name?.trim() || row.user?.email || "—",
     userPhone: row.user?.phone ?? row.user?.email ?? "",
+    userEmail: row.user?.email ?? null,
     providerId: row.provider_id,
     serviceId: row.service_id,
     serviceTitle: row.service_title,

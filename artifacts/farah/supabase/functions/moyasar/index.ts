@@ -1,13 +1,17 @@
 // Supabase Edge Function: moyasar
 //
-// In v30+ the payment model split into two flows that use DIFFERENT
-// Moyasar accounts:
+// v42: the customer's money — deposit AND the remaining online payment
+// alike — always lands in the PROVIDER's own Moyasar account. The
+// platform never holds booking funds. The provider then owes platform
+// commission on the full price, which they settle separately:
 //
-//   1. service_payment — customer pays the full price to the PROVIDER's
-//      Moyasar account. We look up that provider's sk_live in the DB
-//      and call Moyasar with their basic-auth header.
+//   1. booking_deposit / service_payment / final_payment — customer
+//      pays the PROVIDER directly. We look up that provider's sk_live
+//      in the DB and call Moyasar with their basic-auth header.
 //   2. provider_commission — provider pays the platform's commission to
 //      the PLATFORM's Moyasar account, using MOYASAR_SECRET_KEY env.
+//      This is the ONLY payment kind that ever touches the platform's
+//      Moyasar balance.
 //
 // `handleVerifyProviderKeys` lets the provider zone test the keys they
 // pasted by calling a harmless Moyasar endpoint with them — if the
@@ -136,19 +140,24 @@ function serviceRoleClient() {
  *                        deposit directly into their account).
  *   • service_payment  → PROVIDER's key (legacy alias for deposit
  *                        from v30/v35 — kept so older app builds work).
- *   • final_payment    → PLATFORM's key (the 90% lands with us; we
- *                        keep the 10% commission and Payout the rest
- *                        back to the provider — see auto_queue
- *                        trigger in v35).
- *   • provider_commission → PLATFORM's key (kept for old commission
- *                           settlement flows; unused in the new path).
+ *   • final_payment    → PROVIDER's key (v42: the remaining 90% lands
+ *                        directly with the provider too, same as the
+ *                        deposit. The provider owes platform commission
+ *                        on the FULL price afterward — billed as a
+ *                        separate `provider_commission` row, settled
+ *                        through the platform's key below).
+ *   • provider_commission → PLATFORM's key. This is the only payment
+ *                           kind that is ever charged against the
+ *                           platform's own Moyasar account.
  */
 async function pickSecretKey(
   admin: ReturnType<typeof serviceRoleClient>,
   payment: { kind: string; provider_id: string },
 ): Promise<{ secretKey: string | null; error?: string }> {
   const providerScoped =
-    payment.kind === "booking_deposit" || payment.kind === "service_payment";
+    payment.kind === "booking_deposit" ||
+    payment.kind === "service_payment" ||
+    payment.kind === "final_payment";
 
   if (!providerScoped) {
     if (!PLATFORM_SECRET_KEY) return { secretKey: null, error: "platform_key_missing" };
@@ -301,20 +310,15 @@ async function handleVerify(_req: Request, body: any) {
       p_moyasar_status: moyasarPayment.status ?? invoice.status,
       p_source: moyasarPayment.source ?? null,
     });
-    // Side-effects keyed on payment kind:
-    //   • provider_commission → lift any active suspension (no-op if
-    //     there's still outstanding commission).
-    //   • final_payment → v35 trigger has already queued a payout row;
-    //     we immediately try to dispatch it via Moyasar Payouts so the
-    //     provider doesn't have to wait for the next cron tick.
+    // provider_commission is the only kind that can lift a suspension —
+    // final_payment now lands directly in the provider's own Moyasar
+    // account (v42), so there's no platform-held money to pay out and
+    // no payout dispatch needed here. mark_payment_paid already billed
+    // the provider's commission on the full price as a separate row.
     if (payment.kind === "provider_commission") {
       await admin.rpc("maybe_unsuspend_provider", {
         p_provider_id: payment.provider_id,
       });
-    } else if (payment.kind === "final_payment") {
-      await processQueuedPayouts(admin).catch((e) =>
-        console.warn("[moyasar] auto payout failed (will retry via cron):", e),
-      );
     }
     return json({ status: "paid" });
   }

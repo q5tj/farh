@@ -120,6 +120,10 @@ export default function PaymentReturnScreen() {
   }, [paymentId, moyasarId, initialStatus]);
 
   const goToBooking = () => {
+    if (paymentKind === "provider_commission") {
+      router.replace("/provider-zone/financials" as never);
+      return;
+    }
     if (bookingId) router.replace(`/booking/${bookingId}`);
     else router.replace("/(tabs)/bookings");
   };
@@ -203,14 +207,26 @@ export default function PaymentReturnScreen() {
           <Text style={[styles.title, { color: c.foreground }]}>
             {paymentKind === "final_payment"
               ? t("finalPaymentSuccessTitle")
-              : t("paymentSuccessTitle")}
+              : paymentKind === "provider_commission"
+                ? t("commissionPaymentSuccessTitle")
+                : t("paymentSuccessTitle")}
           </Text>
           <Text style={[styles.body, { color: c.mutedForeground }]}>
             {paymentKind === "final_payment"
               ? t("finalPaymentSuccessDesc")
-              : t("paymentSuccessDesc")}
+              : paymentKind === "provider_commission"
+                ? t("commissionPaymentSuccessDesc")
+                : t("paymentSuccessDesc")}
           </Text>
-          <Button label={t("goToBooking")} onPress={goToBooking} size="lg" />
+          <Button
+            label={
+              paymentKind === "provider_commission"
+                ? t("goToStatement")
+                : t("goToBooking")
+            }
+            onPress={goToBooking}
+            size="lg"
+          />
         </>
       ) : status === "failed" || status === "voided" ? (
         <>

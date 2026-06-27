@@ -174,8 +174,14 @@ function CompleteServiceModal({
   const submit = async () => {
     setBusy(true);
     try {
-      await recordCompletion(booking.id, method, note);
+      const result = await recordCompletion(booking.id, method, note);
       await onDone();
+      if (result.commission_due > 0) {
+        await infoDialog({
+          title: t("completeServiceTitle"),
+          message: `${t("commissionDueLabel")}: ${result.commission_due.toLocaleString()} ${t("sar")}`,
+        });
+      }
     } catch (e) {
       const raw = (e as Error)?.message ?? "";
       // Map known SQL exceptions to user-friendly localized messages.
@@ -252,6 +258,64 @@ function CompleteServiceModal({
                 { backgroundColor: c.muted, borderColor: c.border },
               ]}
             >
+              <View style={completionStyles.summaryRow}>
+                <Text
+                  style={[
+                    completionStyles.summaryLabel,
+                    { color: c.mutedForeground },
+                  ]}
+                >
+                  {t("customerLabel")}
+                </Text>
+                <Text
+                  style={[
+                    completionStyles.summaryValue,
+                    { color: c.foreground },
+                  ]}
+                >
+                  {booking.userName}
+                </Text>
+              </View>
+              {booking.userPhone ? (
+                <View style={completionStyles.summaryRow}>
+                  <Text
+                    style={[
+                      completionStyles.summaryLabel,
+                      { color: c.mutedForeground },
+                    ]}
+                  >
+                    {t("customerPhoneLabel")}
+                  </Text>
+                  <Text
+                    style={[
+                      completionStyles.summaryValue,
+                      { color: c.foreground },
+                    ]}
+                  >
+                    {booking.userPhone}
+                  </Text>
+                </View>
+              ) : null}
+              {booking.userEmail ? (
+                <View style={completionStyles.summaryRow}>
+                  <Text
+                    style={[
+                      completionStyles.summaryLabel,
+                      { color: c.mutedForeground },
+                    ]}
+                  >
+                    {t("customerEmailLabel")}
+                  </Text>
+                  <Text
+                    style={[
+                      completionStyles.summaryValue,
+                      { color: c.foreground },
+                    ]}
+                  >
+                    {booking.userEmail}
+                  </Text>
+                </View>
+              ) : null}
               <View style={completionStyles.summaryRow}>
                 <Text
                   style={[

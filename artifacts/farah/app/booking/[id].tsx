@@ -254,10 +254,10 @@ export default function BookingDetailScreen() {
     }
   };
 
-  // v35: final 90% — paid to the PLATFORM's account. After Moyasar
-  // confirms paid, a DB trigger queues a Moyasar Payout for the
-  // provider's share (final - 10% commission of full price), and the
-  // edge function dispatches it automatically.
+  // v42: final 90% — paid directly to the PROVIDER's own Moyasar
+  // account (same as the deposit). The provider then owes platform
+  // commission on the full price, billed automatically as soon as this
+  // payment clears — they settle it from their statement screen.
   const startFinalPayment = async () => {
     if (!booking) return;
     setPayingFinal(true);
